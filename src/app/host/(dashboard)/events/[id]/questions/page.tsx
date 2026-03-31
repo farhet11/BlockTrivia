@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect, notFound } from "next/navigation";
 import { QuestionBuilder } from "./_components/question-builder";
+import { SponsorsPanel } from "./_components/sponsors-panel";
 
 export default async function QuestionsPage({
   params,
@@ -32,13 +33,12 @@ export default async function QuestionsPage({
     .order("sort_order", { ascending: true });
 
   const roundIds = (rounds ?? []).map((r) => r.id);
-  const { data: questions } = roundIds.length
-    ? await supabase
-        .from("questions")
-        .select("*")
-        .in("round_id", roundIds)
-        .order("sort_order", { ascending: true })
-    : { data: [] };
+  const [{ data: questions }, { data: sponsors }] = await Promise.all([
+    roundIds.length
+      ? supabase.from("questions").select("*").in("round_id", roundIds).order("sort_order", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    supabase.from("event_sponsors").select("id, name, logo_url, sort_order").eq("event_id", eventId).order("sort_order"),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -62,6 +62,8 @@ export default async function QuestionsPage({
           </a>
         </div>
       </div>
+
+      <SponsorsPanel eventId={eventId} initialSponsors={sponsors ?? []} />
 
       <QuestionBuilder
         eventId={eventId}

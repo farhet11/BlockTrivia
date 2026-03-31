@@ -21,12 +21,6 @@ export default async function SharePage({
 
   if (!event || event.created_by !== user.id) notFound();
 
-  const { data: sponsors } = await supabase
-    .from("event_sponsors")
-    .select("id, name, logo_url, sort_order")
-    .eq("event_id", eventId)
-    .order("sort_order");
-
   return (
     <div className="space-y-6">
       <div>
@@ -39,12 +33,7 @@ export default async function SharePage({
         <h1 className="font-heading text-2xl font-semibold tracking-tight mt-2">Share & QR Code</h1>
       </div>
 
-      <SharePanel
-        eventId={eventId}
-        joinCode={event.join_code}
-        eventTitle={event.title}
-        initialSponsors={sponsors ?? []}
-      />
+      <SharePanel joinCode={event.join_code} eventTitle={event.title} />
     </div>
   );
 }

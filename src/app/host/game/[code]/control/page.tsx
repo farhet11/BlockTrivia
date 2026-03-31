@@ -57,6 +57,11 @@ export default async function HostControlPage({
     gameState = created;
   }
 
+  // Ended game → send host straight to summary
+  if (gameState?.phase === "ended") {
+    redirect(`/host/game/${code}/summary`);
+  }
+
   // Player count
   const { count: playerCount } = await supabase
     .from("event_players")

@@ -12,7 +12,7 @@ const CONFIG = {
   opacity: 0.03,         // 3% — very muted, barely there
   gap: 10,               // px — spacing between motifs
   rotation: 15,          // degrees — diagonal tilt (set to 0 if you prefer no rotation)
-  breathIntensity: 0.45, // 0-1 — how visible breathing gets at peak (0.45 = subtle)
+  breathIntensity: 2.5,  // boost — original 0.45 rendered at <2% alpha (invisible)
   breathSpeed: 0.24,     // lower = slower breathing cycle (~5s per breath)
   specialFrequency: 0.982, // hash threshold — ~1.8% of positions become checkmarks/prompts
   skipFrequency: 0.12,  // hash threshold — ~12% of positions are empty for breathing room

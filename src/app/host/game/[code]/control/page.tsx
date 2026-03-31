@@ -98,6 +98,7 @@ export default async function HostControlPage({
       .sort((a, b) => a.sort_order - b.sort_order);
     return roundQuestions.map((q) => ({
       ...q,
+      options: (q.options as string[] | null) ?? [],
       round_title: round.title || `Round ${round.sort_order + 1}`,
       round_type: round.round_type,
       time_limit: round.time_limit_seconds,
@@ -115,6 +116,8 @@ export default async function HostControlPage({
     interstitial_text: r.interstitial_text ?? null,
   }));
 
+  if (!gameState) redirect("/host");
+
   return (
     <ControlPanel
       event={{
@@ -125,7 +128,7 @@ export default async function HostControlPage({
       }}
       questions={questionList}
       rounds={roundsList}
-      initialGameState={gameState!}
+      initialGameState={gameState}
       playerCount={playerCount ?? 0}
       sponsors={sponsors}
     />

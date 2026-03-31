@@ -51,6 +51,23 @@ export function ControlPanel({
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
+  // Derive ordered unique rounds from questions
+  const rounds = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { id: string; title: string; questions: Question[] }[] = [];
+    for (const q of questions) {
+      if (!seen.has(q.round_id)) {
+        seen.add(q.round_id);
+        result.push({
+          id: q.round_id,
+          title: q.round_title,
+          questions: questions.filter((x) => x.round_id === q.round_id),
+        });
+      }
+    }
+    return result;
+  }, [questions]);
+
   // Find current question index
   const currentIndex = questions.findIndex(
     (q) => q.id === gameState.current_question_id
@@ -58,6 +75,16 @@ export function ControlPanel({
   const currentQuestion = currentIndex >= 0 ? questions[currentIndex] : null;
   const isLastQuestion = currentIndex === questions.length - 1;
   const totalQuestions = questions.length;
+
+  // Per-round progress
+  const currentRoundIndex = currentQuestion
+    ? rounds.findIndex((r) => r.id === currentQuestion.round_id)
+    : -1;
+  const currentRoundData = currentRoundIndex >= 0 ? rounds[currentRoundIndex] : null;
+  const questionsInRound = currentRoundData?.questions ?? [];
+  const indexInRound = currentQuestion
+    ? questionsInRound.findIndex((q) => q.id === currentQuestion.id)
+    : -1;
 
   // Subscribe to player count changes
   useEffect(() => {
@@ -246,20 +273,36 @@ export function ControlPanel({
         {/* Phase: Playing — show current question */}
         {phase === "playing" && currentQuestion && (
           <div className="py-8 space-y-6">
-            {/* Progress bar */}
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{currentQuestion.round_title}</span>
-              <span>
-                Q{currentIndex + 1} / {totalQuestions}
-              </span>
-            </div>
-            <div className="w-full h-1 bg-border">
-              <div
-                className="h-1 bg-primary transition-all duration-300"
-                style={{
-                  width: `${((currentIndex + 1) / totalQuestions) * 100}%`,
-                }}
-              />
+            {/* Progress */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {currentQuestion.round_title}
+                  {rounds.length > 1 && (
+                    <span className="ml-1.5 text-muted-foreground/60">
+                      · Round {currentRoundIndex + 1}/{rounds.length}
+                    </span>
+                  )}
+                </span>
+                <span>
+                  Q{indexInRound + 1}/{questionsInRound.length}
+                </span>
+              </div>
+              {/* Per-round question dots */}
+              <div className="flex gap-1.5">
+                {questionsInRound.map((q, i) => (
+                  <div
+                    key={q.id}
+                    className={`h-1.5 flex-1 transition-colors duration-200 ${
+                      i < indexInRound
+                        ? "bg-primary/50"
+                        : i === indexInRound
+                        ? "bg-primary"
+                        : "bg-border"
+                    }`}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Timer */}
@@ -331,10 +374,15 @@ export function ControlPanel({
         {phase === "revealing" && currentQuestion && (
           <div className="py-8 space-y-6">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{currentQuestion.round_title}</span>
               <span>
-                Q{currentIndex + 1} / {totalQuestions}
+                {currentQuestion.round_title}
+                {rounds.length > 1 && (
+                  <span className="ml-1.5 text-muted-foreground/60">
+                    · Round {currentRoundIndex + 1}/{rounds.length}
+                  </span>
+                )}
               </span>
+              <span>Q{indexInRound + 1}/{questionsInRound.length}</span>
             </div>
 
             <div className="border border-correct bg-correct/5 p-6 space-y-4">

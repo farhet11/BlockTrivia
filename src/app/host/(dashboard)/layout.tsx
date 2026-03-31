@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { HostNav } from "./_components/host-nav";
+import { HostNav } from "../_components/host-nav";
 
 export default async function HostLayout({
   children,

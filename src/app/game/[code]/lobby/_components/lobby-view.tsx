@@ -29,6 +29,44 @@ export function LobbyView({
   const [players, setPlayers] = useState<Player[]>([]);
   const [showShare, setShowShare] = useState(false);
 
+  // Check game state on mount + subscribe to changes — redirect when game starts
+  useEffect(() => {
+    async function checkAndSubscribeGameState() {
+      // Check current state immediately (handles late joiners)
+      const { data: gs } = await supabase
+        .from("game_state")
+        .select("phase")
+        .eq("event_id", event.id)
+        .single();
+
+      if (gs && gs.phase !== "lobby") {
+        window.location.href = `/game/${event.joinCode}/play`;
+        return;
+      }
+
+      // Subscribe to future changes
+      supabase
+        .channel(`game-state:${event.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "game_state",
+            filter: `event_id=eq.${event.id}`,
+          },
+          (payload) => {
+            if (payload.new.phase !== "lobby") {
+              window.location.href = `/game/${event.joinCode}/play`;
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    checkAndSubscribeGameState();
+  }, [supabase, event.id, event.joinCode]);
+
   // Fetch initial players + subscribe to realtime changes
   useEffect(() => {
     // Load existing players

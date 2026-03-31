@@ -59,8 +59,8 @@ export function FeedbackButton() {
           screenshotUrl = publicUrl;
         }
       }
-    } catch {
-      // Proceed without screenshot
+    } catch (err) {
+      console.warn("Feedback screenshot capture failed:", err);
     }
 
     const { data: { user } } = await supabase.auth.getUser();

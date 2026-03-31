@@ -26,11 +26,21 @@ export default async function HostControlPage({
   if (!event || event.created_by !== user.id) redirect("/host");
 
   // Load rounds + questions (ordered)
-  const { data: rounds } = await supabase
+  // Try with interstitial_text first; fall back without it if column doesn't exist yet
+  let { data: rounds, error: roundsError } = await supabase
     .from("rounds")
     .select("id, title, round_type, sort_order, time_limit_seconds, base_points, interstitial_text")
     .eq("event_id", event.id)
     .order("sort_order");
+
+  if (roundsError) {
+    const fallback = await supabase
+      .from("rounds")
+      .select("id, title, round_type, sort_order, time_limit_seconds, base_points")
+      .eq("event_id", event.id)
+      .order("sort_order");
+    rounds = (fallback.data ?? []).map((r) => ({ ...r, interstitial_text: null }));
+  }
 
   const roundIds = (rounds || []).map((r) => r.id);
   const { data: questions } = roundIds.length
@@ -68,12 +78,18 @@ export default async function HostControlPage({
     .select("*", { count: "exact", head: true })
     .eq("event_id", event.id);
 
-  // Load sponsors
-  const { data: sponsors } = await supabase
-    .from("event_sponsors")
-    .select("id, name, logo_url, sort_order")
-    .eq("event_id", event.id)
-    .order("sort_order");
+  // Load sponsors (table may not exist if migration 004 wasn't applied)
+  let sponsors: { id: string; name: string | null; logo_url: string; sort_order: number }[] = [];
+  try {
+    const { data: sponsorData } = await supabase
+      .from("event_sponsors")
+      .select("id, name, logo_url, sort_order")
+      .eq("event_id", event.id)
+      .order("sort_order");
+    sponsors = sponsorData ?? [];
+  } catch {
+    // event_sponsors table doesn't exist yet — proceed without sponsors
+  }
 
   // Build ordered question list with round info
   const questionList = (rounds || []).flatMap((round) => {
@@ -111,7 +127,7 @@ export default async function HostControlPage({
       rounds={roundsList}
       initialGameState={gameState!}
       playerCount={playerCount ?? 0}
-      sponsors={sponsors ?? []}
+      sponsors={sponsors}
     />
   );
 }

@@ -61,9 +61,19 @@ export function LobbyView({
 
       if (gs) handlePhaseChange(gs.phase);
 
-      // Subscribe to future changes
+      // Subscribe to future changes (INSERT + UPDATE — row may not exist yet at mount)
       supabase
         .channel(`game-state:${event.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "game_state",
+            filter: `event_id=eq.${event.id}`,
+          },
+          (payload) => handlePhaseChange(payload.new.phase as string)
+        )
         .on(
           "postgres_changes",
           {

@@ -9,9 +9,9 @@ import { useTheme } from 'next-themes';
 // === LOCKED SETTINGS (from UX Design session, March 30 2026) ===
 const CONFIG = {
   blockSize: 20,         // px — scale of each 2x2 block motif
-  opacity: 0.03,         // 3% — very muted, barely there
+  opacity: 0.05,         // 5% — subtle but readable
   gap: 10,               // px — spacing between motifs
-  rotation: 15,          // degrees — diagonal tilt (set to 0 if you prefer no rotation)
+  rotation: 0,           // degrees — no rotation
   breathIntensity: 2.5,  // boost — original 0.45 rendered at <2% alpha (invisible)
   breathSpeed: 0.24,     // lower = slower breathing cycle (~5s per breath)
   specialFrequency: 0.982, // hash threshold — ~1.8% of positions become checkmarks/prompts

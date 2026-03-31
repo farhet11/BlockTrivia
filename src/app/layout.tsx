@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={cn(inter.variable, outfit.variable)}>
       <body className="min-h-dvh bg-background text-foreground font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
           <BlockPatternBg />
           <main style={{ position: "relative", zIndex: 2 }}>
             {children}

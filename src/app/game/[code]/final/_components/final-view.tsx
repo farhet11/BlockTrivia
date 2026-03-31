@@ -3,6 +3,14 @@
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { SponsorBar } from "@/app/_components/sponsor-bar";
+
+type Sponsor = {
+  id: string;
+  name: string | null;
+  logo_url: string;
+  sort_order: number;
+};
 
 type Entry = {
   player_id: string;
@@ -21,11 +29,13 @@ export function FinalView({
   player,
   leaderboard,
   myEntry,
+  sponsors,
 }: {
   event: { title: string; joinCode: string };
   player: { id: string };
   leaderboard: Entry[];
   myEntry: Entry | null;
+  sponsors: Sponsor[];
 }) {
   const podium = leaderboard.slice(0, 3);
   const rest = leaderboard.slice(3);
@@ -185,6 +195,7 @@ export function FinalView({
           </a>
         </div>
       </div>
+      <SponsorBar sponsors={sponsors} />
     </div>
   );
 }

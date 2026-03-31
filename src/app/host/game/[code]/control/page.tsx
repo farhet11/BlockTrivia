@@ -28,7 +28,7 @@ export default async function HostControlPage({
   // Load rounds + questions (ordered)
   const { data: rounds } = await supabase
     .from("rounds")
-    .select("id, title, round_type, sort_order, time_limit_seconds, base_points")
+    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, interstitial_text")
     .eq("event_id", event.id)
     .order("sort_order");
 
@@ -63,6 +63,13 @@ export default async function HostControlPage({
     .select("*", { count: "exact", head: true })
     .eq("event_id", event.id);
 
+  // Load sponsors
+  const { data: sponsors } = await supabase
+    .from("event_sponsors")
+    .select("id, name, logo_url, sort_order")
+    .eq("event_id", event.id)
+    .order("sort_order");
+
   // Build ordered question list with round info
   const questionList = (rounds || []).flatMap((round) => {
     const roundQuestions = (questions || [])
@@ -74,8 +81,18 @@ export default async function HostControlPage({
       round_type: round.round_type,
       time_limit: round.time_limit_seconds,
       base_points: round.base_points,
+      round_interstitial_text: round.interstitial_text ?? null,
     }));
   });
+
+  // Build rounds list for interstitial lookups
+  const roundsList = (rounds || []).map((r) => ({
+    id: r.id,
+    title: r.title || `Round ${r.sort_order + 1}`,
+    round_type: r.round_type,
+    sort_order: r.sort_order,
+    interstitial_text: r.interstitial_text ?? null,
+  }));
 
   return (
     <ControlPanel
@@ -86,8 +103,10 @@ export default async function HostControlPage({
         status: event.status,
       }}
       questions={questionList}
+      rounds={roundsList}
       initialGameState={gameState!}
       playerCount={playerCount ?? 0}
+      sponsors={sponsors ?? []}
     />
   );
 }

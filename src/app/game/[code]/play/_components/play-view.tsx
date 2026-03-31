@@ -3,6 +3,21 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { SponsorBar } from "@/app/_components/sponsor-bar";
+
+type Sponsor = {
+  id: string;
+  name: string | null;
+  logo_url: string;
+  sort_order: number;
+};
+
+type RoundInfo = {
+  id: string;
+  title: string;
+  sort_order: number;
+  interstitial_text: string | null;
+};
 
 type QuestionData = {
   id: string;
@@ -44,11 +59,15 @@ export function PlayView({
   player,
   questions,
   initialGameState,
+  sponsors,
+  roundsInfo,
 }: {
   event: { id: string; title: string; joinCode: string };
   player: { id: string; displayName: string };
   questions: QuestionData[];
   initialGameState: GameState;
+  sponsors: Sponsor[];
+  roundsInfo: RoundInfo[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
@@ -64,6 +83,7 @@ export function PlayView({
     explanation: string | null;
   } | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
@@ -194,6 +214,22 @@ export function PlayView({
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, currentQuestion, hasAnswered]);
 
+  // Interstitial countdown display (mirrors host 8s countdown)
+  useEffect(() => {
+    if (gameState.phase !== "interstitial") {
+      setInterstitialCountdown(null);
+      return;
+    }
+    setInterstitialCountdown(8);
+    let count = 8;
+    const interval = setInterval(() => {
+      count -= 1;
+      setInterstitialCountdown(Math.max(0, count));
+      if (count <= 0) clearInterval(interval);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameState.phase, gameState.current_round_id]);
+
   // Load leaderboard when phase is "leaderboard"
   useEffect(() => {
     if (gameState.phase !== "leaderboard") return;
@@ -263,6 +299,57 @@ export function PlayView({
 
   const phase = gameState.phase;
 
+  // ── Interstitial phase ─────────────────────────────────────────────────────
+  if (phase === "interstitial") {
+    const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
+    return (
+      <div className="min-h-dvh bg-background flex flex-col">
+        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          <ThemeToggle />
+        </header>
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+          <div className="text-center space-y-3 max-w-sm">
+            <p className="text-xs font-bold text-primary uppercase tracking-widest">
+              Next Round
+            </p>
+            <h2 className="font-heading text-3xl font-bold">
+              {interstitialRound?.title ?? "Next Round"}
+            </h2>
+            {interstitialRound?.interstitial_text && (
+              <p className="text-muted-foreground leading-relaxed">
+                {interstitialRound.interstitial_text}
+              </p>
+            )}
+            {interstitialCountdown !== null && (
+              <p className="text-sm text-muted-foreground">
+                Starting in{" "}
+                <span className="font-bold text-foreground tabular-nums">
+                  {interstitialCountdown}s
+                </span>
+              </p>
+            )}
+          </div>
+
+          {sponsors.length > 0 && (
+            <div className="w-full max-w-sm pt-4">
+              {/* Full color during interstitial */}
+              <div className="w-full border-t border-border/50 bg-background/80 py-2 px-4">
+                <div className="flex items-center justify-center gap-6 flex-wrap">
+                  {[...sponsors].sort((a, b) => a.sort_order - b.sort_order).map((s) => (
+                    <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"}
+                      className="h-6 max-w-[100px] object-contain" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── Leaderboard phase ──────────────────────────────────────────────────────
   if (phase === "leaderboard") {
     const myEntry = leaderboard.find((e) => e.player_id === player.id);
@@ -311,6 +398,7 @@ export function PlayView({
             Waiting for host to continue...
           </p>
         </div>
+        <SponsorBar sponsors={sponsors} />
       </div>
     );
   }
@@ -499,6 +587,7 @@ export function PlayView({
           </p>
         )}
       </div>
+      <SponsorBar sponsors={sponsors} />
     </div>
   );
 }

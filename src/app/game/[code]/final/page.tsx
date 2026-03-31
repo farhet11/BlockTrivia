@@ -30,6 +30,12 @@ export default async function FinalPage({
     .order("total_score", { ascending: false })
     .limit(20);
 
+  const { data: sponsors } = await supabase
+    .from("event_sponsors")
+    .select("id, name, logo_url, sort_order")
+    .eq("event_id", event.id)
+    .order("sort_order");
+
   const leaderboard = (entries ?? []).map((row) => ({
     player_id: row.player_id,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,6 +57,7 @@ export default async function FinalPage({
       player={{ id: user.id }}
       leaderboard={leaderboard}
       myEntry={myEntry}
+      sponsors={sponsors ?? []}
     />
   );
 }

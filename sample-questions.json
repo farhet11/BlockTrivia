@@ -1,0 +1,88 @@
+[
+  {
+    "title": "Blockchain Basics",
+    "round_type": "mcq",
+    "time_limit_seconds": 15,
+    "base_points": 100,
+    "questions": [
+      {
+        "body": "What does EVM stand for?",
+        "options": ["Ethereum Virtual Machine", "Encrypted Value Module", "External Validation Method", "Ethereum Verified Mint"],
+        "correct_answer": 0,
+        "explanation": "The EVM (Ethereum Virtual Machine) is the runtime environment that executes smart contracts on Ethereum."
+      },
+      {
+        "body": "Which consensus mechanism does Ethereum currently use?",
+        "options": ["Proof of Work", "Proof of Stake", "Delegated Proof of Stake", "Proof of Authority"],
+        "correct_answer": 1,
+        "explanation": "Ethereum switched from Proof of Work to Proof of Stake with The Merge in September 2022."
+      },
+      {
+        "body": "What is the maximum supply of Bitcoin?",
+        "options": ["18 million", "21 million", "100 million", "Unlimited"],
+        "correct_answer": 1,
+        "explanation": "Bitcoin has a hard cap of 21 million coins, enforced by its protocol."
+      },
+      {
+        "body": "What is a gas fee in Ethereum?",
+        "options": ["A fee paid to miners/validators for processing transactions", "A fee charged by crypto exchanges", "A penalty for failed transactions only", "A fee for storing data on IPFS"],
+        "correct_answer": 0,
+        "explanation": "Gas fees compensate validators for the computational work required to process and include transactions in a block."
+      }
+    ]
+  },
+  {
+    "title": "True or False",
+    "round_type": "true_false",
+    "time_limit_seconds": 10,
+    "base_points": 75,
+    "questions": [
+      {
+        "body": "Ethereum was co-founded by Vitalik Buterin.",
+        "correct_answer": 0,
+        "explanation": "True — Vitalik Buterin co-founded Ethereum and published the whitepaper in 2013."
+      },
+      {
+        "body": "Bitcoin transactions are completely anonymous.",
+        "correct_answer": 1,
+        "explanation": "False — Bitcoin is pseudonymous. All transactions are publicly visible on the blockchain and can be traced."
+      },
+      {
+        "body": "Smart contracts can be modified after deployment.",
+        "correct_answer": 1,
+        "explanation": "False — Smart contracts are immutable once deployed. Upgradeability requires proxy patterns as a workaround."
+      },
+      {
+        "body": "A wallet's private key can be derived from its public key.",
+        "correct_answer": 1,
+        "explanation": "False — Public keys are derived from private keys via one-way elliptic curve cryptography, not the reverse."
+      }
+    ]
+  },
+  {
+    "title": "WipeOut Round",
+    "round_type": "wipeout",
+    "time_limit_seconds": 20,
+    "base_points": 200,
+    "questions": [
+      {
+        "body": "Which token standard is used for NFTs on Ethereum?",
+        "options": ["ERC-20", "ERC-721", "ERC-1155", "ERC-4626"],
+        "correct_answer": 1,
+        "explanation": "ERC-721 is the standard for non-fungible tokens. ERC-20 is for fungible tokens, ERC-1155 supports both."
+      },
+      {
+        "body": "What does DeFi stand for?",
+        "options": ["Decentralised Finance", "Digital Finance", "Distributed Fiat", "Deferred Finance"],
+        "correct_answer": 0,
+        "explanation": "DeFi — Decentralised Finance — refers to financial services built on public blockchains without intermediaries."
+      },
+      {
+        "body": "What is a 51% attack?",
+        "options": ["When a single entity controls more than half of a network's mining/staking power", "When 51% of token holders vote to fork a chain", "A vulnerability in ERC-20 token contracts", "When a smart contract drains 51% of a liquidity pool"],
+        "correct_answer": 0,
+        "explanation": "A 51% attack occurs when a single actor gains majority control of consensus power, allowing them to rewrite recent transaction history."
+      }
+    ]
+  }
+]

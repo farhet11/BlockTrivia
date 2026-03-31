@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { BgController } from "./_components/bg-controller";
+import { FeedbackButton } from "./_components/feedback-button";
 import "./globals.css";
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -25,6 +26,7 @@ export default function RootLayout({
           <main style={{ position: "relative", zIndex: 2 }}>
             {children}
           </main>
+          <FeedbackButton />
         </ThemeProvider>
       </body>
     </html>

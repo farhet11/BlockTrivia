@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase";
+import { SponsorBar } from "@/app/_components/sponsor-bar";
 
 type Question = {
   id: string;
@@ -14,6 +15,22 @@ type Question = {
   round_type: string;
   time_limit: number;
   base_points: number;
+  round_interstitial_text?: string | null;
+};
+
+type RoundInfo = {
+  id: string;
+  title: string;
+  round_type: string;
+  sort_order: number;
+  interstitial_text: string | null;
+};
+
+type Sponsor = {
+  id: string;
+  name: string | null;
+  logo_url: string;
+  sort_order: number;
 };
 
 type GameState = {
@@ -37,36 +54,44 @@ type EventInfo = {
 export function ControlPanel({
   event,
   questions,
+  rounds: roundsList,
   initialGameState,
   playerCount: initialPlayerCount,
+  sponsors,
 }: {
   event: EventInfo;
   questions: Question[];
+  rounds: RoundInfo[];
   initialGameState: GameState;
   playerCount: number;
+  sponsors: Sponsor[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [playerCount, setPlayerCount] = useState(initialPlayerCount);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
+  const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Derive ordered unique rounds from questions
   const rounds = useMemo(() => {
     const seen = new Set<string>();
-    const result: { id: string; title: string; questions: Question[] }[] = [];
+    const result: { id: string; title: string; questions: Question[]; interstitial_text: string | null }[] = [];
     for (const q of questions) {
       if (!seen.has(q.round_id)) {
         seen.add(q.round_id);
+        const roundInfo = roundsList.find((r) => r.id === q.round_id);
         result.push({
           id: q.round_id,
           title: q.round_title,
           questions: questions.filter((x) => x.round_id === q.round_id),
+          interstitial_text: roundInfo?.interstitial_text ?? null,
         });
       }
     }
     return result;
-  }, [questions]);
+  }, [questions, roundsList]);
 
   // Find current question index
   const currentIndex = questions.findIndex(
@@ -85,6 +110,16 @@ export function ControlPanel({
   const indexInRound = currentQuestion
     ? questionsInRound.findIndex((q) => q.id === currentQuestion.id)
     : -1;
+
+  // Is the next question in a different round?
+  const nextQ = currentIndex >= 0 ? questions[currentIndex + 1] : null;
+  const isRoundBoundary = nextQ !== null && currentQuestion !== null && nextQ.round_id !== currentQuestion.round_id;
+  const nextRound = isRoundBoundary ? rounds.find((r) => r.id === nextQ.round_id) : null;
+
+  // Interstitial round info (for "interstitial" phase)
+  const interstitialRound = gameState.phase === "interstitial"
+    ? (roundsList.find((r) => r.id === gameState.current_round_id) ?? null)
+    : null;
 
   // Subscribe to player count changes
   useEffect(() => {
@@ -107,7 +142,7 @@ export function ControlPanel({
     };
   }, [supabase, event.id]);
 
-  // Countdown timer
+  // Countdown timer (question)
   useEffect(() => {
     if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion) {
       setTimeLeft(null);
@@ -132,6 +167,34 @@ export function ControlPanel({
     interval = setInterval(tick, 200);
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, currentQuestion]);
+
+  // Interstitial auto-advance countdown (8s)
+  useEffect(() => {
+    if (gameState.phase !== "interstitial") {
+      setInterstitialCountdown(null);
+      if (interstitialTimerRef.current) {
+        clearInterval(interstitialTimerRef.current);
+        interstitialTimerRef.current = null;
+      }
+      return;
+    }
+
+    setInterstitialCountdown(8);
+    let count = 8;
+
+    interstitialTimerRef.current = setInterval(() => {
+      count -= 1;
+      setInterstitialCountdown(count);
+      if (count <= 0) {
+        if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
+        startFirstQuestionOfRound();
+      }
+    }, 1000);
+
+    return () => {
+      if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
+    };
+  }, [gameState.phase, gameState.current_round_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateGameState = useCallback(
     async (updates: Partial<GameState>) => {
@@ -174,18 +237,43 @@ export function ControlPanel({
     });
   }
 
-  // Next question
+  // Start first question of the current_round_id (called from interstitial)
+  async function startFirstQuestionOfRound() {
+    const roundId = gameState.current_round_id;
+    if (!roundId) return;
+    const firstQ = questions.find((q) => q.round_id === roundId);
+    if (!firstQ) return;
+    await updateGameState({
+      phase: "playing",
+      current_round_id: roundId,
+      current_question_id: firstQ.id,
+      question_started_at: new Date().toISOString(),
+    });
+  }
+
+  // Next question (or show interstitial at round boundary)
   async function nextQuestion() {
     if (currentIndex < 0) return;
 
     const nextIdx = currentIndex + 1;
     if (nextIdx >= questions.length) {
-      // No more questions — end game
       await endGame();
       return;
     }
 
     const next = questions[nextIdx];
+
+    // At round boundary — show interstitial
+    if (isRoundBoundary && nextRound) {
+      await updateGameState({
+        phase: "interstitial",
+        current_round_id: next.round_id,
+        current_question_id: null,
+        question_started_at: null,
+      });
+      return;
+    }
+
     await updateGameState({
       phase: "playing",
       current_round_id: next.round_id,
@@ -208,7 +296,7 @@ export function ControlPanel({
   async function togglePause() {
     if (gameState.phase === "playing") {
       await updateEventStatus("paused");
-      await updateGameState({ phase: "lobby" }); // reuse lobby as paused state visually
+      await updateGameState({ phase: "lobby" });
     }
   }
 
@@ -222,6 +310,9 @@ export function ControlPanel({
   }
 
   const phase = gameState.phase;
+
+  // Next button label
+  const nextLabel = isLastQuestion ? "End Game" : isRoundBoundary ? `Start Round ${(nextRound ? rounds.findIndex((r) => r.id === nextRound.id) + 1 : 2)}` : "Next Question";
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
@@ -290,7 +381,6 @@ export function ControlPanel({
                   Q{indexInRound + 1}/{questionsInRound.length}
                 </span>
               </div>
-              {/* Per-round question dots */}
               <div className="flex gap-1.5">
                 {questionsInRound.map((q, i) => (
                   <div
@@ -417,7 +507,7 @@ export function ControlPanel({
                 disabled={loading}
                 className="flex-1 h-12 bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
-                {isLastQuestion ? "End Game" : "Next Question"}
+                {nextLabel}
               </button>
             </div>
           </div>
@@ -439,9 +529,53 @@ export function ControlPanel({
                 disabled={loading}
                 className="flex-1 h-12 bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
-                {isLastQuestion ? "End Game" : "Next Question"}
+                {nextLabel}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Phase: Interstitial — between rounds */}
+        {phase === "interstitial" && (
+          <div className="flex flex-col items-center justify-center py-16 space-y-8">
+            <div className="text-center space-y-3">
+              <p className="text-xs font-bold text-primary uppercase tracking-widest">
+                Next Up
+              </p>
+              <h2 className="font-heading text-3xl font-bold">
+                {interstitialRound?.title ?? "Next Round"}
+              </h2>
+              {interstitialRound?.interstitial_text && (
+                <p className="text-muted-foreground max-w-sm mx-auto">
+                  {interstitialRound.interstitial_text}
+                </p>
+              )}
+              {interstitialCountdown !== null && (
+                <p className="text-sm text-muted-foreground">
+                  Auto-starting in{" "}
+                  <span className="font-bold text-foreground tabular-nums">
+                    {interstitialCountdown}s
+                  </span>
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
+                startFirstQuestionOfRound();
+              }}
+              disabled={loading}
+              className="h-12 px-10 bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+            >
+              Start Round →
+            </button>
+
+            {sponsors.length > 0 && (
+              <div className="w-full pt-4">
+                <SponsorBar sponsors={sponsors} />
+              </div>
+            )}
           </div>
         )}
 
@@ -454,12 +588,20 @@ export function ControlPanel({
                 {event.title} has ended &middot; {playerCount} players
               </p>
             </div>
-            <a
-              href={`/host`}
-              className="h-12 px-8 bg-primary text-primary-foreground font-semibold flex items-center hover:bg-primary-hover transition-colors"
-            >
-              Back to Dashboard
-            </a>
+            <div className="flex gap-3">
+              <a
+                href={`/host/game/${event.joinCode}/summary`}
+                className="h-12 px-8 bg-primary text-primary-foreground font-semibold flex items-center hover:bg-primary-hover transition-colors"
+              >
+                View Summary →
+              </a>
+              <a
+                href="/host"
+                className="h-12 px-8 bg-surface border border-border font-semibold flex items-center hover:bg-background transition-colors"
+              >
+                Dashboard
+              </a>
+            </div>
           </div>
         )}
 

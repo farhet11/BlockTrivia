@@ -50,7 +50,7 @@ export default async function PlayPage({
   // Load rounds + questions
   const { data: rounds } = await supabase
     .from("rounds")
-    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, wipeout_min_leverage, wipeout_max_leverage")
+    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, wipeout_min_leverage, wipeout_max_leverage, interstitial_text")
     .eq("event_id", event.id)
     .order("sort_order");
 
@@ -69,6 +69,13 @@ export default async function PlayPage({
     .eq("id", user.id)
     .single();
 
+  // Load sponsors
+  const { data: sponsors } = await supabase
+    .from("event_sponsors")
+    .select("id, name, logo_url, sort_order")
+    .eq("event_id", event.id)
+    .order("sort_order");
+
   const roundMap = Object.fromEntries((rounds ?? []).map((r) => [r.id, r]));
   const questionList = (questions ?? []).map((q) => ({
     ...q,
@@ -83,12 +90,22 @@ export default async function PlayPage({
     wipeout_max_leverage: roundMap[q.round_id]?.wipeout_max_leverage ?? 3.0,
   }));
 
+  // Build rounds info for interstitial lookups
+  const roundsInfo = (rounds ?? []).map((r) => ({
+    id: r.id,
+    title: r.title ?? `Round ${r.sort_order + 1}`,
+    sort_order: r.sort_order,
+    interstitial_text: (r.interstitial_text as string | null) ?? null,
+  }));
+
   return (
     <PlayView
       event={{ id: event.id, title: event.title, joinCode: event.join_code }}
       player={{ id: user.id, displayName: profile?.display_name ?? "Player" }}
       questions={questionList}
       initialGameState={gameState}
+      sponsors={sponsors ?? []}
+      roundsInfo={roundsInfo}
     />
   );
 }

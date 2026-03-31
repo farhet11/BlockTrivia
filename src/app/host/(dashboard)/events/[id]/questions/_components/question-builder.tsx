@@ -18,6 +18,7 @@ export type Round = {
   time_bonus_enabled: boolean;
   wipeout_min_leverage: number | null;
   wipeout_max_leverage: number | null;
+  interstitial_text?: string | null;
 };
 
 export type Question = {

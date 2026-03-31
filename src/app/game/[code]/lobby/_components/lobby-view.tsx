@@ -4,6 +4,14 @@ import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "./share-drawer";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { SponsorBar } from "@/app/_components/sponsor-bar";
+
+type Sponsor = {
+  id: string;
+  name: string | null;
+  logo_url: string;
+  sort_order: number;
+};
 
 type Player = {
   id: string;
@@ -22,9 +30,11 @@ type EventInfo = {
 export function LobbyView({
   event,
   player,
+  sponsors,
 }: {
   event: EventInfo;
   player: { id: string; displayName: string };
+  sponsors: Sponsor[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -259,6 +269,9 @@ export function LobbyView({
           </div>
         )}
       </div>
+
+      {/* Sponsor bar */}
+      <SponsorBar sponsors={sponsors} />
 
       {/* Bottom bar */}
       <div className="border-t border-border bg-background">

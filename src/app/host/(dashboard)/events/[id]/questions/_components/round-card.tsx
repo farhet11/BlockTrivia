@@ -35,6 +35,8 @@ export function RoundCard({
   const [expanded, setExpanded] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(round.title ?? "");
+  const [interstitialText, setInterstitialText] = useState(round.interstitial_text ?? "");
+  const [showInterstitial, setShowInterstitial] = useState(false);
 
   function handleTitleBlur() {
     setEditingTitle(false);
@@ -140,6 +142,33 @@ export function RoundCard({
       {/* Questions list */}
       {expanded && (
         <div className="p-4 space-y-3">
+          {/* Interstitial message */}
+          <div className="border border-border/50 bg-background/40 p-3 space-y-2">
+            <button
+              onClick={() => setShowInterstitial(!showInterstitial)}
+              className="flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+            >
+              <svg
+                className={`size-3 transition-transform ${showInterstitial ? "rotate-90" : ""}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+              Interstitial message
+              {interstitialText && <span className="ml-1 text-primary">•</span>}
+            </button>
+            {showInterstitial && (
+              <textarea
+                rows={2}
+                value={interstitialText}
+                onChange={(e) => setInterstitialText(e.target.value)}
+                onBlur={() => onUpdateRound(round.id, { interstitial_text: interstitialText || null })}
+                placeholder="Optional message shown to players before this round starts..."
+                className="w-full text-sm bg-background border border-border px-3 py-2 text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary resize-none"
+              />
+            )}
+          </div>
+
           {questions.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
               No questions in this round yet.

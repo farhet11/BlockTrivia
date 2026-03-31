@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Question } from "./question-builder";
 
 export function QuestionRow({
@@ -23,9 +23,18 @@ export function QuestionRow({
   const [expanded, setExpanded] = useState(!question.body);
   const isTrueFalse = roundType === "true_false";
   const optionLabels = isTrueFalse ? ["True", "False"] : ["A", "B", "C", "D"];
-  const options: string[] = isTrueFalse
-    ? ["True", "False"]
-    : (question.options as string[]);
+
+  // Local state — avoids Supabase round-trip on every keystroke
+  const [localBody, setLocalBody] = useState(question.body);
+  const [localOptions, setLocalOptions] = useState<string[]>(
+    isTrueFalse ? ["True", "False"] : (question.options as string[])
+  );
+
+  // Sync if question is replaced externally (e.g. JSON import)
+  useEffect(() => {
+    setLocalBody(question.body);
+    if (!isTrueFalse) setLocalOptions(question.options as string[]);
+  }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="border border-border bg-background p-3 space-y-3">
@@ -38,8 +47,9 @@ export function QuestionRow({
         <div className="flex-1 min-w-0">
           {expanded ? (
             <textarea
-              value={question.body}
-              onChange={(e) => onUpdate(question.id, { body: e.target.value })}
+              value={localBody}
+              onChange={(e) => setLocalBody(e.target.value)}
+              onBlur={() => onUpdate(question.id, { body: localBody })}
               placeholder="Type your question..."
               rows={2}
               className="w-full bg-transparent text-foreground placeholder:text-muted-foreground/50 outline-none resize-none text-sm"
@@ -49,7 +59,7 @@ export function QuestionRow({
               onClick={() => setExpanded(true)}
               className="text-sm text-foreground text-left truncate w-full"
             >
-              {question.body || "Untitled question"}
+              {localBody || "Untitled question"}
             </button>
           )}
         </div>
@@ -118,12 +128,13 @@ export function QuestionRow({
                 <span className="text-sm text-foreground">{label}</span>
               ) : (
                 <input
-                  value={options[i] ?? ""}
+                  value={localOptions[i] ?? ""}
                   onChange={(e) => {
-                    const newOptions = [...options];
-                    newOptions[i] = e.target.value;
-                    onUpdate(question.id, { options: newOptions });
+                    const updated = [...localOptions];
+                    updated[i] = e.target.value;
+                    setLocalOptions(updated);
                   }}
+                  onBlur={() => onUpdate(question.id, { options: localOptions })}
                   placeholder={`Option ${label}`}
                   className="flex-1 text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
                 />

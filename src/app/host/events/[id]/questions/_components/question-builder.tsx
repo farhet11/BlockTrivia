@@ -26,6 +26,7 @@ export type Question = {
   options: string[];
   correct_answer: number;
   sort_order: number;
+  explanation?: string | null;
 };
 
 export function QuestionBuilder({
@@ -220,8 +221,10 @@ export function QuestionBuilder({
       {/* JSON Import Modal */}
       {showJsonImport && (
         <JsonImportModal
+          eventId={eventId}
           rounds={rounds}
           onImported={handleJsonImported}
+          onRoundsCreated={(newRounds) => setRounds([...rounds, ...newRounds])}
           onClose={() => setShowJsonImport(false)}
         />
       )}

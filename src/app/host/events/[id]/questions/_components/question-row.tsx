@@ -29,10 +29,12 @@ export function QuestionRow({
   const [localOptions, setLocalOptions] = useState<string[]>(
     isTrueFalse ? ["True", "False"] : (question.options as string[])
   );
+  const [localExplanation, setLocalExplanation] = useState(question.explanation ?? "");
 
   // Sync if question is replaced externally (e.g. JSON import)
   useEffect(() => {
     setLocalBody(question.body);
+    setLocalExplanation(question.explanation ?? "");
     if (!isTrueFalse) setLocalOptions(question.options as string[]);
   }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -144,6 +146,21 @@ export function QuestionRow({
           <p className="text-xs text-muted-foreground mt-1">
             Click a letter to mark the correct answer.
           </p>
+
+          {/* Explanation (optional) */}
+          <div className="pt-1 space-y-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider">
+              Explanation <span className="normal-case">(optional — shown after answer reveal)</span>
+            </p>
+            <textarea
+              value={localExplanation}
+              onChange={(e) => setLocalExplanation(e.target.value)}
+              onBlur={() => onUpdate(question.id, { explanation: localExplanation || null })}
+              placeholder="Why is this the correct answer?"
+              rows={2}
+              className="w-full bg-transparent text-foreground placeholder:text-muted-foreground/50 outline-none resize-none text-sm border-b border-border focus:border-primary py-1"
+            />
+          </div>
         </div>
       )}
     </div>

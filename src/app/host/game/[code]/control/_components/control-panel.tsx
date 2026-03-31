@@ -117,6 +117,8 @@ export function ControlPanel({
     const startedAt = new Date(gameState.question_started_at).getTime();
     const duration = currentQuestion.time_limit * 1000;
 
+    let interval: ReturnType<typeof setInterval>;
+
     const tick = () => {
       const remaining = Math.max(
         0,
@@ -127,7 +129,7 @@ export function ControlPanel({
     };
 
     tick();
-    const interval = setInterval(tick, 200);
+    interval = setInterval(tick, 200);
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, currentQuestion]);
 

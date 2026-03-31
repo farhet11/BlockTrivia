@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 894.15 196.55">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #f0e6fc;
+      }
+
+      .cls-2 {
+        font-family: Outfit-Light, Outfit;
+        font-weight: 300;
+      }
+
+      .cls-2, .cls-3 {
+        font-size: 159.35px;
+      }
+
+      .cls-2, .cls-4 {
+        fill: #7c3aed;
+      }
+
+      .cls-3 {
+        font-family: Outfit-SemiBold, Outfit;
+        font-weight: 600;
+      }
+
+      .cls-3, .cls-5 {
+        fill: #151416;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <g>
+        <g>
+          <rect class="cls-5" x="59.73" y="24.3" width="51.71" height="51.55" rx="4.78" ry="4.78"/>
+          <rect class="cls-5" y="83.87" width="51.71" height="51.88" rx="4.83" ry="4.83"/>
+          <rect class="cls-4" x="59.73" y="83.87" width="51.71" height="51.88" rx="4.78" ry="4.78"/>
+          <g>
+            <rect class="cls-5" x="24.18" y="68.38" width="27.54" height="4.37"/>
+            <polygon class="cls-5" points="0 33.14 6.3 39.44 19.67 52.81 6.3 66.18 0 72.48 12.69 72.87 12.84 72.72 26.21 59.35 32.75 52.81 26.21 46.27 12.84 32.9 12.69 32.75 0 33.14"/>
+          </g>
+        </g>
+        <polygon class="cls-1" points="105.19 92.22 79.47 117.95 74.84 113.33 65.7 113.61 79.44 127.39 105.47 101.36 105.19 92.22"/>
+      </g>
+      <text class="cls-3" transform="translate(123.9 135.68)"><tspan x="0" y="0">Block</tspan></text>
+      <text class="cls-2" transform="translate(505.35 135.68)"><tspan x="0" y="0">Trivia</tspan></text>
+    </g>
+  </g>
+</svg>

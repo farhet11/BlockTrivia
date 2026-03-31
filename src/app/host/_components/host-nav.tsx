@@ -1,0 +1,37 @@
+"use client";
+
+import { createClient } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
+
+export function HostNav({ user }: { user: User }) {
+  const router = useRouter();
+  const supabase = createClient();
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
+
+  return (
+    <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+      <div className="mx-auto max-w-4xl flex items-center justify-between px-4 h-14">
+        <a href="/host" className="flex items-center">
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 hidden dark:block" />
+        </a>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">
+            {user.email}
+          </span>
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}

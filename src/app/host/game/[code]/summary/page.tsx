@@ -23,8 +23,8 @@ export default async function SummaryPage({
 
   if (!event || event.created_by !== user.id) redirect("/host");
 
-  // Load full leaderboard
-  const { data: entries } = await supabase
+  // Load full leaderboard — try with profile join, fall back without
+  let { data: entries, error: lbError } = await supabase
     .from("leaderboard_entries")
     .select(`
       player_id,
@@ -39,6 +39,17 @@ export default async function SummaryPage({
     `)
     .eq("event_id", event.id)
     .order("rank", { ascending: true });
+
+  // Fallback: if join fails (FK name mismatch), load without profiles
+  if (lbError) {
+    const fallback = await supabase
+      .from("leaderboard_entries")
+      .select("player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct")
+      .eq("event_id", event.id)
+      .order("rank", { ascending: true });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    entries = (fallback.data ?? []).map((r: any) => ({ ...r, profiles: [] })) as typeof entries;
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leaderboard = (entries ?? []).map((row: any) => ({

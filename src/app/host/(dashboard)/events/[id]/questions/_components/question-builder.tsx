@@ -56,6 +56,7 @@ export function QuestionBuilder({
   const [duplicating, setDuplicating] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEnded = eventStatus === "ended";
+  const isActive = eventStatus === "active" || eventStatus === "lobby" || eventStatus === "paused";
 
   async function duplicateEvent() {
     setDuplicating(true);
@@ -349,7 +350,7 @@ export function QuestionBuilder({
             ) : (
               <Link href={`/host/game/${joinCode}/control`}>
                 <Button className="bg-primary text-primary-foreground hover:bg-primary-hover font-semibold">
-                  Launch Game
+                  {isActive ? "Resume Game" : "Launch Game"}
                 </Button>
               </Link>
             )}

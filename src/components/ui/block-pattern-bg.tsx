@@ -169,9 +169,10 @@ export function BlockPatternBg() {
 
         if (h1 < CONFIG.skipFrequency) continue;
 
-        // Radial fade
+        // Radial fade — dense at edges, fades to near-zero at center
         const dx = x + half - cxc, dy = y + half - cyc;
-        const alpha = CONFIG.opacity * Math.max(0.05, 1 - Math.pow(Math.sqrt(dx * dx + dy * dy) / maxD, 1.2));
+        const distRatio = Math.sqrt(dx * dx + dy * dy) / maxD;
+        const alpha = CONFIG.opacity * (0.05 + 0.95 * Math.pow(distRatio, 0.6));
 
         const [dr, dg, db] = theme.dark;
         const [vr, vg, vb] = theme.violet;

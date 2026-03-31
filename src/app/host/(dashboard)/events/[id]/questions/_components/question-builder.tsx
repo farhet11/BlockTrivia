@@ -34,11 +34,17 @@ export type Question = {
 export function QuestionBuilder({
   eventId,
   joinCode,
+  eventStatus,
+  eventTitle,
+  eventDescription,
   initialRounds,
   initialQuestions,
 }: {
   eventId: string;
   joinCode: string;
+  eventStatus: string;
+  eventTitle: string;
+  eventDescription: string;
   initialRounds: Round[];
   initialQuestions: Question[];
 }) {
@@ -47,7 +53,64 @@ export function QuestionBuilder({
   const [questions, setQuestions] = useState<Question[]>(initialQuestions);
   const [showJsonImport, setShowJsonImport] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [duplicating, setDuplicating] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEnded = eventStatus === "ended";
+
+  async function duplicateEvent() {
+    setDuplicating(true);
+    // Create new draft event
+    const { data: newEvent, error } = await supabase
+      .from("events")
+      .insert({ title: `${eventTitle} (Copy)`, description: eventDescription || null, created_by: (await supabase.auth.getUser()).data.user!.id })
+      .select("id, join_code")
+      .single();
+
+    if (error || !newEvent) { setDuplicating(false); return; }
+
+    // Copy rounds in order
+    const sortedRounds = [...rounds].sort((a, b) => a.sort_order - b.sort_order);
+    for (const round of sortedRounds) {
+      const { data: newRound } = await supabase
+        .from("rounds")
+        .insert({
+          event_id: newEvent.id,
+          title: round.title,
+          round_type: round.round_type,
+          sort_order: round.sort_order,
+          time_limit_seconds: round.time_limit_seconds,
+          base_points: round.base_points,
+          time_bonus_enabled: round.time_bonus_enabled,
+          wipeout_min_leverage: round.wipeout_min_leverage,
+          wipeout_max_leverage: round.wipeout_max_leverage,
+          interstitial_text: round.interstitial_text ?? null,
+        })
+        .select("id")
+        .single();
+
+      if (!newRound) continue;
+
+      // Copy questions for this round
+      const roundQuestions = questions
+        .filter((q) => q.round_id === round.id)
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      if (roundQuestions.length > 0) {
+        await supabase.from("questions").insert(
+          roundQuestions.map((q) => ({
+            round_id: newRound.id,
+            body: q.body,
+            options: q.options,
+            correct_answer: q.correct_answer,
+            sort_order: q.sort_order,
+            explanation: q.explanation ?? null,
+          }))
+        );
+      }
+    }
+
+    window.location.href = `/host/events/${newEvent.id}/questions`;
+  }
 
   function markSaving() {
     setSaveStatus("saving");
@@ -262,14 +325,35 @@ export function QuestionBuilder({
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground h-4">
-            {saveStatus === "saving" && "Saving..."}
-            {saveStatus === "saved" && "✓ Saved"}
+            {isEnded && <span className="text-muted-foreground">Read-only · game ended</span>}
+            {!isEnded && saveStatus === "saving" && "Saving..."}
+            {!isEnded && saveStatus === "saved" && "✓ Saved"}
           </span>
-          <Link href={`/host/game/${joinCode}/control`}>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary-hover font-semibold">
-              Launch Game
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            {isEnded ? (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={duplicateEvent}
+                  disabled={duplicating}
+                  className="font-semibold"
+                >
+                  {duplicating ? "Duplicating..." : "Duplicate as Template"}
+                </Button>
+                <Link href={`/host/game/${joinCode}/summary`}>
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary-hover font-semibold">
+                    View Summary
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Link href={`/host/game/${joinCode}/control`}>
+                <Button className="bg-primary text-primary-foreground hover:bg-primary-hover font-semibold">
+                  Launch Game
+                </Button>
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>

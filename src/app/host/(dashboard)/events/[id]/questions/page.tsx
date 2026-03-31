@@ -19,7 +19,7 @@ export default async function QuestionsPage({
   // Fetch event
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, status, created_by")
+    .select("id, title, join_code, status, created_by, description")
     .eq("id", eventId)
     .single();
 
@@ -68,6 +68,9 @@ export default async function QuestionsPage({
       <QuestionBuilder
         eventId={eventId}
         joinCode={event.join_code}
+        eventStatus={event.status}
+        eventTitle={event.title}
+        eventDescription={event.description ?? ""}
         initialRounds={rounds ?? []}
         initialQuestions={questions ?? []}
       />

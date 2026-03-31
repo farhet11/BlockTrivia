@@ -28,7 +28,8 @@ export function IdentityPanel({
   const [error, setError] = useState<string | null>(null);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [otpStep, setOtpStep] = useState<"email" | "otp">("email");
+  const [otp, setOtp] = useState("");
 
   // Check if user is already authenticated (e.g. returning from OAuth)
   useEffect(() => {
@@ -58,47 +59,38 @@ export function IdentityPanel({
     });
   }
 
-  async function handleEmailSignIn(e: React.FormEvent) {
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
-    // Try sign in first
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      password,
+      options: { shouldCreateUser: true },
     });
+    if (error) {
+      setError(error.message);
+    } else {
+      setOtpStep("otp");
+    }
+    setLoading(false);
+  }
 
-    if (signInError) {
-      // If invalid credentials, try sign up
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/join/${event.join_code}`,
-        },
-      });
-
-      if (signUpError) {
-        setError(signUpError.message);
-        setLoading(false);
-        return;
-      }
-
-      if (signUpData.user) {
-        const name = email.split("@")[0];
-        setUser({ id: signUpData.user.id, email, name });
-        setDisplayName(name);
-      }
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp.trim(),
+      type: "email",
+    });
+    if (error) {
+      setError(error.message);
     } else if (data.user) {
-      const name =
-        data.user.user_metadata?.full_name ||
-        data.user.email?.split("@")[0] ||
-        "";
+      const name = data.user.user_metadata?.full_name || email.split("@")[0];
       setUser({ id: data.user.id, email: data.user.email ?? undefined, name });
       setDisplayName(name);
     }
-
     setLoading(false);
   }
 
@@ -195,7 +187,7 @@ export function IdentityPanel({
             Continue with Google
           </Button>
 
-          {/* Email alternative */}
+          {/* Email OTP alternative */}
           {!showEmailForm ? (
             <button
               onClick={() => setShowEmailForm(true)}
@@ -203,7 +195,7 @@ export function IdentityPanel({
             >
               Use email instead
             </button>
-          ) : (
+          ) : otpStep === "email" ? (
             <>
               <div className="relative py-1">
                 <div className="absolute inset-0 flex items-center">
@@ -215,8 +207,7 @@ export function IdentityPanel({
                   </span>
                 </div>
               </div>
-
-              <form onSubmit={handleEmailSignIn} className="space-y-3">
+              <form onSubmit={handleSendOtp} className="space-y-3">
                 <input
                   type="email"
                   value={email}
@@ -225,15 +216,6 @@ export function IdentityPanel({
                   className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
                   placeholder="you@example.com"
                 />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
-                  placeholder="Password (min 6 characters)"
-                />
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button
                   type="submit"
@@ -241,8 +223,42 @@ export function IdentityPanel({
                   variant="outline"
                   className="w-full h-11 font-medium"
                 >
-                  {loading ? "..." : "Sign in with Email"}
+                  {loading ? "Sending..." : "Send Code"}
                 </Button>
+              </form>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Check <span className="text-foreground font-medium">{email}</span> for a 6-digit code.
+              </p>
+              <form onSubmit={handleVerifyOtp} className="space-y-3">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  required
+                  autoFocus
+                  className="w-full h-11 bg-surface border border-border px-4 text-foreground text-center text-xl tracking-[0.5em] placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary outline-none transition-colors"
+                  placeholder="000000"
+                />
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button
+                  type="submit"
+                  disabled={loading || otp.length < 6}
+                  variant="outline"
+                  className="w-full h-11 font-medium"
+                >
+                  {loading ? "Verifying..." : "Verify Code"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => { setOtpStep("email"); setOtp(""); setError(null); }}
+                  className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ← Try a different email
+                </button>
               </form>
             </>
           )}

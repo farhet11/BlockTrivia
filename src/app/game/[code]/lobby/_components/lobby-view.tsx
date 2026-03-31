@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "./share-drawer";
+import { ThemeToggle } from "@/app/_components/theme-toggle";
 
 type Player = {
   id: string;
@@ -152,6 +153,8 @@ export function LobbyView({
             alt="BlockTrivia"
             className="h-6 hidden dark:block"
           />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
           <button
             onClick={() => setShowShare(true)}
             className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary-hover transition-colors"
@@ -171,6 +174,7 @@ export function LobbyView({
             </svg>
             Invite
           </button>
+          </div>
         </div>
       </header>
 

@@ -75,6 +75,23 @@ export function PlayView({
   const isWipeout = currentQuestion?.round_type === "wipeout";
   const optionLabels = isTrueFalse ? ["True", "False"] : ["A", "B", "C", "D"];
 
+  // Progress bar data
+  const rounds = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { id: string; title: string; questions: QuestionData[] }[] = [];
+    for (const q of questions) {
+      if (!seen.has(q.round_id)) {
+        seen.add(q.round_id);
+        result.push({ id: q.round_id, title: q.round_title, questions: questions.filter((x) => x.round_id === q.round_id) });
+      }
+    }
+    return result;
+  }, [questions]);
+  const currentRoundIndex = currentQuestion ? rounds.findIndex((r) => r.id === currentQuestion.round_id) : -1;
+  const currentRoundData = currentRoundIndex >= 0 ? rounds[currentRoundIndex] : null;
+  const questionsInRound = currentRoundData?.questions ?? [];
+  const indexInRound = currentQuestion ? questionsInRound.findIndex((q) => q.id === currentQuestion.id) : -1;
+
   // Subscribe to game_state changes
   useEffect(() => {
     const channel = supabase
@@ -290,23 +307,51 @@ export function PlayView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-5 h-12 flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          {currentQuestion.round_title}
-        </span>
-        <div className="flex items-center gap-3">
-          {timeLeft !== null && !hasAnswered && (
-            <span
-              className={`font-heading text-lg font-bold tabular-nums ${
-                timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
-              }`}
-            >
-              {timeLeft}s
-            </span>
-          )}
-          <ThemeToggle />
+      <header className="border-b border-border">
+        <div className="px-5 h-14 flex items-center justify-between max-w-lg mx-auto">
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          <div className="flex items-center gap-3">
+            {timeLeft !== null && !hasAnswered && (
+              <span
+                className={`font-heading text-lg font-bold tabular-nums ${
+                  timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
+                }`}
+              >
+                {timeLeft}s
+              </span>
+            )}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
+
+      {/* Progress bar */}
+      {currentRoundData && questionsInRound.length > 0 && (
+        <div className="border-b border-border px-5 py-2.5 max-w-lg mx-auto w-full">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+            <span className="font-medium truncate max-w-[60%]">
+              {currentRoundData.title}
+              <span className="ml-1.5 text-muted-foreground/60">
+                ({currentRoundIndex + 1}/{rounds.length})
+              </span>
+            </span>
+            <span className="tabular-nums">
+              Q{indexInRound + 1}/{questionsInRound.length}
+            </span>
+          </div>
+          <div className="flex gap-1">
+            {questionsInRound.map((q, i) => (
+              <div
+                key={q.id}
+                className={`h-1 flex-1 transition-colors duration-200 ${
+                  i < indexInRound ? "bg-primary/40" : i === indexInRound ? "bg-primary" : "bg-border"
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Revealing banner */}
       {phase === "revealing" && lastResult && (

@@ -40,9 +40,15 @@ export function LobbyView({
         .eq("event_id", event.id)
         .single();
 
-      if (gs && gs.phase !== "lobby") {
-        window.location.href = `/game/${event.joinCode}/play`;
-        return;
+      if (gs) {
+        if (gs.phase === "ended") {
+          window.location.href = `/game/${event.joinCode}/final`;
+          return;
+        }
+        if (gs.phase !== "lobby") {
+          window.location.href = `/game/${event.joinCode}/play`;
+          return;
+        }
       }
 
       // Subscribe to future changes
@@ -57,7 +63,10 @@ export function LobbyView({
             filter: `event_id=eq.${event.id}`,
           },
           (payload) => {
-            if (payload.new.phase !== "lobby") {
+            const phase = payload.new.phase as string;
+            if (phase === "ended") {
+              window.location.href = `/game/${event.joinCode}/final`;
+            } else if (phase !== "lobby") {
               window.location.href = `/game/${event.joinCode}/play`;
             }
           }

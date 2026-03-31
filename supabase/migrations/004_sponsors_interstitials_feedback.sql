@@ -48,12 +48,13 @@ alter type game_phase add value if not exists 'interstitial';
 create type feedback_category as enum ('bug', 'feature', 'general', 'question');
 
 create table feedback (
-  id          uuid primary key default gen_random_uuid(),
-  player_id   uuid references profiles(id) on delete set null,
-  category    feedback_category not null default 'general',
-  message     text not null,
-  page_url    text,
-  created_at  timestamptz not null default now()
+  id                  uuid primary key default gen_random_uuid(),
+  player_id           uuid references profiles(id) on delete set null,
+  feedback_category   feedback_category not null default 'general',
+  message             text not null,
+  page_url            text,
+  screenshot_url      text,
+  created_at          timestamptz not null default now()
 );
 
 alter table feedback enable row level security;
@@ -95,3 +96,19 @@ create policy "Anyone can view sponsor logos"
 create policy "Hosts can delete their sponsor logos"
   on storage.objects for delete to authenticated
   using (bucket_id = 'sponsor-logos');
+
+-- ============================================================
+-- FEEDBACK SCREENSHOTS BUCKET
+-- ============================================================
+
+insert into storage.buckets (id, name, public)
+values ('feedback-screenshots', 'feedback-screenshots', true)
+on conflict (id) do nothing;
+
+create policy "Anyone can upload feedback screenshots"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'feedback-screenshots');
+
+create policy "Anyone can view feedback screenshots"
+  on storage.objects for select
+  using (bucket_id = 'feedback-screenshots');

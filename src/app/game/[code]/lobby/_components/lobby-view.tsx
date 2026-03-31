@@ -170,16 +170,10 @@ export function LobbyView({
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <img
-            src="/logo-light.svg"
-            alt="BlockTrivia"
-            className="h-6 dark:hidden"
-          />
-          <img
-            src="/logo-dark.svg"
-            alt="BlockTrivia"
-            className="h-6 hidden dark:block"
-          />
+          <a href="/join">
+            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          </a>
           <div className="flex items-center gap-1">
             <ThemeToggle />
           <button

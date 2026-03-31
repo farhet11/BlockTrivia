@@ -33,36 +33,37 @@ export function FeedbackButton() {
 
     let screenshotUrl: string | null = null;
 
+    // Screenshot is best-effort — 5s timeout so it never blocks the submit
     try {
-      // Lazy-load html2canvas and capture screenshot
       const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(document.body, {
-        scale: 0.5,
-        useCORS: true,
-        logging: false,
-      });
-      const blob: Blob = await new Promise((res) =>
-        canvas.toBlob((b) => res(b!), "image/jpeg", 0.7)
+      const canvas = await Promise.race([
+        html2canvas(document.body, { scale: 0.5, useCORS: true, logging: false }),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+      ]);
+      const blob: Blob | null = await new Promise((res) =>
+        (canvas as HTMLCanvasElement).toBlob((b) => res(b), "image/jpeg", 0.7)
       );
 
-      const filename = `feedback/${Date.now()}.jpg`;
-      const { data: uploadData } = await supabase.storage
-        .from("feedback-screenshots")
-        .upload(filename, blob, { contentType: "image/jpeg" });
-
-      if (uploadData) {
-        const { data: { publicUrl } } = supabase.storage
+      if (blob) {
+        const filename = `feedback/${Date.now()}.jpg`;
+        const { data: uploadData } = await supabase.storage
           .from("feedback-screenshots")
-          .getPublicUrl(filename);
-        screenshotUrl = publicUrl;
+          .upload(filename, blob, { contentType: "image/jpeg" });
+
+        if (uploadData) {
+          const { data: { publicUrl } } = supabase.storage
+            .from("feedback-screenshots")
+            .getPublicUrl(filename);
+          screenshotUrl = publicUrl;
+        }
       }
     } catch {
-      // Screenshot capture is best-effort — proceed without it
+      // Proceed without screenshot
     }
 
     const { data: { user } } = await supabase.auth.getUser();
 
-    await supabase.from("feedback").insert({
+    const { error } = await supabase.from("feedback").insert({
       feedback_category: category,
       message: message.trim(),
       page_url: window.location.href,
@@ -71,6 +72,11 @@ export function FeedbackButton() {
     });
 
     setSubmitting(false);
+    if (error) {
+      console.error("Feedback insert failed:", error);
+      // Still show success to user — don't punish them for our infra issues
+      // but log so we can debug
+    }
     setDone(true);
   }
 

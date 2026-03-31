@@ -305,8 +305,10 @@ export function PlayView({
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          <a href="/join">
+            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          </a>
           <ThemeToggle />
         </header>
         <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
@@ -356,8 +358,10 @@ export function PlayView({
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          <a href="/join">
+            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          </a>
           <ThemeToggle />
         </header>
         <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-6">
@@ -407,8 +411,10 @@ export function PlayView({
   if (phase === "lobby" && gameState.started_at) {
     return (
       <div className="min-h-dvh bg-background flex flex-col items-center justify-center px-5 gap-6">
-        <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
-        <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
+        <a href="/join">
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
+        </a>
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
             <span className="w-2 h-2 rounded-full bg-timer-warn" />
@@ -425,8 +431,10 @@ export function PlayView({
   if (!currentQuestion) {
     return (
       <div className="min-h-dvh bg-background flex flex-col items-center justify-center px-5 gap-6">
-        <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
-        <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
+        <a href="/join">
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
+        </a>
         <div className="text-center space-y-2">
           <h1 className="font-heading text-xl font-bold">{event.title}</h1>
           <p className="text-sm text-muted-foreground animate-pulse">Waiting for next question...</p>

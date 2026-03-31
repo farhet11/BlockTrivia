@@ -77,8 +77,10 @@ export function FinalView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-        <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-        <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+        <a href="/join">
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+        </a>
         <ThemeToggle />
       </header>
 

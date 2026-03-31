@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import confetti from "canvas-confetti";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 
 type Entry = {
@@ -27,6 +29,40 @@ export function FinalView({
 }) {
   const podium = leaderboard.slice(0, 3);
   const rest = leaderboard.slice(3);
+
+  useEffect(() => {
+    // Burst from both sides
+    const left = confetti({
+      particleCount: 80,
+      angle: 60,
+      spread: 70,
+      origin: { x: 0, y: 0.7 },
+      colors: ["#7c3aed", "#a78bfa", "#fbbf24", "#f9fafb"],
+    });
+    const right = confetti({
+      particleCount: 80,
+      angle: 120,
+      spread: 70,
+      origin: { x: 1, y: 0.7 },
+      colors: ["#7c3aed", "#a78bfa", "#fbbf24", "#f9fafb"],
+    });
+    // Second wave after short delay
+    const timer = setTimeout(() => {
+      confetti({
+        particleCount: 60,
+        angle: 90,
+        spread: 120,
+        origin: { x: 0.5, y: 0.5 },
+        colors: ["#7c3aed", "#a78bfa", "#fbbf24", "#f9fafb"],
+        scalar: 0.9,
+      });
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      left?.then?.(() => {});
+      right?.then?.(() => {});
+    };
+  }, []);
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">

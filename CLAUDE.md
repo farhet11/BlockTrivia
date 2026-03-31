@@ -66,20 +66,32 @@ Full Supabase Postgres schema in `supabase/migrations/001_initial_schema.sql`:
 - `src/app/host/events/[id]/share/page.tsx` — H4: server page
 - `_components/share-panel.tsx` — large join code display, QR code (client-generated SVG), copy link, download QR
 
+### 7. Player Join Flow (DONE)
+- `src/app/join/page.tsx` — renders JoinFlow without initial code
+- `src/app/join/[code]/page.tsx` — server component, passes code to JoinFlow
+- `_components/join-flow.tsx` — two-panel slide transition (P1 → P2)
+- `_components/find-game.tsx` — P1: 5-char code input boxes, QR scanner, "Find Game" CTA
+- `_components/identity-panel.tsx` — P2: Google OAuth first, email/password secondary, display name pre-filled from auth, "Join Game" inserts into event_players
+- `_components/qr-scanner.tsx` — fullscreen camera with native BarcodeDetector API
+
+### 8. Player Lobby (DONE)
+- `src/app/game/[code]/lobby/page.tsx` — server page, verifies auth + event membership
+- `_components/lobby-view.tsx` — Supabase Realtime subscription on event_players, live player list with avatars/initials, "(you)" tag, player count
+- `_components/share-drawer.tsx` — bottom drawer with QR code + join code + native Web Share API for player-to-player sharing
+
+### 9. Host Control Panel (DONE)
+- `src/app/host/game/[code]/control/page.tsx` — server page, auth + ownership check, loads rounds/questions/game_state
+- `_components/control-panel.tsx` — full game control: Start Game, Next Question, Reveal Answer, Show Leaderboard, Pause/Resume, End Game
+- Countdown timer with color transitions (green → amber → red)
+- Progress bar showing question position
+- Live player count via Realtime subscription
+
 ## What Needs to Be Built (MVP Scope)
 
-### Step 4: Player Join Flow
-- P1: Find game (`/join` or `/join/{code}`) — 5-char code input + QR scan, "Find Game" CTA
-- P2: Identity (slides in from RIGHT after code verified) — display name, auth (Google/email/guest), "Join Game" CTA
-- P3: Lobby (`/game/{code}/lobby`) — live player count, player list, event name, prize preview, "Waiting for host..."
-
-### Step 5: Real-time Game Engine
-- Supabase Realtime Broadcast — host pushes game state, players subscribe
-- Server-authoritative scoring via Edge Functions — answers validated server-side
-- game_state table drives all transitions
-- H5: Host control panel (`/host/game/{code}/control`) — Start, Next Question, Pause/Resume, End Game
+### Step 5: Real-time Game Engine (PARTIAL — host control done, player screens TODO)
 - P4: Question screen (`/game/{code}/play`) — timer, question, answer options (2x2 grid)
 - P5: Answer result (overlay) — correct/wrong, points earned, speed bonus, current rank
+- Server-authoritative scoring via Edge Functions — answers validated server-side
 
 ### Step 6: Leaderboard
 - P7: Round leaderboard — top 5 + personal rank, shown between rounds
@@ -117,15 +129,15 @@ Full Supabase Postgres schema in `supabase/migrations/001_initial_schema.sql`:
 ## Route Map
 
 ### Player
-| Screen | Route | Type |
-|--------|-------|------|
-| P1: Find game | `/join` or `/join/{code}` | Full page |
-| P2: Identity | (slide within P1) | Slide panel |
-| P3: Lobby | `/game/{code}/lobby` | Full page |
-| P4: Question | `/game/{code}/play` | Full page |
-| P5: Answer result | (overlay on P4) | Overlay |
-| P7: Round leaderboard | `/game/{code}/results` | Full page |
-| P8: Final leaderboard | `/game/{code}/final` | Full page |
+| Screen | Route | Type | Status |
+|--------|-------|------|--------|
+| P1: Find game | `/join` or `/join/{code}` | Full page | DONE |
+| P2: Identity | (slide within P1) | Slide panel | DONE |
+| P3: Lobby | `/game/{code}/lobby` | Full page | DONE |
+| P4: Question | `/game/{code}/play` | Full page | TODO |
+| P5: Answer result | (overlay on P4) | Overlay | TODO |
+| P7: Round leaderboard | `/game/{code}/results` | Full page | TODO |
+| P8: Final leaderboard | `/game/{code}/final` | Full page | TODO |
 
 ### Host
 | Screen | Route | Type | Status |
@@ -134,8 +146,8 @@ Full Supabase Postgres schema in `supabase/migrations/001_initial_schema.sql`:
 | H2: Create event | `/host/events/new` | Full page | DONE |
 | H3: Build questions | `/host/events/{id}/questions` | Full page | DONE |
 | H4: Share code/QR | `/host/events/{id}/share` | Full page | DONE |
-| H5: Live control | `/host/game/{code}/control` | Full page | TODO |
-| H6: End game | (modal in H5) | Modal | TODO |
+| H5: Live control | `/host/game/{code}/control` | Full page | DONE |
+| H6: End game | (modal in H5) | Modal | DONE (inline) |
 | H7: Post-event | `/host/game/{code}/summary` | Full page | TODO |
 
 ## Dev Commands

@@ -35,12 +35,11 @@ export default async function LobbyPage({
 
   if (!membership) redirect(`/join/${code}`);
 
-  // Get current player's display name
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .single();
+  // Get current player's display name + sponsors
+  const [{ data: profile }, { data: sponsors }] = await Promise.all([
+    supabase.from("profiles").select("display_name").eq("id", user.id).single(),
+    supabase.from("event_sponsors").select("id, name, logo_url, sort_order").eq("event_id", event.id).order("sort_order"),
+  ]);
 
   return (
     <LobbyView
@@ -54,6 +53,7 @@ export default async function LobbyPage({
         id: user.id,
         displayName: profile?.display_name || "Player",
       }}
+      sponsors={sponsors ?? []}
     />
   );
 }

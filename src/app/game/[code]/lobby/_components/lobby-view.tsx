@@ -3,6 +3,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "./share-drawer";
+import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { SponsorBar } from "@/app/_components/sponsor-bar";
+
+type Sponsor = {
+  id: string;
+  name: string | null;
+  logo_url: string;
+  sort_order: number;
+};
 
 type Player = {
   id: string;
@@ -21,13 +30,70 @@ type EventInfo = {
 export function LobbyView({
   event,
   player,
+  sponsors,
 }: {
   event: EventInfo;
   player: { id: string; displayName: string };
+  sponsors: Sponsor[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [players, setPlayers] = useState<Player[]>([]);
   const [showShare, setShowShare] = useState(false);
+
+  // Redirect helper — shared by Realtime + polling
+  function handlePhaseChange(phase: string) {
+    if (phase === "ended") {
+      window.location.href = `/game/${event.joinCode}/final`;
+    } else if (phase !== "lobby") {
+      window.location.href = `/game/${event.joinCode}/play`;
+    }
+  }
+
+  // Check game state on mount + subscribe to changes — redirect when game starts
+  useEffect(() => {
+    async function checkAndSubscribeGameState() {
+      // Check current state immediately (handles late joiners)
+      const { data: gs } = await supabase
+        .from("game_state")
+        .select("phase")
+        .eq("event_id", event.id)
+        .single();
+
+      if (gs) handlePhaseChange(gs.phase);
+
+      // Subscribe to future changes
+      supabase
+        .channel(`game-state:${event.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "game_state",
+            filter: `event_id=eq.${event.id}`,
+          },
+          (payload) => handlePhaseChange(payload.new.phase as string)
+        )
+        .subscribe();
+    }
+
+    checkAndSubscribeGameState();
+  }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Polling fallback — checks every 2s in case Realtime misses the game start
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("game_state")
+        .select("phase")
+        .eq("event_id", event.id)
+        .single();
+
+      if (data) handlePhaseChange(data.phase);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch initial players + subscribe to realtime changes
   useEffect(() => {
@@ -104,16 +170,12 @@ export function LobbyView({
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <img
-            src="/logo-light.svg"
-            alt="BlockTrivia"
-            className="h-6 dark:hidden"
-          />
-          <img
-            src="/logo-dark.svg"
-            alt="BlockTrivia"
-            className="h-6 hidden dark:block"
-          />
+          <a href="/join">
+            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          </a>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
           <button
             onClick={() => setShowShare(true)}
             className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary-hover transition-colors"
@@ -133,6 +195,7 @@ export function LobbyView({
             </svg>
             Invite
           </button>
+          </div>
         </div>
       </header>
 
@@ -200,6 +263,9 @@ export function LobbyView({
           </div>
         )}
       </div>
+
+      {/* Sponsor bar */}
+      <SponsorBar sponsors={sponsors} />
 
       {/* Bottom bar */}
       <div className="border-t border-border bg-background">

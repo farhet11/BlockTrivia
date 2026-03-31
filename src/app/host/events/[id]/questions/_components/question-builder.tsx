@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { RoundCard } from "./round-card";
 import { JsonImportModal } from "./json-import-modal";
+import Link from "next/link";
 
 export type Round = {
   id: string;
@@ -31,10 +32,12 @@ export type Question = {
 
 export function QuestionBuilder({
   eventId,
+  joinCode,
   initialRounds,
   initialQuestions,
 }: {
   eventId: string;
+  joinCode: string;
   initialRounds: Round[];
   initialQuestions: Question[];
 }) {
@@ -42,6 +45,17 @@ export function QuestionBuilder({
   const [rounds, setRounds] = useState<Round[]>(initialRounds);
   const [questions, setQuestions] = useState<Question[]>(initialQuestions);
   const [showJsonImport, setShowJsonImport] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function markSaving() {
+    setSaveStatus("saving");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+  }
+  function markSaved() {
+    setSaveStatus("saved");
+    saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+  }
 
   const questionsForRound = useCallback(
     (roundId: string) =>
@@ -52,6 +66,7 @@ export function QuestionBuilder({
   );
 
   async function addRound() {
+    markSaving();
     const sortOrder = rounds.length;
     const { data, error } = await supabase
       .from("rounds")
@@ -65,10 +80,12 @@ export function QuestionBuilder({
 
     if (!error && data) {
       setRounds([...rounds, data]);
+      markSaved();
     }
   }
 
   async function deleteRound(roundId: string) {
+    markSaving();
     const { error } = await supabase
       .from("rounds")
       .delete()
@@ -77,10 +94,12 @@ export function QuestionBuilder({
     if (!error) {
       setRounds(rounds.filter((r) => r.id !== roundId));
       setQuestions(questions.filter((q) => q.round_id !== roundId));
+      markSaved();
     }
   }
 
   async function updateRound(roundId: string, updates: Partial<Round>) {
+    markSaving();
     const { error } = await supabase
       .from("rounds")
       .update(updates)
@@ -88,10 +107,12 @@ export function QuestionBuilder({
 
     if (!error) {
       setRounds(rounds.map((r) => (r.id === roundId ? { ...r, ...updates } : r)));
+      markSaved();
     }
   }
 
   async function addQuestion(roundId: string) {
+    markSaving();
     const existing = questionsForRound(roundId);
     const sortOrder = existing.length;
     const { data, error } = await supabase
@@ -108,10 +129,12 @@ export function QuestionBuilder({
 
     if (!error && data) {
       setQuestions([...questions, data]);
+      markSaved();
     }
   }
 
   async function updateQuestion(questionId: string, updates: Partial<Question>) {
+    markSaving();
     const { error } = await supabase
       .from("questions")
       .update(updates)
@@ -121,10 +144,12 @@ export function QuestionBuilder({
       setQuestions(
         questions.map((q) => (q.id === questionId ? { ...q, ...updates } : q))
       );
+      markSaved();
     }
   }
 
   async function deleteQuestion(questionId: string) {
+    markSaving();
     const { error } = await supabase
       .from("questions")
       .delete()
@@ -132,6 +157,7 @@ export function QuestionBuilder({
 
     if (!error) {
       setQuestions(questions.filter((q) => q.id !== questionId));
+      markSaved();
     }
   }
 
@@ -146,6 +172,7 @@ export function QuestionBuilder({
 
     const other = siblings[swapIdx];
 
+    markSaving();
     // Swap sort_order values
     await Promise.all([
       supabase
@@ -165,6 +192,7 @@ export function QuestionBuilder({
         return item;
       })
     );
+    markSaved();
   }
 
   function handleJsonImported(newQuestions: Question[]) {
@@ -173,7 +201,7 @@ export function QuestionBuilder({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
       {/* Actions bar */}
       <div className="flex gap-3">
         <Button
@@ -228,6 +256,21 @@ export function QuestionBuilder({
           onClose={() => setShowJsonImport(false)}
         />
       )}
+
+      {/* Sticky bottom bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm">
+        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground h-4">
+            {saveStatus === "saving" && "Saving..."}
+            {saveStatus === "saved" && "✓ Saved"}
+          </span>
+          <Link href={`/host/game/${joinCode}/control`}>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary-hover font-semibold">
+              Launch Game
+            </Button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

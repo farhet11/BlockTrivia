@@ -65,6 +65,7 @@ export default async function QuestionsPage({
 
       <QuestionBuilder
         eventId={eventId}
+        joinCode={event.join_code}
         initialRounds={rounds ?? []}
         initialQuestions={questions ?? []}
       />

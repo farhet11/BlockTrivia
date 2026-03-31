@@ -18,6 +18,7 @@ export function FeedbackButton() {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const supabase = useRef(createClient()).current;
 
   function resetForm() {
@@ -25,6 +26,7 @@ export function FeedbackButton() {
     setMessage("");
     setDone(false);
     setSubmitting(false);
+    setSubmitError(null);
   }
 
   async function handleSubmit() {
@@ -74,10 +76,10 @@ export function FeedbackButton() {
     setSubmitting(false);
     if (error) {
       console.error("Feedback insert failed:", error);
-      // Still show success to user — don't punish them for our infra issues
-      // but log so we can debug
+      setSubmitError(error.message);
+    } else {
+      setDone(true);
     }
-    setDone(true);
   }
 
   return (
@@ -159,6 +161,9 @@ export function FeedbackButton() {
                   className="w-full text-sm bg-background border border-border px-3 py-2 text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary resize-none"
                 />
 
+                {submitError && (
+                  <p className="text-xs text-red-500">Failed to send: {submitError}</p>
+                )}
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
                     A screenshot will be attached automatically.

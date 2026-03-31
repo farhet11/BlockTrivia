@@ -225,6 +225,12 @@ export function LobbyView({
           <p className="text-muted-foreground text-[15px]">
             Waiting for the host to start the game...
           </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground underline underline-offset-2 transition-colors"
+          >
+            Not updating? Tap to refresh
+          </button>
         </section>
 
         {/* Player count */}

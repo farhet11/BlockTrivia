@@ -424,7 +424,7 @@ export function ControlPanel({
               </h2>
 
               <div className="grid grid-cols-2 gap-3">
-                {(currentQuestion.options as string[]).map(
+                {((currentQuestion.options ?? []) as string[]).map(
                   (option: string, i: number) => (
                     <div
                       key={i}
@@ -488,11 +488,7 @@ export function ControlPanel({
               </h2>
               <p className="text-lg font-semibold text-correct">
                 {String.fromCharCode(65 + currentQuestion.correct_answer)}.{" "}
-                {
-                  (currentQuestion.options as string[])[
-                    currentQuestion.correct_answer
-                  ]
-                }
+                {((currentQuestion.options ?? []) as string[])[currentQuestion.correct_answer]}
               </p>
             </div>
 

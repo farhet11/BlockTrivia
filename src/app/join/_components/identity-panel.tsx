@@ -121,8 +121,7 @@ export function IdentityPanel({
     // Join the event
     const { error: joinError } = await supabase.from("event_players").insert({
       event_id: event.id,
-      user_id: user.id,
-      display_name: displayName.trim(),
+      player_id: user.id,
     });
 
     if (joinError) {

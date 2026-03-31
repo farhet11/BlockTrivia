@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { QrScanner } from "./qr-scanner";
 
 export function FindGame({
   initialCode,
@@ -17,6 +18,7 @@ export function FindGame({
   );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const code = chars.join("");
@@ -126,13 +128,28 @@ export function FindGame({
         </div>
 
         {/* QR scanner button */}
-        <button className="w-full flex items-center justify-center gap-3 h-12 bg-surface border border-border text-foreground font-medium text-sm active:scale-[0.98] transition-transform">
+        <button
+          onClick={() => setShowScanner(true)}
+          className="w-full flex items-center justify-center gap-3 h-12 bg-surface border border-border text-foreground font-medium text-sm active:scale-[0.98] transition-transform"
+        >
           <svg className="size-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75H16.5v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75H16.5v-.75z" />
           </svg>
           Scan Venue QR
         </button>
+
+        {showScanner && (
+          <QrScanner
+            onScanned={(code) => {
+              setShowScanner(false);
+              const next = code.toUpperCase().split("").concat(["", "", "", "", ""]).slice(0, 5);
+              setChars(next);
+              onVerified(code);
+            }}
+            onClose={() => setShowScanner(false)}
+          />
+        )}
 
         {/* Find Game CTA */}
         <Button

@@ -30,6 +30,15 @@ export function LobbyView({
   const [players, setPlayers] = useState<Player[]>([]);
   const [showShare, setShowShare] = useState(false);
 
+  // Redirect helper — shared by Realtime + polling
+  function handlePhaseChange(phase: string) {
+    if (phase === "ended") {
+      window.location.href = `/game/${event.joinCode}/final`;
+    } else if (phase !== "lobby") {
+      window.location.href = `/game/${event.joinCode}/play`;
+    }
+  }
+
   // Check game state on mount + subscribe to changes — redirect when game starts
   useEffect(() => {
     async function checkAndSubscribeGameState() {
@@ -40,16 +49,7 @@ export function LobbyView({
         .eq("event_id", event.id)
         .single();
 
-      if (gs) {
-        if (gs.phase === "ended") {
-          window.location.href = `/game/${event.joinCode}/final`;
-          return;
-        }
-        if (gs.phase !== "lobby") {
-          window.location.href = `/game/${event.joinCode}/play`;
-          return;
-        }
-      }
+      if (gs) handlePhaseChange(gs.phase);
 
       // Subscribe to future changes
       supabase
@@ -62,20 +62,28 @@ export function LobbyView({
             table: "game_state",
             filter: `event_id=eq.${event.id}`,
           },
-          (payload) => {
-            const phase = payload.new.phase as string;
-            if (phase === "ended") {
-              window.location.href = `/game/${event.joinCode}/final`;
-            } else if (phase !== "lobby") {
-              window.location.href = `/game/${event.joinCode}/play`;
-            }
-          }
+          (payload) => handlePhaseChange(payload.new.phase as string)
         )
         .subscribe();
     }
 
     checkAndSubscribeGameState();
-  }, [supabase, event.id, event.joinCode]);
+  }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Polling fallback — checks every 2s in case Realtime misses the game start
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("game_state")
+        .select("phase")
+        .eq("event_id", event.id)
+        .single();
+
+      if (data) handlePhaseChange(data.phase);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch initial players + subscribe to realtime changes
   useEffect(() => {

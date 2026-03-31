@@ -4,22 +4,37 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  // Avoid hydration mismatch
   useEffect(() => setMounted(true), []);
   if (!mounted) return <div className="w-9 h-9" />;
 
+  // Cycle: light → dark → system → light
+  function cycleTheme() {
+    if (theme === "light") setTheme("dark");
+    else if (theme === "dark") setTheme("system");
+    else setTheme("light");
+  }
+
   const isDark = resolvedTheme === "dark";
+  const isSystem = theme === "system";
 
   return (
     <button
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      onClick={cycleTheme}
       className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-      aria-label="Toggle theme"
+      aria-label={`Theme: ${theme}. Click to cycle.`}
+      title={`Theme: ${theme}`}
     >
-      {isDark ? (
+      {isSystem ? (
+        // System / auto icon (half-moon / half-sun split)
+        <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <circle cx="12" cy="12" r="9" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18M12 3a9 9 0 000 18" fill="currentColor" fillOpacity={0.15} />
+          <path strokeLinecap="round" d="M12 3v18" />
+        </svg>
+      ) : isDark ? (
         // Sun
         <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <circle cx="12" cy="12" r="4" />

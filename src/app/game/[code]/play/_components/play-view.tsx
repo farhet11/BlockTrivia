@@ -65,6 +65,8 @@ export function PlayView({
   } | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const submitLockRef = useRef(false);
+  // Ref copy of gameState for use inside polling interval without stale closure
+  const gameStateRef = useRef<GameState>(initialGameState);
 
   const currentQuestion = useMemo(
     () => questions.find((q) => q.id === gameState.current_question_id) ?? null,
@@ -92,33 +94,57 @@ export function PlayView({
   const questionsInRound = currentRoundData?.questions ?? [];
   const indexInRound = currentQuestion ? questionsInRound.findIndex((q) => q.id === currentQuestion.id) : -1;
 
-  // Subscribe to game_state changes
+  // Keep ref in sync with state (for use in polling interval)
+  useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
+
+  // Shared handler for any game state update (Realtime or polling)
+  function applyGameState(next: GameState) {
+    const prev = gameStateRef.current;
+    setGameState(next);
+    if (next.phase === "playing" && next.current_question_id !== prev.current_question_id) {
+      // New question — reset answer state
+      setAnsweredQuestionId(null);
+      setSelectedAnswer(null);
+      setLeverage(1.0);
+      setLastResult(null);
+      submitLockRef.current = false;
+    } else if (next.phase === "ended") {
+      window.location.href = `/game/${event.joinCode}/final`;
+    }
+  }
+
+  // Subscribe to game_state changes via Realtime
   useEffect(() => {
     const channel = supabase
       .channel(`play:${event.id}`)
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "game_state", filter: `event_id=eq.${event.id}` },
-        (payload) => {
-          const next = payload.new as GameState;
-          setGameState(next);
-
-          if (next.phase === "playing") {
-            // New question — reset answer state
-            setAnsweredQuestionId(null);
-            setSelectedAnswer(null);
-            setLeverage(1.0);
-            setLastResult(null);
-            submitLockRef.current = false;
-          } else if (next.phase === "ended") {
-            window.location.href = `/game/${event.joinCode}/final`;
-          }
-        }
+        (payload) => applyGameState(payload.new as GameState)
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, event.id, event.joinCode]);
+  }, [supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Polling fallback — syncs every 2s if Realtime misses an event
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("game_state")
+        .select("*")
+        .eq("event_id", event.id)
+        .single();
+
+      if (!data) return;
+      const current = gameStateRef.current;
+      if (data.phase !== current.phase || data.current_question_id !== current.current_question_id) {
+        applyGameState(data as GameState);
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if player already answered current question (handles page refresh)
   useEffect(() => {
@@ -284,6 +310,24 @@ export function PlayView({
           <p className="text-center text-xs text-muted-foreground animate-pulse">
             Waiting for host to continue...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Paused ─────────────────────────────────────────────────────────────────
+  if (phase === "lobby" && gameState.started_at) {
+    return (
+      <div className="min-h-dvh bg-background flex flex-col items-center justify-center px-5 gap-6">
+        <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
+        <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
+        <div className="text-center space-y-2">
+          <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
+            <span className="w-2 h-2 rounded-full bg-timer-warn" />
+            <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">Game Paused</span>
+          </div>
+          <h1 className="font-heading text-xl font-bold">{event.title}</h1>
+          <p className="text-sm text-muted-foreground">Waiting for the host to resume...</p>
         </div>
       </div>
     );

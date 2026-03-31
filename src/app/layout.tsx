@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import { ThemeProvider } from "next-themes";
-import { BlockPatternBg } from "@/components/ui/block-pattern-bg";
+import { BgController } from "./_components/bg-controller";
 import "./globals.css";
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -21,7 +21,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={outfit.variable}>
       <body className="min-h-dvh bg-background text-foreground font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
-          <BlockPatternBg />
+          <BgController />
           <main style={{ position: "relative", zIndex: 2 }}>
             {children}
           </main>

@@ -42,9 +42,14 @@ export function QuestionRow({
     <div className="border border-border bg-background p-3 space-y-3">
       {/* Question header */}
       <div className="flex items-start gap-2">
-        <span className="text-xs font-medium text-muted-foreground mt-1 shrink-0 w-6">
+        {/* Q-number doubles as expand/collapse toggle */}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-xs font-bold text-muted-foreground hover:text-primary mt-1 shrink-0 w-6 text-left transition-colors"
+          title={expanded ? "Collapse" : "Expand"}
+        >
           Q{index + 1}
-        </span>
+        </button>
 
         <div className="flex-1 min-w-0">
           {expanded ? (
@@ -66,7 +71,7 @@ export function QuestionRow({
           )}
         </div>
 
-        {/* Reorder + actions */}
+        {/* Reorder + delete */}
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => onMove(question.id, "up")}
@@ -83,20 +88,6 @@ export function QuestionRow({
             className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-0.5"
           >
             <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-muted-foreground hover:text-foreground p-0.5"
-          >
-            <svg
-              className={`size-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>

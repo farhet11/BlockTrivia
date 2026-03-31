@@ -35,6 +35,16 @@ export default async function LobbyPage({
 
   if (!membership) redirect(`/join/${code}`);
 
+  // If the game is already active/ended, skip the lobby
+  const { data: gameState } = await supabase
+    .from("game_state")
+    .select("phase")
+    .eq("event_id", event.id)
+    .single();
+
+  if (gameState?.phase === "ended") redirect(`/game/${code}/final`);
+  if (gameState && gameState.phase !== "lobby") redirect(`/game/${code}/play`);
+
   // Get current player's display name + sponsors
   const [{ data: profile }, { data: sponsors }] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).single(),

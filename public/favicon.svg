@@ -7,12 +7,12 @@
         50%       { opacity: 0.55; }
       }
       .cls-1 { fill: #f0e6fc; }
-      .cls-2 { fill: #151416; }
+      .cls-2 { fill: #3b0764; }
       .cls-3 { fill: #7c3aed; }
       @media (prefers-color-scheme: dark) {
         .cls-2 { fill: #a78bfa; }
         .cls-3 { fill: #7c3aed; }
-        .cls-1 { fill: #3b0764; }
+        .cls-1 { fill: #5b21b6; }
       }
       @media (prefers-reduced-motion: reduce) {
         path, polygon { animation: none !important; }

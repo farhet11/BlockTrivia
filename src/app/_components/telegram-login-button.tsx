@@ -29,17 +29,27 @@ export function TelegramLoginButton({
     setState("waiting");
     setErrorMsg(null);
 
+    // Open the window synchronously (before any await) to avoid popup blocking.
+    // On mobile this becomes a redirect; on desktop it opens t.me in a new tab.
+    const popup = window.open("about:blank", "_blank");
+
     const res = await fetch("/api/auth/telegram/init", { method: "POST" });
     const data = await res.json();
 
     if (!res.ok) {
+      popup?.close();
       setState("error");
       setErrorMsg(data.error ?? "Failed to start Telegram login");
       return;
     }
 
-    // Open Telegram — on mobile this launches the app, on desktop opens t.me
-    window.open(data.deep_link, "_blank");
+    // Navigate the already-opened window to the Telegram deep link
+    if (popup) {
+      popup.location.href = data.deep_link;
+    } else {
+      // Fallback if popup was blocked anyway (e.g. iOS Safari in some modes)
+      window.location.href = data.deep_link;
+    }
 
     // Poll for completion
     pollRef.current = setInterval(async () => {

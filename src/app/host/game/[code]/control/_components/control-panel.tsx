@@ -112,8 +112,9 @@ export function ControlPanel({
     : -1;
 
   // Is the next question in a different round?
-  const nextQ = currentIndex >= 0 ? questions[currentIndex + 1] : null;
-  const isRoundBoundary = nextQ !== null && currentQuestion !== null && nextQ.round_id !== currentQuestion.round_id;
+  // Use ?? null so out-of-bounds array access returns null, not undefined
+  const nextQ = currentIndex >= 0 ? (questions[currentIndex + 1] ?? null) : null;
+  const isRoundBoundary = nextQ != null && currentQuestion != null && nextQ.round_id !== currentQuestion.round_id;
   const nextRound = isRoundBoundary ? rounds.find((r) => r.id === nextQ.round_id) : null;
 
   // Interstitial round info (for "interstitial" phase)

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
   TelegramLoginButton,
-  type TelegramUser,
+  type TelegramAuthResult,
 } from "@/app/_components/telegram-login-button";
 
 type VerifiedEvent = {
@@ -51,22 +51,11 @@ export function IdentityPanel({
   }, [supabase]);
 
   const handleTelegramAuth = useCallback(
-    async (tgUser: TelegramUser) => {
+    async ({ token_hash, user: tgUser }: TelegramAuthResult) => {
       setError(null);
       setLoading(true);
-      const res = await fetch("/api/auth/telegram", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(tgUser),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Telegram sign-in failed");
-        setLoading(false);
-        return;
-      }
       const { error: verifyError } = await supabase.auth.verifyOtp({
-        token_hash: data.token_hash,
+        token_hash,
         type: "email",
       });
       if (verifyError) {
@@ -74,9 +63,8 @@ export function IdentityPanel({
         setLoading(false);
         return;
       }
-      const name = data.user.name || `tg_${tgUser.id}`;
-      setUser({ id: data.user.id, name });
-      setDisplayName(name);
+      setUser({ id: tgUser.id, name: tgUser.name });
+      setDisplayName(tgUser.name);
       setLoading(false);
     },
     [supabase]
@@ -341,7 +329,7 @@ export function IdentityPanel({
           {event.title}
         </p>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Signed in as {user.email}
+          Signed in as {user.email ?? user.name}
         </p>
       </div>
 
@@ -372,7 +360,7 @@ export function IdentityPanel({
             placeholder="Enter your alias"
           />
           <p className="text-xs text-muted-foreground">
-            Pre-filled from your Google account — change it if you'd like.
+            Pre-filled from your account — change it if you'd like.
           </p>
         </div>
 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { GlobalNav } from "@/app/_components/global-nav";
 import {
   TelegramLoginButton,
-  type TelegramUser,
+  type TelegramAuthResult,
 } from "@/app/_components/telegram-login-button";
 
 export default function LoginPage() {
@@ -30,22 +30,11 @@ export default function LoginPage() {
   }
 
   const handleTelegramAuth = useCallback(
-    async (user: TelegramUser) => {
+    async ({ token_hash }: TelegramAuthResult) => {
       setError(null);
       setLoading(true);
-      const res = await fetch("/api/auth/telegram", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(user),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Telegram sign-in failed");
-        setLoading(false);
-        return;
-      }
       const { error: verifyError } = await supabase.auth.verifyOtp({
-        token_hash: data.token_hash,
+        token_hash,
         type: "email",
       });
       if (verifyError) {

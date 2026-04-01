@@ -1,13 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
   <style>
-    @keyframes bt-wave { 0%,100% { opacity: 0.15; } 50% { opacity: 0.9; } }
-    .bd { fill: #1a1917; }
+    @keyframes bt-pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.55; }
+    }
+    .bd { fill: #3b0764; }
     .bv { fill: #7c3aed; }
-    @media (prefers-color-scheme: dark) { .bd { fill: #e8e5e0; } }
-    @media (prefers-reduced-motion: reduce) { rect { animation: none !important; opacity: 0.5; } }
+    @media (prefers-color-scheme: dark) {
+      .bd { fill: #a78bfa; }
+      .bv { fill: #7c3aed; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      rect { animation: none !important; }
+    }
   </style>
-  <rect class="bv" x="1"  y="1"  width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.0s infinite"/>
-  <rect class="bd" x="26" y="1"  width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.3s infinite"/>
-  <rect class="bd" x="1"  y="26" width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.6s infinite"/>
-  <rect class="bv" x="26" y="26" width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.9s infinite"/>
+  <!-- top-left violet -->
+  <rect class="bv" x="1"  y="1"  width="21" height="21" rx="3"
+        style="animation:bt-pulse 2s ease-in-out 0.0s infinite"/>
+  <!-- top-right deep purple -->
+  <rect class="bd" x="26" y="1"  width="21" height="21" rx="3"
+        style="animation:bt-pulse 2s ease-in-out 0.5s infinite"/>
+  <!-- bottom-left deep purple -->
+  <rect class="bd" x="1"  y="26" width="21" height="21" rx="3"
+        style="animation:bt-pulse 2s ease-in-out 1.0s infinite"/>
+  <!-- bottom-right violet -->
+  <rect class="bv" x="26" y="26" width="21" height="21" rx="3"
+        style="animation:bt-pulse 2s ease-in-out 1.5s infinite"/>
 </svg>

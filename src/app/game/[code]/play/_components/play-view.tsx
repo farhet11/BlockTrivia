@@ -84,7 +84,7 @@ export function PlayView({
     correctAnswer: number | undefined;
     explanation: string | null;
   } | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
@@ -258,12 +258,8 @@ export function PlayView({
   }, [gameState.phase, supabase, event.id]);
 
   async function submitAnswer(answerIndex: number) {
-    if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) {
-      setSubmitError(`Guard blocked: q=${!!currentQuestion} answered=${hasAnswered} locked=${submitLockRef.current} started=${gameState.question_started_at}`);
-      return;
-    }
+    if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
     submitLockRef.current = true;
-    setSubmitError(null);
 
     const startedAt = new Date(gameState.question_started_at).getTime();
     const timeTakenMs = Math.min(Date.now() - startedAt, currentQuestion.time_limit_seconds * 1000);
@@ -272,34 +268,23 @@ export function PlayView({
     setIsSubmitting(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        setSubmitError("No auth session found");
+      const { data: result, error } = await supabase.rpc("submit_answer", {
+        p_event_id: event.id,
+        p_question_id: currentQuestion.id,
+        p_selected_answer: answerIndex,
+        p_time_taken_ms: timeTakenMs,
+        p_wipeout_leverage: isWipeout ? leverage : 1.0,
+      });
+
+      if (error) {
+        console.error("submit_answer RPC error:", error);
         submitLockRef.current = false;
-        setIsSubmitting(false);
+        setSelectedAnswer(null);
         return;
       }
 
-      const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/submit-answer`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          question_id: currentQuestion.id,
-          selected_answer: answerIndex,
-          time_taken_ms: timeTakenMs,
-          wipeout_leverage: isWipeout ? leverage : undefined,
-          event_id: event.id,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok || result.error) {
-        setSubmitError(`[${res.status}] ${result.error ?? "Unknown error"}: ${result.detail ?? ""}`);
+      if (result?.error) {
+        console.error("submit_answer returned error:", result.error);
         submitLockRef.current = false;
         setSelectedAnswer(null);
         return;
@@ -314,7 +299,7 @@ export function PlayView({
         explanation: result.explanation ?? null,
       });
     } catch (err) {
-      setSubmitError(`Network error: ${String(err)}`);
+      console.error("submit_answer exception:", err);
       submitLockRef.current = false;
       setSelectedAnswer(null);
     } finally {
@@ -627,12 +612,6 @@ export function PlayView({
           </p>
         )}
 
-        {/* Debug: submit error (temporary — remove before launch) */}
-        {submitError && (
-          <div className="border border-wrong bg-wrong/10 p-3 text-xs text-wrong font-mono break-all">
-            {submitError}
-          </div>
-        )}
       </div>
       <SponsorBar sponsors={sponsors} />
     </div>

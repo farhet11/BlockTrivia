@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import {
+  TelegramLoginButton,
+  type TelegramUser,
+} from "@/app/_components/telegram-login-button";
 
 type VerifiedEvent = {
   id: string;
@@ -45,6 +49,33 @@ export function IdentityPanel({
       }
     });
   }, [supabase]);
+
+  const handleTelegramAuth = useCallback(
+    async (tgUser: TelegramUser) => {
+      setError(null);
+      setLoading(true);
+      const res = await fetch("/api/auth/telegram", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tgUser),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Telegram sign-in failed");
+        setLoading(false);
+        return;
+      }
+      await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+      const name = data.user.name || `tg_${tgUser.id}`;
+      setUser({ id: data.user.id, name });
+      setDisplayName(name);
+      setLoading(false);
+    },
+    [supabase]
+  );
 
   async function handleGoogle() {
     // Store event info so we can resume after OAuth redirect
@@ -176,6 +207,9 @@ export function IdentityPanel({
               We need your email to track your score and rank.
             </p>
           </div>
+
+          {/* Telegram — first for Web3 audience */}
+          <TelegramLoginButton onAuth={handleTelegramAuth} />
 
           {/* Google — primary CTA */}
           <Button

@@ -1,22 +1,21 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "./_components/theme-toggle";
+import { GlobalNav } from "./_components/global-nav";
 import { GlobalFooter } from "./_components/global-footer";
 
 export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col">
-      <div className="fixed top-4 right-4">
-        <ThemeToggle />
-      </div>
+      <GlobalNav />
       <main className="flex-1 flex flex-col items-center justify-center px-4 text-center space-y-8">
-        <div className="space-y-6">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-10 mx-auto dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-10 mx-auto hidden dark:block" />
-          <h1 className="font-heading text-2xl sm:text-3xl font-medium tracking-tight leading-snug">
-            Community Intelligence,<br />
-            <span className="text-primary">gamified.</span>
+        <div className="space-y-5">
+          <h1 className="font-heading text-3xl sm:text-4xl font-semibold tracking-tight leading-snug">
+            Find out who really knows<br />
+            <span className="text-primary">your protocol.</span>
           </h1>
+          <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
+            Real-time trivia for Web3 communities. Instant leaderboard. Zero cheating.
+          </p>
         </div>
         <div className="flex gap-3">
           <Link href="/join">

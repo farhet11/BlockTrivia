@@ -16,7 +16,7 @@ export function HostNav({ user }: { user: User }) {
 
   return (
     <header className="border-b border-border bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="mx-auto max-w-6xl flex items-center justify-between px-4 h-14">
+      <div className="mx-auto w-full max-w-[1600px] flex items-center justify-between px-8 h-14">
         <a href="/host" className="flex items-center">
           <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 dark:hidden" />
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 hidden dark:block" />

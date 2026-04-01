@@ -1,7 +1,7 @@
 export function GlobalFooter() {
   return (
     <footer className="border-t border-border bg-background">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div className="w-full max-w-[1600px] mx-auto px-8 py-4 flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
           BlockTrivia &copy; {new Date().getFullYear()}
         </p>

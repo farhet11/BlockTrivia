@@ -166,3 +166,17 @@ npm run lint    # ESLint
 - Read `node_modules/next/dist/docs/` before writing any Next.js code — this is Next.js 16 with breaking changes
 - Design tokens are CSS variables in `globals.css`, mapped via `@theme inline` for Tailwind
 - Logo: use `logo-light.svg` (light mode) and `logo-dark.svg` (dark mode) with `dark:hidden` / `hidden dark:block` pattern
+
+## Skill routing
+
+When the user's request matches an available skill, ALWAYS invoke it using the Skill
+tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
+The skill has specialized workflows that produce better results than ad-hoc answers.
+
+Key routing rules:
+- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Bugs, errors, "why is this broken", 500 errors → invoke investigate
+- Ship, deploy, push, create PR → invoke ship
+- QA, test the site, find bugs → invoke qa
+- Security audit, auth issues, RLS → invoke cso
+- Code review, production readiness → invoke review

@@ -58,7 +58,7 @@ export default async function PlayPage({
   const { data: questions } = roundIds.length
     ? await supabase
         .from("questions")
-        .select("id, round_id, body, options, correct_answer, sort_order, explanation")
+        .select("id, round_id, body, options, sort_order")
         .in("round_id", roundIds)
         .order("sort_order")
     : { data: [] };
@@ -80,7 +80,6 @@ export default async function PlayPage({
   const questionList = (questions ?? []).map((q) => ({
     ...q,
     options: q.options as string[],
-    explanation: (q.explanation as string | null) ?? null,
     round_title: roundMap[q.round_id]?.title ?? "Round",
     round_type: roundMap[q.round_id]?.round_type ?? "mcq",
     time_limit_seconds: roundMap[q.round_id]?.time_limit_seconds ?? 15,

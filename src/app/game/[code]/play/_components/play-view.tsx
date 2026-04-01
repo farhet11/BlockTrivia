@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
+import { BlockSpinner } from "@/components/ui/block-spinner";
 
 type Sponsor = {
   id: string;
@@ -585,7 +586,7 @@ export function PlayView({
                 <span className="text-sm font-medium leading-snug">
                   {isSubmitting && isSelected ? (
                     <span className="inline-flex items-center gap-1.5">
-                      <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      <BlockSpinner variant="wave" size={16} />
                       {currentQuestion.options[i]}
                     </span>
                   ) : (

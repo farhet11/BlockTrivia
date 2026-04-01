@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "./share-drawer";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
@@ -36,6 +37,7 @@ export function LobbyView({
   player: { id: string; displayName: string };
   sponsors: Sponsor[];
 }) {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [players, setPlayers] = useState<Player[]>([]);
   const [showShare, setShowShare] = useState(false);
@@ -43,9 +45,9 @@ export function LobbyView({
   // Redirect helper — shared by Realtime + polling
   function handlePhaseChange(phase: string) {
     if (phase === "ended") {
-      window.location.href = `/game/${event.joinCode}/final`;
+      router.push(`/game/${event.joinCode}/final`);
     } else if (phase !== "lobby") {
-      window.location.href = `/game/${event.joinCode}/play`;
+      router.push(`/game/${event.joinCode}/play`);
     }
   }
 

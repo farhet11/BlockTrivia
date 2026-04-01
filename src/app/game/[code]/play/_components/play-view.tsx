@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
@@ -24,9 +25,7 @@ type QuestionData = {
   round_id: string;
   body: string;
   options: string[];
-  correct_answer: number;
   sort_order: number;
-  explanation: string | null;
   round_title: string;
   round_type: "mcq" | "true_false" | "wipeout";
   time_limit_seconds: number;
@@ -69,17 +68,19 @@ export function PlayView({
   sponsors: Sponsor[];
   roundsInfo: RoundInfo[];
 }) {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [answeredQuestionId, setAnsweredQuestionId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [leverage, setLeverage] = useState(1.0);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<{
     isCorrect: boolean;
     pointsAwarded: number;
     selectedAnswer: number;
-    correctAnswer: number;
+    correctAnswer: number | undefined;
     explanation: string | null;
   } | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -129,7 +130,7 @@ export function PlayView({
       setLastResult(null);
       submitLockRef.current = false;
     } else if (next.phase === "ended") {
-      window.location.href = `/game/${event.joinCode}/final`;
+      router.push(`/game/${event.joinCode}/final`);
     }
   }
 
@@ -179,15 +180,15 @@ export function PlayView({
         if (data) {
           setAnsweredQuestionId(gameState.current_question_id);
           setSelectedAnswer(data.selected_answer);
-          if (currentQuestion) {
-            setLastResult({
-              isCorrect: data.is_correct,
-              pointsAwarded: data.points_awarded,
-              selectedAnswer: data.selected_answer,
-              correctAnswer: currentQuestion.correct_answer,
-              explanation: currentQuestion.explanation,
-            });
-          }
+          // correctAnswer / explanation are not cached client-side (server-only);
+          // they will be unavailable after a page refresh — option highlight is suppressed.
+          setLastResult({
+            isCorrect: data.is_correct,
+            pointsAwarded: data.points_awarded,
+            selectedAnswer: data.selected_answer,
+            correctAnswer: undefined,
+            explanation: null,
+          });
         }
       });
   }, [gameState.current_question_id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -260,41 +261,50 @@ export function PlayView({
 
     const startedAt = new Date(gameState.question_started_at).getTime();
     const timeTakenMs = Math.min(Date.now() - startedAt, currentQuestion.time_limit_seconds * 1000);
-    const isCorrect = answerIndex === currentQuestion.correct_answer;
-
-    let points = 0;
-    if (isCorrect) {
-      points = currentQuestion.base_points;
-      if (currentQuestion.time_bonus_enabled) {
-        const ratio = Math.max(0, 1 - timeTakenMs / (currentQuestion.time_limit_seconds * 1000));
-        points += Math.floor(currentQuestion.base_points * ratio);
-      }
-      if (isWipeout) points = Math.floor(points * leverage);
-    } else if (isWipeout && leverage > 1) {
-      // WipeOut wrong = small penalty proportional to over-leverage
-      points = -Math.floor(currentQuestion.base_points * 0.5 * (leverage - 1));
-    }
 
     setSelectedAnswer(answerIndex);
-    setAnsweredQuestionId(currentQuestion.id);
-    setLastResult({
-      isCorrect,
-      pointsAwarded: points,
-      selectedAnswer: answerIndex,
-      correctAnswer: currentQuestion.correct_answer,
-      explanation: currentQuestion.explanation,
-    });
+    setIsSubmitting(true);
 
-    await supabase.from("responses").insert({
-      event_id: event.id,
-      question_id: currentQuestion.id,
-      player_id: player.id,
-      selected_answer: answerIndex,
-      is_correct: isCorrect,
-      time_taken_ms: timeTakenMs,
-      points_awarded: points,
-      wipeout_leverage: isWipeout ? leverage : 1.0,
-    });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { submitLockRef.current = false; setIsSubmitting(false); return; }
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/submit-answer`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            question_id: currentQuestion.id,
+            selected_answer: answerIndex,
+            time_taken_ms: timeTakenMs,
+            wipeout_leverage: isWipeout ? leverage : undefined,
+            event_id: event.id,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      setAnsweredQuestionId(currentQuestion.id);
+      setLastResult({
+        isCorrect: result.is_correct,
+        pointsAwarded: result.points_awarded,
+        selectedAnswer: answerIndex,
+        correctAnswer: result.correct_answer,
+        explanation: result.explanation ?? null,
+      });
+    } catch (err) {
+      console.error("Failed to submit answer:", err);
+      // Release the lock so the player can retry
+      submitLockRef.current = false;
+      setSelectedAnswer(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const phase = gameState.phase;
@@ -548,8 +558,8 @@ export function PlayView({
         <div className={`grid gap-3 ${isTrueFalse ? "grid-cols-1" : "grid-cols-2"}`}>
           {optionLabels.map((label, i) => {
             const isSelected = selectedAnswer === i;
-            const isCorrectOption = currentQuestion.correct_answer === i;
-            const isRevealing = phase === "revealing";
+            const isCorrectOption = lastResult?.correctAnswer === i;
+            const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
 
             let cls = "p-4 border text-left transition-colors ";
             if (isRevealing) {
@@ -567,13 +577,20 @@ export function PlayView({
             return (
               <button
                 key={i}
-                disabled={hasAnswered || phase !== "playing"}
+                disabled={hasAnswered || phase !== "playing" || isSubmitting}
                 onClick={() => submitAnswer(i)}
                 className={cls}
               >
                 <span className="block text-xs font-bold mb-1 opacity-60">{label}</span>
                 <span className="text-sm font-medium leading-snug">
-                  {currentQuestion.options[i]}
+                  {isSubmitting && isSelected ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                      {currentQuestion.options[i]}
+                    </span>
+                  ) : (
+                    currentQuestion.options[i]
+                  )}
                 </span>
               </button>
             );

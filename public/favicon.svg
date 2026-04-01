@@ -1,29 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
-  <style>
-    @keyframes bt-pulse {
-      0%,100% { opacity: 1; }
-      50%      { opacity: 0.55; }
-    }
-    .bd { fill: #3b0764; }
-    .bv { fill: #7c3aed; }
-    @media (prefers-color-scheme: dark) {
-      .bd { fill: #a78bfa; }
-      .bv { fill: #7c3aed; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      rect { animation: none !important; }
-    }
-  </style>
-  <!-- top-left violet -->
-  <rect class="bv" x="1"  y="1"  width="21" height="21" rx="3"
-        style="animation:bt-pulse 2s ease-in-out 0.0s infinite"/>
-  <!-- top-right deep purple -->
-  <rect class="bd" x="26" y="1"  width="21" height="21" rx="3"
-        style="animation:bt-pulse 2s ease-in-out 0.5s infinite"/>
-  <!-- bottom-left deep purple -->
-  <rect class="bd" x="1"  y="26" width="21" height="21" rx="3"
-        style="animation:bt-pulse 2s ease-in-out 1.0s infinite"/>
-  <!-- bottom-right violet -->
-  <rect class="bv" x="26" y="26" width="21" height="21" rx="3"
-        style="animation:bt-pulse 2s ease-in-out 1.5s infinite"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #f0e6fc;
+      }
+
+      .cls-2 {
+        fill: #151416;
+      }
+
+      .cls-3 {
+        fill: #7c3aed;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2" data-name="Layer 1">
+    <g>
+      <g>
+        <path class="cls-2" d="M256,107.64V11.36c0-6.06-4.92-10.97-10.99-10.97h-96.81c-6.07,0-10.99,4.91-10.99,10.97v96.28c0,6.06,4.92,10.97,10.99,10.97h96.81c6.07,0,10.99-4.91,10.99-10.97Z"/>
+        <path class="cls-2" d="M107.7,137H11.09c-6.13,0-11.09,4.96-11.09,11.08v96.85c0,6.12,4.97,11.08,11.09,11.08h96.61c6.13,0,11.09-4.96,11.09-11.08v-96.85c0-6.12-4.97-11.08-11.09-11.08Z"/>
+        <path class="cls-3" d="M107.7,0H11.09C4.97,0,0,4.96,0,11.08v96.85c0,6.12,4.97,11.08,11.09,11.08h96.61c6.13,0,11.09-4.96,11.09-11.08V11.08c0-6.12-4.97-11.08-11.09-11.08Z"/>
+        <path class="cls-3" d="M137.21,147.95v97.09c0,6.05,4.91,10.95,10.97,10.95h96.85c6.06,0,10.97-4.9,10.97-10.95v-97.09c0-6.05-4.91-10.95-10.97-10.95h-96.85c-6.06,0-10.97,4.9-10.97,10.95Z"/>
+      </g>
+      <polygon class="cls-1" points="241.64 156.17 182.54 215.18 171.93 204.57 150.93 205.21 182.48 236.83 242.28 177.13 241.64 156.17"/>
+    </g>
+  </g>
 </svg>

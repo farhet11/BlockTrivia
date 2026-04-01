@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // User client (respects RLS for the insert)
+    // User client (respects RLS)
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -72,34 +72,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch question with round info (server-side only — correct_answer never sent to client)
+    // Fetch question (separate query — no join, matches rest of codebase)
     const { data: question, error: qError } = await supabaseAdmin
       .from("questions")
-      .select(`
-        id, correct_answer, explanation,
-        rounds!inner (
-          base_points, time_bonus_enabled, time_limit_seconds,
-          round_type, wipeout_min_leverage, wipeout_max_leverage
-        )
-      `)
+      .select("id, round_id, correct_answer, explanation")
       .eq("id", question_id)
       .single();
 
     if (qError || !question) {
-      return new Response(JSON.stringify({ error: "Question not found" }), {
+      return new Response(JSON.stringify({ error: "Question not found", detail: qError?.message }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const round = Array.isArray(question.rounds) ? question.rounds[0] : question.rounds as {
-      base_points: number;
-      time_bonus_enabled: boolean;
-      time_limit_seconds: number;
-      round_type: string;
-      wipeout_min_leverage: number;
-      wipeout_max_leverage: number;
-    };
+    // Fetch round config separately
+    const { data: round, error: rError } = await supabaseAdmin
+      .from("rounds")
+      .select("base_points, time_bonus_enabled, time_limit_seconds, round_type, wipeout_min_leverage, wipeout_max_leverage")
+      .eq("id", question.round_id)
+      .single();
+
+    if (rError || !round) {
+      return new Response(JSON.stringify({ error: "Round not found", detail: rError?.message }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const isCorrect = selected_answer === question.correct_answer;
     const isWipeout = round.round_type === "wipeout";
@@ -146,7 +145,7 @@ Deno.serve(async (req) => {
 
     if (insertError) {
       console.error("Insert error:", insertError);
-      return new Response(JSON.stringify({ error: "Failed to save response" }), {
+      return new Response(JSON.stringify({ error: "Failed to save response", detail: insertError.message }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -163,7 +162,7 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     console.error("Unexpected error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
+    return new Response(JSON.stringify({ error: "Internal server error", detail: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

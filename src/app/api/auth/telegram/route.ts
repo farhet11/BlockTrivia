@@ -41,46 +41,34 @@ export async function POST(req: NextRequest) {
   const email = `tg_${telegramId}@telegram.blocktrivia.app`;
   const fullName = [rest.first_name, rest.last_name].filter(Boolean).join(" ");
 
-  // Try to create user — will fail if they already exist
-  let userId: string;
-
-  const { data: newUser, error: createError } =
-    await supabaseAdmin.auth.admin.createUser({
+  // generateLink upserts the user and returns a token_hash the client can
+  // exchange for a session via supabase.auth.verifyOtp() — no email is sent.
+  const { data: linkData, error: linkError } =
+    await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
       email,
-      email_confirm: true,
-      user_metadata: {
-        telegram_id: telegramId,
-        full_name: fullName,
-        avatar_url: rest.photo_url ?? null,
+      options: {
+        data: {
+          telegram_id: telegramId,
+          full_name: fullName,
+          avatar_url: rest.photo_url ?? null,
+        },
       },
     });
 
-  if (!createError && newUser.user) {
-    userId = newUser.user.id;
-  } else {
-    // User already exists — find them by the synthetic email
-    const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    });
-    const existing = listData?.users.find((u) => u.email === email);
-    if (!existing) {
-      return NextResponse.json({ error: "User lookup failed" }, { status: 500 });
-    }
-    userId = existing.id;
-  }
-
-  // Create a session for this user
-  const { data: sessionData, error: sessionError } =
-    await supabaseAdmin.auth.admin.createSession({ user_id: userId });
-
-  if (sessionError || !sessionData?.session) {
-    return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
+  if (linkError || !linkData) {
+    return NextResponse.json(
+      { error: linkError?.message ?? "Failed to generate auth token" },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({
-    access_token: sessionData.session.access_token,
-    refresh_token: sessionData.session.refresh_token,
-    user: { id: userId, name: fullName, telegram_id: telegramId },
+    token_hash: linkData.properties.hashed_token,
+    user: {
+      id: linkData.user.id,
+      name: fullName,
+      telegram_id: telegramId,
+    },
   });
 }

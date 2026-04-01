@@ -55,6 +55,7 @@ export function IdentityPanel({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback?next=/join/${event.join_code}`,
+        queryParams: { prompt: "select_account" },
       },
     });
   }

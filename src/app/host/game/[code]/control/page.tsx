@@ -51,7 +51,7 @@ export default async function HostControlPage({
         .order("sort_order")
     : { data: [] };
 
-  // Get or create game_state
+  // Get or create game_state — upsert handles race condition
   let { data: gameState } = await supabase
     .from("game_state")
     .select("*")
@@ -59,12 +59,16 @@ export default async function HostControlPage({
     .single();
 
   if (!gameState) {
-    const { data: created } = await supabase
+    // Insert, then re-fetch in case of unique-constraint race
+    await supabase
       .from("game_state")
-      .insert({ event_id: event.id, phase: "lobby" })
-      .select()
+      .insert({ event_id: event.id, phase: "lobby" });
+    const { data: refetched } = await supabase
+      .from("game_state")
+      .select("*")
+      .eq("event_id", event.id)
       .single();
-    gameState = created;
+    gameState = refetched;
   }
 
   // Ended game → send host straight to summary

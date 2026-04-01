@@ -290,6 +290,14 @@ export function PlayView({
 
       const result = await res.json();
 
+      if (!res.ok || result.error) {
+        console.error("Edge Function error:", result.error, result.detail);
+        // Release lock so player can retry
+        submitLockRef.current = false;
+        setSelectedAnswer(null);
+        return;
+      }
+
       setAnsweredQuestionId(currentQuestion.id);
       setLastResult({
         isCorrect: result.is_correct,

@@ -345,8 +345,8 @@ export function ControlPanel({
             <div className="text-center space-y-3">
               <h1 className="font-heading text-3xl font-bold">{event.title}</h1>
               <p className="text-muted-foreground">
-                {playerCount} player{playerCount !== 1 ? "s" : ""} in lobby
-                &middot; {totalQuestions} questions ready
+                {playerCount} {playerCount !== 1 ? "players" : "player"} in lobby
+                {" "}&middot;{" "}{totalQuestions} questions ready
               </p>
             </div>
 

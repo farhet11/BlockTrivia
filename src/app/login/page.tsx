@@ -44,10 +44,15 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      await supabase.auth.setSession({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        token_hash: data.token_hash,
+        type: "email",
       });
+      if (verifyError) {
+        setError(verifyError.message);
+        setLoading(false);
+        return;
+      }
       window.location.href = "/host";
     },
     [supabase]

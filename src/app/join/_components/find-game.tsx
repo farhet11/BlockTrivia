@@ -19,6 +19,7 @@ export function FindGame({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [shake, setShake] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const code = chars.join("");
@@ -45,6 +46,12 @@ export function FindGame({
   function handleKeyDown(index: number, e: React.KeyboardEvent) {
     if (e.key === "Backspace" && !chars[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 4) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
     }
   }
 
@@ -71,6 +78,8 @@ export function FindGame({
     const found = await onVerified(code);
     if (!found) {
       setError("Game not found. Check your code and try again.");
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
     }
     setLoading(false);
   }
@@ -89,7 +98,10 @@ export function FindGame({
 
       {/* Code input */}
       <section className="space-y-5">
-        <div className="flex justify-center gap-2.5">
+        <div
+          className="flex justify-center gap-2.5"
+          style={shake ? { animation: "shake 0.4s ease-in-out" } : undefined}
+        >
           {chars.map((char, i) => (
             <input
               key={i}

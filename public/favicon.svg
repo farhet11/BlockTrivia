@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <style>
+    @keyframes bt-wave { 0%,100% { opacity: 0.15; } 50% { opacity: 0.9; } }
+    .bd { fill: #1a1917; }
+    .bv { fill: #7c3aed; }
+    @media (prefers-color-scheme: dark) { .bd { fill: #e8e5e0; } }
+    @media (prefers-reduced-motion: reduce) { rect { animation: none !important; opacity: 0.5; } }
+  </style>
+  <rect class="bv" x="1"  y="1"  width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.0s infinite"/>
+  <rect class="bd" x="26" y="1"  width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.3s infinite"/>
+  <rect class="bd" x="1"  y="26" width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.6s infinite"/>
+  <rect class="bv" x="26" y="26" width="21" height="21" rx="3" style="opacity:.15;animation:bt-wave 2.4s ease-in-out 0.9s infinite"/>
+</svg>

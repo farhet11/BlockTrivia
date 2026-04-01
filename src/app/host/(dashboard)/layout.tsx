@@ -18,6 +18,7 @@ export default async function HostLayout({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       <HostNav user={user} />
+
       <main className="mx-auto w-full max-w-[1600px] px-8 py-8 flex-1">{children}</main>
       <GlobalFooter />
     </div>

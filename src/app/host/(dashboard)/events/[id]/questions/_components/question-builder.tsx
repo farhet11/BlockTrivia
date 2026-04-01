@@ -324,7 +324,7 @@ export function QuestionBuilder({
 
       {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm">
-        <div className="w-full max-w-[1600px] mx-auto px-8 py-3 flex items-center justify-between">
+        <div className="w-full px-6 py-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground h-4">
             {isEnded && <span className="text-muted-foreground">Read-only · game ended</span>}
             {!isEnded && saveStatus === "saving" && "Saving..."}

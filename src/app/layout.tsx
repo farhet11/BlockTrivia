@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "BlockTrivia",
   description:
     "Real-time trivia for Web3 communities. Surface your most knowledgeable members.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

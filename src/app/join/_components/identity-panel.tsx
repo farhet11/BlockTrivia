@@ -66,7 +66,10 @@ export function IdentityPanel({
     setLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/join/${event.join_code}`,
+      },
     });
     if (error) {
       setError(error.message);
@@ -230,16 +233,20 @@ export function IdentityPanel({
             </>
           ) : (
             <>
-              <p className="text-sm text-muted-foreground">
-                Check <span className="text-foreground font-medium">{email}</span> for a 6-digit code.
-              </p>
+              <div className="bg-surface border border-border p-4 space-y-1">
+                <p className="text-sm font-medium text-foreground">Check your inbox</p>
+                <p className="text-sm text-muted-foreground">
+                  We sent a sign-in link to <span className="text-foreground font-medium">{email}</span>.
+                  Click it to continue — it will bring you back here automatically.
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">Received a 6-digit code instead?</p>
               <form onSubmit={handleVerifyOtp} className="space-y-3">
                 <input
                   type="text"
                   inputMode="numeric"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  required
                   autoFocus
                   className="w-full h-11 bg-surface border border-border px-4 text-foreground text-center text-xl tracking-[0.5em] placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary outline-none transition-colors"
                   placeholder="000000"

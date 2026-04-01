@@ -105,8 +105,8 @@ export function QrScanner({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-foreground/90 flex flex-col items-center justify-center">
-      <div className="w-full max-w-sm mx-4 space-y-4">
+    <div className="fixed inset-0 z-50 bg-foreground/90 flex flex-col items-center justify-center px-4">
+      <div className="w-full max-w-sm space-y-4">
         {error ? (
           <div className="bg-surface p-6 text-center space-y-4">
             <p className="text-sm text-muted-foreground">{error}</p>
@@ -119,7 +119,7 @@ export function QrScanner({
           </div>
         ) : (
           <>
-            <div className="relative aspect-square overflow-hidden bg-black">
+            <div className="relative aspect-square overflow-hidden bg-black max-h-[60vh]">
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover"

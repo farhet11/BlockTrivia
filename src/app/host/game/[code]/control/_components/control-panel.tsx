@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { BrandedQR } from "@/app/_components/branded-qr";
+import { PlayerAvatar } from "@/app/_components/player-avatar";
+import { ShareDrawer } from "@/app/_components/share-drawer";
 
 type Question = {
   id: string;
@@ -54,6 +56,13 @@ type EventInfo = {
   status: string;
 };
 
+type LeaderboardEntry = {
+  player_id: string;
+  display_name: string;
+  total_score: number;
+  rank: number | null;
+};
+
 export function ControlPanel({
   event,
   questions,
@@ -78,10 +87,35 @@ export function ControlPanel({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [showShare, setShowShare] = useState(false);
   const [copied, setCopied] = useState(false);
   const [stageView, setStageView] = useState(false);
   const [playerPulse, setPlayerPulse] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
+
+  // Fetch leaderboard when phase is "leaderboard"
+  useEffect(() => {
+    if (gameState.phase !== "leaderboard") return;
+    supabase
+      .from("leaderboard_entries")
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .eq("event_id", event.id)
+      .order("total_score", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data) {
+          setLeaderboard(
+            data.map((e) => ({
+              player_id: e.player_id,
+              display_name: (e.profiles as Record<string, unknown>)?.display_name as string || "Player",
+              total_score: e.total_score,
+              rank: e.rank,
+            }))
+          );
+        }
+      });
+  }, [gameState.phase, event.id, supabase]);
 
   // Derive ordered unique rounds from questions
   const rounds = useMemo(() => {
@@ -354,7 +388,7 @@ export function ControlPanel({
                 Stage View
               </button>
             )}
-            {gameState.phase !== "lobby" && (
+            {gameState.phase !== "lobby" && gameState.phase !== "leaderboard" && (
               <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
                 {event.joinCode}
               </span>
@@ -597,26 +631,83 @@ export function ControlPanel({
         )}
 
         {/* Phase: Leaderboard */}
-        {gameState.phase === "leaderboard" && (
-          <div className="py-8 space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-              <p className="text-sm text-muted-foreground">
-                Players see the live standings now
-              </p>
-            </div>
+        {gameState.phase === "leaderboard" && (() => {
+          const currentRoundIdx = rounds.findIndex(r => r.id === currentQuestion?.round_id);
+          const topScore = leaderboard[0]?.total_score ?? null;
+          return (
+            <div className="flex flex-col" style={{ minHeight: "calc(100dvh - 3.5rem)" }}>
+              <div className="flex-1 py-8 space-y-6">
+                <div className="text-center space-y-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{event.title}</p>
+                  <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Players see the live standings now
+                  </p>
+                </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={isLastQuestion ? endGame : nextQuestion}
-                disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-              >
-                {nextLabel}
-              </button>
+                {/* Stats bar */}
+                <div className="grid grid-cols-4 gap-3">
+                  {[
+                    { label: "Players", value: playerCount },
+                    { label: "Question", value: `${currentIndex + 1} / ${questions.length}` },
+                    { label: "Round", value: `${currentRoundIdx + 1} / ${rounds.length}` },
+                    { label: "Join Code", value: event.joinCode },
+                  ].map(({ label, value }) => (
+                    label === "Join Code" ? (
+                      <button
+                        key={label}
+                        onClick={() => setShowShare(true)}
+                        className="border border-border bg-surface p-3 text-center space-y-1 hover:bg-accent transition-colors group"
+                      >
+                        <div className="flex items-center justify-center gap-1.5">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Join Code</p>
+                          <svg className="size-3 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75V16.5ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+                          </svg>
+                        </div>
+                        <p className="font-bold font-mono tracking-widest text-primary">{value}</p>
+                      </button>
+                    ) : (
+                      <div key={label} className="border border-border bg-surface p-3 text-center space-y-1">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                        <p className="font-bold tabular-nums text-foreground">{value}</p>
+                      </div>
+                    )
+                  ))}
+                </div>
+
+                {leaderboard.length > 0 && (
+                  <ul className="space-y-2">
+                    {leaderboard.map((entry, i) => (
+                      <li key={entry.player_id} className="flex items-center gap-3 p-3 border border-border bg-surface">
+                        <span className={`w-7 text-center text-sm font-bold tabular-nums ${
+                          i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
+                        }`}>
+                          #{entry.rank ?? i + 1}
+                        </span>
+                        <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
+                        <span className="flex-1 text-sm font-medium text-foreground">{entry.display_name}</span>
+                        <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              {/* Always-bottom button */}
+              <div className="-mx-5 px-5 pt-3 pb-4 bg-background border-t border-border flex gap-3">
+                <button
+                  onClick={isLastQuestion ? endGame : nextQuestion}
+                  disabled={loading}
+                  className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                >
+                  {nextLabel}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Phase: Interstitial — between rounds */}
         {gameState.phase === "interstitial" && (
@@ -842,6 +933,10 @@ export function ControlPanel({
             </div>
           )}
         </div>
+      )}
+
+      {showShare && (
+        <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
       )}
     </div>
   );

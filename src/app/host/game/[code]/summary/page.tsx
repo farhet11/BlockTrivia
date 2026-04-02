@@ -17,7 +17,7 @@ export default async function SummaryPage({
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, status, created_by")
+    .select("id, title, join_code, status, created_by, twitter_handle, hashtags")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -78,6 +78,8 @@ export default async function SummaryPage({
         title: event.title,
         joinCode: event.join_code,
         status: event.status,
+        twitter_handle: event.twitter_handle ?? null,
+        hashtags: event.hashtags ?? null,
       }}
       leaderboard={leaderboard}
       playerCount={playerCount ?? 0}

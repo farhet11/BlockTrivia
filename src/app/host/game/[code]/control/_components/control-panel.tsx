@@ -386,7 +386,7 @@ export function ControlPanel({
                 Stage View
               </button>
             )}
-            {gameState.phase !== "lobby" && (
+            {gameState.phase !== "lobby" && gameState.phase !== "leaderboard" && (
               <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
                 {event.joinCode}
               </span>

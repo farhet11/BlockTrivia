@@ -424,12 +424,12 @@ export function ControlPanel({
                 {currentQuestion.body}
               </h2>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {((currentQuestion.options ?? []) as string[]).map(
                   (option: string, i: number) => (
                     <div
                       key={i}
-                      className="p-3 border border-border text-sm font-medium text-muted-foreground"
+                      className="p-3 border border-border text-sm font-medium text-muted-foreground break-words"
                     >
                       <span className="font-bold mr-2">
                         {String.fromCharCode(65 + i)}.
@@ -442,7 +442,7 @@ export function ControlPanel({
             </div>
 
             {/* Controls */}
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={revealAnswer}
                 disabled={loading}
@@ -489,7 +489,7 @@ export function ControlPanel({
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={showLeaderboard}
                 disabled={loading}
@@ -583,16 +583,16 @@ export function ControlPanel({
                 {event.title} has ended &middot; {playerCount} players
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href={`/host/game/${event.joinCode}/summary`}
-                className="h-12 px-8 bg-primary text-primary-foreground font-semibold flex items-center hover:bg-primary-hover transition-colors"
+                className="h-12 px-8 bg-primary text-primary-foreground font-semibold flex items-center justify-center hover:bg-primary-hover transition-colors"
               >
                 View Summary →
               </a>
               <a
                 href="/host"
-                className="h-12 px-8 bg-surface border border-border font-semibold flex items-center hover:bg-background transition-colors"
+                className="h-12 px-8 bg-surface border border-border font-semibold flex items-center justify-center hover:bg-background transition-colors"
               >
                 Dashboard
               </a>

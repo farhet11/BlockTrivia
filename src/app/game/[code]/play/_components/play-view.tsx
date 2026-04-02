@@ -526,8 +526,10 @@ export function PlayView({
       )}
 
       <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 flex flex-col gap-5">
-        {/* Question body */}
-        <h1 className="font-heading text-xl font-bold leading-snug">
+        {/* Question body — scales down for long text */}
+        <h1 className={`font-heading font-bold leading-snug break-words ${
+          currentQuestion.body.length > 120 ? "text-base" : "text-xl"
+        }`}>
           {currentQuestion.body}
         </h1>
 
@@ -582,7 +584,7 @@ export function PlayView({
                 className={cls}
               >
                 <span className="block text-xs font-bold mb-1 opacity-60">{label}</span>
-                <span className="text-sm font-medium leading-snug">
+                <span className="text-sm font-medium leading-snug break-words">
                   {isSubmitting && isSelected ? (
                     <span className="inline-flex items-center gap-1.5">
                       <BlockSpinner variant="wave" size={16} />

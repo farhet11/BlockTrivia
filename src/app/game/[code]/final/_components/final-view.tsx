@@ -127,34 +127,34 @@ export function FinalView({
         {podium.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Players</p>
-            <div className="flex items-end gap-3 justify-center h-28">
+            <div className="flex items-end gap-2 sm:gap-3 justify-center pt-4">
               {/* 2nd */}
               {podium[1] && (
-                <div className="flex-1 flex flex-col items-center gap-1">
+                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1">
                   <span className="text-xs font-medium text-foreground truncate w-full text-center">{podium[1].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{podium[1].total_score}</span>
-                  <div className="w-full h-16 bg-zinc-400/30 border border-zinc-400/50 flex items-center justify-center">
-                    <span className="text-xl font-bold text-zinc-400">2</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{podium[1].total_score} pts</span>
+                  <div className="w-full h-16 bg-zinc-400/20 border border-zinc-400/40 flex items-center justify-center">
+                    <span className="text-2xl">2nd</span>
                   </div>
                 </div>
               )}
               {/* 1st */}
               {podium[0] && (
-                <div className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-xs font-medium text-foreground truncate w-full text-center">{podium[0].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{podium[0].total_score}</span>
-                  <div className="w-full h-24 bg-yellow-500/20 border border-yellow-500/50 flex items-center justify-center">
-                    <span className="text-2xl font-bold text-yellow-500">1</span>
+                <div className="flex-1 max-w-[140px] flex flex-col items-center gap-1">
+                  <span className="text-sm font-semibold text-foreground truncate w-full text-center">{podium[0].display_name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{podium[0].total_score} pts</span>
+                  <div className="w-full h-24 bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center">
+                    <span className="text-3xl">1st</span>
                   </div>
                 </div>
               )}
               {/* 3rd */}
               {podium[2] && (
-                <div className="flex-1 flex flex-col items-center gap-1">
+                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1">
                   <span className="text-xs font-medium text-foreground truncate w-full text-center">{podium[2].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{podium[2].total_score}</span>
-                  <div className="w-full h-12 bg-amber-700/20 border border-amber-700/50 flex items-center justify-center">
-                    <span className="text-lg font-bold text-amber-700">3</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{podium[2].total_score} pts</span>
+                  <div className="w-full h-12 bg-amber-700/20 border border-amber-700/40 flex items-center justify-center">
+                    <span className="text-xl">3rd</span>
                   </div>
                 </div>
               )}

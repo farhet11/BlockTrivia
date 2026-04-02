@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 import { FindGame } from "./find-game";
 import { IdentityPanel } from "./identity-panel";
+import { ThemeToggle } from "@/app/_components/theme-toggle";
 
 type VerifiedEvent = {
   id: string;
@@ -69,16 +70,22 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
             alt="BlockTrivia"
             className="h-6 hidden dark:block"
           />
-          {verifiedEvent && (
-            <div className="flex items-center gap-2 bg-accent-light px-3 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-correct animate-pulse" />
-              <span className="text-accent-text text-[11px] font-bold tracking-tight uppercase">
-                {verifiedEvent.title.length > 20
-                  ? verifiedEvent.title.slice(0, 20) + "..."
-                  : verifiedEvent.title}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              onClick={async () => {
+                await supabase.auth.signOut();
+                setStep("find");
+                setVerifiedEvent(null);
+              }}
+              aria-label="Sign out"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 

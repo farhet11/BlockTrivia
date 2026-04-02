@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
-import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
-import { ShareResultButton } from "./share-result-button";
 
 type Sponsor = {
   id: string;
@@ -31,19 +29,16 @@ export function FinalView({
   player,
   leaderboard,
   myEntry,
-  totalPlayers,
   sponsors,
 }: {
-  event: { id: string; title: string; joinCode: string; twitter_handle: string | null; hashtags: string[] | null; logoUrl: string | null };
+  event: { title: string; joinCode: string };
   player: { id: string };
   leaderboard: Entry[];
   myEntry: Entry | null;
-  totalPlayers: number;
   sponsors: Sponsor[];
 }) {
   const podium = leaderboard.slice(0, 3);
   const rest = leaderboard.slice(3);
-  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     // Burst from both sides
@@ -86,21 +81,7 @@ export function FinalView({
           <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
         </a>
-        <div className="flex items-center gap-3">
-          {event.logoUrl && (
-            <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
-          )}
-          <ThemeToggle />
-          <button
-            onClick={async () => { await supabase.auth.signOut(); window.location.href = "/join"; }}
-            aria-label="Sign out"
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-            </svg>
-          </button>
-        </div>
+        <ThemeToggle />
       </header>
 
       <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
@@ -112,9 +93,7 @@ export function FinalView({
 
         {/* Personal result */}
         {myEntry && (
-          <div className={`border p-4 space-y-3 ${myEntry.is_top_10_pct ? "border-primary bg-primary/5" : "border-border bg-surface"}`}
-            style={{ animation: 'lb-fade-up 360ms ease-out both' }}
-          >
+          <div className={`border p-4 space-y-3 ${myEntry.is_top_10_pct ? "border-primary bg-primary/5" : "border-border bg-surface"}`}>
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Your result</p>
@@ -144,63 +123,36 @@ export function FinalView({
           </div>
         )}
 
-        {/* Share result */}
-        {myEntry && (
-          <ShareResultButton
-            event={event}
-            myEntry={myEntry}
-            totalPlayers={totalPlayers}
-          />
-        )}
-
         {/* Podium */}
         {podium.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Players</p>
             <div className="flex items-end gap-2 sm:gap-3 justify-center pt-4">
-              {/* 2nd — appears second at 600ms */}
+              {/* 2nd */}
               {podium[1] && (
-                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1"
-                  style={{ animation: 'podium-drop 520ms cubic-bezier(0.22, 1, 0.36, 1) both', animationDelay: '600ms', willChange: 'transform, opacity' } as React.CSSProperties}
-                >
-                  <span className="text-xs font-medium text-foreground truncate w-full text-center"
-                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '880ms' } as React.CSSProperties}
-                  >{podium[1].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums"
-                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '900ms' } as React.CSSProperties}
-                  >{podium[1].total_score} pts</span>
+                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1">
+                  <span className="text-xs font-medium text-foreground truncate w-full text-center">{podium[1].display_name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{podium[1].total_score} pts</span>
                   <div className="w-full h-16 bg-zinc-400/20 border border-zinc-400/40 flex items-center justify-center">
                     <span className="text-2xl">2nd</span>
                   </div>
                 </div>
               )}
-              {/* 1st — appears last at 1100ms */}
+              {/* 1st */}
               {podium[0] && (
-                <div className="flex-1 max-w-[140px] flex flex-col items-center gap-1"
-                  style={{ animation: 'podium-drop 580ms cubic-bezier(0.22, 1, 0.36, 1) both', animationDelay: '1100ms', willChange: 'transform, opacity' } as React.CSSProperties}
-                >
-                  <span className="text-sm font-semibold text-foreground truncate w-full text-center"
-                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '1380ms' } as React.CSSProperties}
-                  >{podium[0].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums"
-                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '1400ms' } as React.CSSProperties}
-                  >{podium[0].total_score} pts</span>
+                <div className="flex-1 max-w-[140px] flex flex-col items-center gap-1">
+                  <span className="text-sm font-semibold text-foreground truncate w-full text-center">{podium[0].display_name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{podium[0].total_score} pts</span>
                   <div className="w-full h-24 bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center">
                     <span className="text-3xl">1st</span>
                   </div>
                 </div>
               )}
-              {/* 3rd — appears first at 200ms */}
+              {/* 3rd */}
               {podium[2] && (
-                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1"
-                  style={{ animation: 'podium-drop 520ms cubic-bezier(0.22, 1, 0.36, 1) both', animationDelay: '200ms', willChange: 'transform, opacity' } as React.CSSProperties}
-                >
-                  <span className="text-xs font-medium text-foreground truncate w-full text-center"
-                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '480ms' } as React.CSSProperties}
-                  >{podium[2].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums"
-                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '500ms' } as React.CSSProperties}
-                  >{podium[2].total_score} pts</span>
+                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1">
+                  <span className="text-xs font-medium text-foreground truncate w-full text-center">{podium[2].display_name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums">{podium[2].total_score} pts</span>
                   <div className="w-full h-12 bg-amber-700/20 border border-amber-700/40 flex items-center justify-center">
                     <span className="text-xl">3rd</span>
                   </div>
@@ -213,27 +165,21 @@ export function FinalView({
         {/* Full standings */}
         {rest.length > 0 && (
           <ul className="space-y-1.5">
-            {rest.map((entry, restIdx) => {
+            {rest.map((entry) => {
               const isMe = entry.player_id === player.id;
-              const rowDelay = 1900 + restIdx * 60;
               return (
                 <li
                   key={entry.player_id}
                   className={`flex items-center gap-3 px-3 py-2.5 border text-sm ${
                     isMe ? "border-primary/50 bg-primary/5" : "border-border"
                   }`}
-                  style={{
-                    animation: 'lb-fade-up 280ms ease-out both',
-                    animationDelay: `${rowDelay}ms`,
-                    willChange: 'transform, opacity',
-                  } as React.CSSProperties}
                 >
                   <span className="w-6 text-center font-bold text-muted-foreground tabular-nums">
                     {entry.rank}
                   </span>
                   <span className={`flex-1 font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
                     {entry.display_name}
-                    {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}
+                    {isMe && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
                   </span>
                   <span className="font-bold tabular-nums">{entry.total_score}</span>
                 </li>
@@ -245,7 +191,7 @@ export function FinalView({
         <div className="pt-2">
           <a
             href="/join"
-            className="block w-full h-11 bg-primary text-primary-foreground font-heading font-medium text-sm flex items-center justify-center hover:bg-primary-hover transition-colors"
+            className="block w-full h-11 bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center hover:bg-primary-hover transition-colors"
           >
             Play Again
           </a>

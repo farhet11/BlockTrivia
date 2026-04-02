@@ -100,7 +100,7 @@ export default function LoginPage() {
           {step === "email" ? (
             <div className="space-y-4">
               {/* Telegram — first for Web3 audience */}
-              <TelegramLoginButton onAuth={handleTelegramAuth} />
+              <TelegramLoginButton onAuth={handleTelegramAuth} returnUrl={typeof window !== "undefined" ? `${window.location.origin}/host` : "/host"} />
 
               {/* Google OAuth */}
               <Button

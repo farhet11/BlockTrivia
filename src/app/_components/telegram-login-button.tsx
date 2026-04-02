@@ -39,8 +39,10 @@ function clearPending() {
 
 export function TelegramLoginButton({
   onAuth,
+  returnUrl,
 }: {
   onAuth: (result: TelegramAuthResult) => void;
+  returnUrl?: string;
 }) {
   const [state, setState] = useState<"idle" | "waiting" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export function TelegramLoginButton({
     const res = await fetch("/api/auth/telegram/init", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ returnUrl: window.location.href }),
+      body: JSON.stringify({ returnUrl: returnUrl ?? window.location.href }),
     });
     const data = await res.json();
 

@@ -202,7 +202,10 @@ export function IdentityPanel({
           </div>
 
           {/* Telegram — first for Web3 audience */}
-          <TelegramLoginButton onAuth={handleTelegramAuth} />
+          <TelegramLoginButton
+            onAuth={handleTelegramAuth}
+            returnUrl={typeof window !== "undefined" ? `${window.location.origin}/join/${event.join_code}` : `/join/${event.join_code}`}
+          />
 
           {/* Google */}
           <Button

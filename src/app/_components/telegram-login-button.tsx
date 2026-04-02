@@ -7,6 +7,36 @@ export interface TelegramAuthResult {
   user: { id: string; name: string; telegram_id: string };
 }
 
+const STORAGE_KEY = "bt_telegram_pending";
+
+function savePending(token: string, deepLink: string) {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ token, deepLink, expiresAt: Date.now() + 5 * 60 * 1000 })
+    );
+  } catch {}
+}
+
+function loadPending(): { token: string; deepLink: string } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.expiresAt < Date.now()) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearPending() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+}
+
 export function TelegramLoginButton({
   onAuth,
 }: {
@@ -23,7 +53,39 @@ export function TelegramLoginButton({
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
   }, []);
 
-  useEffect(() => () => stopPolling(), [stopPolling]);
+  const startPolling = useCallback((token: string) => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const statusRes = await fetch(`/api/auth/telegram/status?token=${token}`);
+        const statusData = await statusRes.json();
+        if (statusData.completed) {
+          stopPolling();
+          clearPending();
+          setState("idle");
+          onAuth({ token_hash: statusData.token_hash, user: statusData.user });
+        }
+      } catch {
+        // network blip — keep polling
+      }
+    }, 1500);
+
+    timeoutRef.current = setTimeout(() => {
+      stopPolling();
+      clearPending();
+      setState("idle");
+    }, 5 * 60 * 1000);
+  }, [stopPolling, onAuth]);
+
+  // On mount: resume polling if there's a live pending token (handles mobile app-switch)
+  useEffect(() => {
+    const pending = loadPending();
+    if (pending) {
+      setState("waiting");
+      setDeepLink(pending.deepLink);
+      startPolling(pending.token);
+    }
+    return () => stopPolling();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleClick() {
     stopPolling();
@@ -45,30 +107,8 @@ export function TelegramLoginButton({
     }
 
     setDeepLink(data.deep_link);
-
-    // Poll for completion
-    pollRef.current = setInterval(async () => {
-      try {
-        const statusRes = await fetch(
-          `/api/auth/telegram/status?token=${data.token}`
-        );
-        const statusData = await statusRes.json();
-
-        if (statusData.completed) {
-          stopPolling();
-          setState("idle");
-          onAuth({ token_hash: statusData.token_hash, user: statusData.user });
-        }
-      } catch {
-        // network blip — keep polling
-      }
-    }, 1500);
-
-    // Auto-cancel after 5 minutes
-    timeoutRef.current = setTimeout(() => {
-      stopPolling();
-      setState("idle");
-    }, 5 * 60 * 1000);
+    savePending(data.token, data.deep_link);
+    startPolling(data.token);
   }
 
   if (state === "waiting") {
@@ -91,13 +131,7 @@ export function TelegramLoginButton({
             disabled
             className="w-full h-11 flex items-center justify-center gap-3 border border-border bg-surface text-muted-foreground font-medium text-sm cursor-not-allowed"
           >
-            <svg
-              className="size-4 animate-spin"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
+            <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" d="M12 3a9 9 0 1 0 9 9" />
             </svg>
             Preparing link...
@@ -108,7 +142,7 @@ export function TelegramLoginButton({
         </p>
         <button
           type="button"
-          onClick={() => { stopPolling(); setState("idle"); setDeepLink(null); }}
+          onClick={() => { stopPolling(); clearPending(); setState("idle"); setDeepLink(null); }}
           className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
         >
           Cancel

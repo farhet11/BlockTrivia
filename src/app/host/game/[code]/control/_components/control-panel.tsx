@@ -6,6 +6,7 @@ import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { BrandedQR } from "@/app/_components/branded-qr";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
+import { ShareDrawer } from "@/app/_components/share-drawer";
 
 type Question = {
   id: string;
@@ -87,6 +88,7 @@ export function ControlPanel({
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [showShare, setShowShare] = useState(false);
   const [copied, setCopied] = useState(false);
   const [stageView, setStageView] = useState(false);
   const [playerPulse, setPlayerPulse] = useState(false);
@@ -650,10 +652,27 @@ export function ControlPanel({
                     { label: "Round", value: `${currentRoundIdx + 1} / ${rounds.length}` },
                     { label: "Join Code", value: event.joinCode },
                   ].map(({ label, value }) => (
-                    <div key={label} className="border border-border bg-surface p-3 text-center space-y-1">
-                      <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
-                      <p className={`font-bold text-foreground ${label === "Join Code" ? "font-mono tracking-widest text-primary" : "tabular-nums"}`}>{value}</p>
-                    </div>
+                    label === "Join Code" ? (
+                      <button
+                        key={label}
+                        onClick={() => setShowShare(true)}
+                        className="border border-border bg-surface p-3 text-center space-y-1 hover:bg-accent transition-colors group"
+                      >
+                        <div className="flex items-center justify-center gap-1.5">
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Join Code</p>
+                          <svg className="size-3 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75V16.5ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
+                          </svg>
+                        </div>
+                        <p className="font-bold font-mono tracking-widest text-primary">{value}</p>
+                      </button>
+                    ) : (
+                      <div key={label} className="border border-border bg-surface p-3 text-center space-y-1">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                        <p className="font-bold tabular-nums text-foreground">{value}</p>
+                      </div>
+                    )
                   ))}
                 </div>
 
@@ -913,6 +932,10 @@ export function ControlPanel({
             </div>
           )}
         </div>
+      )}
+
+      {showShare && (
+        <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
       )}
     </div>
   );

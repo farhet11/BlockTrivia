@@ -31,7 +31,11 @@ export function TelegramLoginButton({
     setErrorMsg(null);
     setDeepLink(null);
 
-    const res = await fetch("/api/auth/telegram/init", { method: "POST" });
+    const res = await fetch("/api/auth/telegram/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ returnUrl: window.location.href }),
+    });
     const data = await res.json();
 
     if (!res.ok) {

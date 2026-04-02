@@ -138,7 +138,7 @@ export function ResultsView({
           </p>
           <a
             href="/join"
-            className="inline-flex items-center h-11 px-8 bg-primary text-primary-foreground font-medium text-sm hover:bg-primary-hover transition-colors"
+            className="inline-flex items-center h-11 px-8 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors"
           >
             Join a Game →
           </a>

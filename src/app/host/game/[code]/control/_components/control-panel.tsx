@@ -568,14 +568,14 @@ export function ControlPanel({
               <button
                 onClick={revealAnswer}
                 disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                className="flex-1 h-12 bg-primary text-primary-foreground font-heading font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
                 Reveal Answer
               </button>
               <button
                 onClick={togglePause}
                 disabled={loading}
-                className="h-12 px-6 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
+                className="h-12 px-6 bg-surface border border-border font-heading font-medium hover:bg-background transition-colors disabled:opacity-50"
               >
                 Pause
               </button>
@@ -615,14 +615,14 @@ export function ControlPanel({
               <button
                 onClick={showLeaderboard}
                 disabled={loading}
-                className="flex-1 h-12 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
+                className="flex-1 h-12 bg-surface border border-border font-heading font-medium hover:bg-background transition-colors disabled:opacity-50"
               >
                 Show Leaderboard
               </button>
               <button
                 onClick={isLastQuestion ? endGame : nextQuestion}
                 disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                className="flex-1 h-12 bg-primary text-primary-foreground font-heading font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
                 {nextLabel}
               </button>
@@ -700,7 +700,7 @@ export function ControlPanel({
                 <button
                   onClick={isLastQuestion ? endGame : nextQuestion}
                   disabled={loading}
-                  className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                  className="flex-1 h-12 bg-primary text-primary-foreground font-heading font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
                 >
                   {nextLabel}
                 </button>
@@ -740,7 +740,7 @@ export function ControlPanel({
                 startFirstQuestionOfRound();
               }}
               disabled={loading}
-              className="h-12 px-10 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+              className="h-12 px-10 bg-primary text-primary-foreground font-heading font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
             >
               Start Round →
             </button>
@@ -765,13 +765,13 @@ export function ControlPanel({
             <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href={`/host/game/${event.joinCode}/summary`}
-                className="h-12 px-8 bg-primary text-primary-foreground font-medium flex items-center justify-center hover:bg-primary-hover transition-colors"
+                className="h-12 px-8 bg-primary text-primary-foreground font-heading font-medium flex items-center justify-center hover:bg-primary-hover transition-colors"
               >
                 View Summary →
               </a>
               <a
                 href="/host"
-                className="h-12 px-8 bg-surface border border-border font-medium flex items-center justify-center hover:bg-background transition-colors"
+                className="h-12 px-8 bg-surface border border-border font-heading font-medium flex items-center justify-center hover:bg-background transition-colors"
               >
                 Dashboard
               </a>
@@ -849,7 +849,7 @@ export function ControlPanel({
                 }
               }}
               disabled={loading}
-              className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              className="w-full h-14 bg-primary text-primary-foreground font-heading text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
             >
               Resume Game
             </button>
@@ -871,7 +871,7 @@ export function ControlPanel({
                   href="https://t.me/AdamElfarouq"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 h-9 px-4 bg-primary text-primary-foreground text-xs font-medium hover:bg-primary-hover transition-colors inline-flex items-center"
+                  className="shrink-0 h-9 px-4 bg-primary text-primary-foreground font-heading text-xs font-medium hover:bg-primary-hover transition-colors inline-flex items-center"
                 >
                   Request Access →
                 </a>
@@ -880,7 +880,7 @@ export function ControlPanel({
             <button
               onClick={isHost ? startGame : undefined}
               disabled={!isHost || loading || totalQuestions === 0}
-              className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full h-14 bg-primary text-primary-foreground font-heading text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {!isHost && (
                 <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

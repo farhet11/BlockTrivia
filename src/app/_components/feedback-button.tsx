@@ -127,7 +127,7 @@ export function FeedbackButton() {
                 <p className="text-sm text-muted-foreground">We read every submission.</p>
                 <button
                   onClick={() => setOpen(false)}
-                  className="mt-2 h-11 px-6 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
+                  className="mt-2 h-11 px-6 bg-primary text-primary-foreground font-heading text-sm font-medium hover:bg-primary-hover transition-colors"
                 >
                   Done
                 </button>
@@ -171,7 +171,7 @@ export function FeedbackButton() {
                   <button
                     onClick={handleSubmit}
                     disabled={submitting || !message.trim() || !category}
-                    className="h-11 px-5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                    className="h-11 px-5 bg-primary text-primary-foreground font-heading text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
                   >
                     {submitting ? "Sending..." : "Send"}
                   </button>

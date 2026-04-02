@@ -5,6 +5,7 @@ import confetti from "canvas-confetti";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
+import { ShareResultButton } from "./share-result-button";
 
 type Sponsor = {
   id: string;
@@ -30,12 +31,14 @@ export function FinalView({
   player,
   leaderboard,
   myEntry,
+  totalPlayers,
   sponsors,
 }: {
-  event: { title: string; joinCode: string };
+  event: { id: string; title: string; joinCode: string; twitter_handle: string | null; hashtags: string[] | null };
   player: { id: string };
   leaderboard: Entry[];
   myEntry: Entry | null;
+  totalPlayers: number;
   sponsors: Sponsor[];
 }) {
   const podium = leaderboard.slice(0, 3);
@@ -134,6 +137,15 @@ export function FinalView({
               </p>
             )}
           </div>
+        )}
+
+        {/* Share result */}
+        {myEntry && (
+          <ShareResultButton
+            event={event}
+            myEntry={myEntry}
+            totalPlayers={totalPlayers}
+          />
         )}
 
         {/* Podium */}

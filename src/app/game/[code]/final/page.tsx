@@ -17,24 +17,26 @@ export default async function FinalPage({
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code")
+    .select("id, title, join_code, twitter_handle, hashtags")
     .eq("join_code", code.toUpperCase())
     .single();
 
   if (!event) redirect("/join");
 
-  const { data: entries } = await supabase
-    .from("leaderboard_entries")
-    .select(`player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
-    .eq("event_id", event.id)
-    .order("total_score", { ascending: false })
-    .limit(20);
-
-  const { data: sponsors } = await supabase
-    .from("event_sponsors")
-    .select("id, name, logo_url, sort_order")
-    .eq("event_id", event.id)
-    .order("sort_order");
+  const [{ data: entries }, { count: totalPlayers }, { data: sponsors }] = await Promise.all([
+    supabase
+      .from("leaderboard_entries")
+      .select(`player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .eq("event_id", event.id)
+      .order("total_score", { ascending: false })
+      .limit(20),
+    supabase.from("leaderboard_entries").select("*", { count: "exact", head: true }).eq("event_id", event.id),
+    supabase
+      .from("event_sponsors")
+      .select("id, name, logo_url, sort_order")
+      .eq("event_id", event.id)
+      .order("sort_order"),
+  ]);
 
   const leaderboard = (entries ?? []).map((row) => ({
     player_id: row.player_id,
@@ -53,10 +55,17 @@ export default async function FinalPage({
 
   return (
     <FinalView
-      event={{ title: event.title, joinCode: event.join_code }}
+      event={{
+        id: event.id,
+        title: event.title,
+        joinCode: event.join_code,
+        twitter_handle: event.twitter_handle ?? null,
+        hashtags: event.hashtags ?? null,
+      }}
       player={{ id: user.id }}
       leaderboard={leaderboard}
       myEntry={myEntry}
+      totalPlayers={totalPlayers ?? leaderboard.length}
       sponsors={sponsors ?? []}
     />
   );

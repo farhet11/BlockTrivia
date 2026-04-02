@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { AnnounceResultsButton } from "./announce-results-button";
 
 type Entry = {
   player_id: string;
@@ -22,7 +23,7 @@ export function SummaryView({
   leaderboard,
   playerCount,
 }: {
-  event: { id: string; title: string; joinCode: string; status: string };
+  event: { id: string; title: string; joinCode: string; status: string; twitter_handle: string | null; hashtags: string[] | null };
   leaderboard: Entry[];
   playerCount: number;
 }) {
@@ -192,6 +193,12 @@ export function SummaryView({
             </p>
           )}
         </div>
+
+        {/* Announce results */}
+        <AnnounceResultsButton
+          event={event}
+          playerCount={playerCount}
+        />
 
         {/* Actions */}
         <div className="flex gap-3 pt-2">

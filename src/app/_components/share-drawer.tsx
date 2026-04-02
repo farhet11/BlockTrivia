@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
+import { BrandedQR } from "@/app/_components/branded-qr";
 
 export function ShareDrawer({
   joinCode,
@@ -10,37 +11,10 @@ export function ShareDrawer({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const qrRef = useRef<HTMLDivElement>(null);
   const joinUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/join/${joinCode}`
       : `/join/${joinCode}`;
-
-  // Generate QR code
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src =
-      "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
-    script.onload = () => {
-      // @ts-expect-error — loaded via CDN
-      const qr = qrcode(0, "M");
-      qr.addData(joinUrl);
-      qr.make();
-      if (qrRef.current) {
-        qrRef.current.innerHTML = qr.createSvgTag({
-          cellSize: 5,
-          margin: 0,
-        });
-        const svg = qrRef.current.querySelector("svg");
-        if (svg) {
-          svg.setAttribute("width", "100%");
-          svg.setAttribute("height", "100%");
-        }
-      }
-    };
-    document.head.appendChild(script);
-    return () => script.remove();
-  }, [joinUrl]);
 
   async function copyLink() {
     await navigator.clipboard.writeText(joinUrl);
@@ -82,7 +56,7 @@ export function ShareDrawer({
 
           {/* QR Code */}
           <div className="flex justify-center">
-            <div ref={qrRef} className="w-40 h-40 bg-white p-3" />
+            <BrandedQR value={joinUrl} size={200} />
           </div>
 
           {/* Join code */}

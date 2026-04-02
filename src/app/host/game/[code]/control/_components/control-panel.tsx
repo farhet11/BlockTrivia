@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
+import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { BrandedQR } from "@/app/_components/branded-qr";
 
 type Question = {
   id: string;
@@ -74,6 +76,10 @@ export function ControlPanel({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [stageView, setStageView] = useState(false);
+  const [playerPulse, setPlayerPulse] = useState(false);
+  const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
   // Derive ordered unique rounds from questions
   const rounds = useMemo(() => {
@@ -135,7 +141,11 @@ export function ControlPanel({
           table: "event_players",
           filter: `event_id=eq.${event.id}`,
         },
-        () => setPlayerCount((c) => c + 1)
+        () => {
+          setPlayerCount((c) => c + 1);
+          setPlayerPulse(true);
+          setTimeout(() => setPlayerPulse(false), 800);
+        }
       )
       .subscribe();
 
@@ -311,7 +321,12 @@ export function ControlPanel({
     });
   }
 
-  const phase = gameState.phase;
+  function copyCode() {
+    navigator.clipboard.writeText(event.joinCode).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
 
   // Next button label
   const nextLabel = isLastQuestion ? "End Game" : isRoundBoundary ? `Start Round ${(nextRound ? rounds.findIndex((r) => r.id === nextRound.id) + 1 : 2)}` : "Next Question";
@@ -325,63 +340,103 @@ export function ControlPanel({
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
             <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
           </a>
-          <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
-            {event.joinCode}
-          </span>
+          <div className="flex items-center gap-3">
+            {gameState.phase === "lobby" && !gameState.started_at && (
+              <button
+                onClick={() => setStageView(true)}
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125-.375-13.5C2.25 4.254 2.754 3.75 3.375 3.75h17.25c.621 0 1.125.504 1.125 1.125l-.375 13.5M20.625 19.5h-1.5c-.621 0-1.125-.504-1.125-1.125M6 18.375V6.375m12 12V6.375M6 6.375h12" />
+                </svg>
+                Stage View
+              </button>
+            )}
+            {gameState.phase !== "lobby" && (
+              <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
+                {event.joinCode}
+              </span>
+            )}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-5">
         {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
-        {phase === "lobby" && !gameState.started_at && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-8">
-            <div className="text-center space-y-3">
+        {gameState.phase === "lobby" && !gameState.started_at && (
+          <div className="pt-8 pb-28 space-y-6">
+            {/* Event info */}
+            <div className="text-center space-y-2">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Host Control</p>
-              <h1 className="font-heading text-3xl font-bold">{event.title}</h1>
+              <h1 className="font-heading text-2xl font-bold">{event.title}</h1>
               {event.description && (
-                <p className="text-muted-foreground text-sm max-w-sm">{event.description}</p>
+                <p className="text-muted-foreground text-sm max-w-sm mx-auto">{event.description}</p>
               )}
-              {/* Stat cards */}
-              <div className="flex items-center justify-center gap-3 pt-2">
-                <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
-                  <span className="text-2xl font-bold text-primary tabular-nums">{playerCount}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5">player{playerCount !== 1 ? "s" : ""}</span>
-                </div>
-                <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
-                  <span className="text-2xl font-bold tabular-nums">{roundsList.length}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5">round{roundsList.length !== 1 ? "s" : ""}</span>
-                </div>
-                <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
-                  <span className="text-2xl font-bold tabular-nums">{totalQuestions}</span>
-                  <span className="text-xs text-muted-foreground mt-0.5">question{totalQuestions !== 1 ? "s" : ""}</span>
-                </div>
+            </div>
+
+            {/* Stat cards */}
+            <div className="flex items-center justify-center gap-3">
+              <div className={`flex flex-col items-center px-5 py-3 border bg-surface min-w-[80px] transition-colors duration-300 ${playerPulse ? "border-correct bg-correct/10" : "border-border"}`}>
+                <span className="text-2xl font-bold text-primary tabular-nums">{playerCount}</span>
+                <span className="text-xs text-muted-foreground mt-0.5">player{playerCount !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
+                <span className="text-2xl font-bold tabular-nums">{roundsList.length}</span>
+                <span className="text-xs text-muted-foreground mt-0.5">round{roundsList.length !== 1 ? "s" : ""}</span>
+              </div>
+              <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
+                <span className="text-2xl font-bold tabular-nums">{totalQuestions}</span>
+                <span className="text-xs text-muted-foreground mt-0.5">question{totalQuestions !== 1 ? "s" : ""}</span>
               </div>
             </div>
 
+            {/* QR code */}
+            <div className="flex justify-center">
+              <BrandedQR value={joinUrl} size={200} />
+            </div>
+
+            {/* Game code — tap to copy */}
             <button
-              onClick={startGame}
-              disabled={loading || totalQuestions === 0}
-              className="h-14 px-12 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              onClick={copyCode}
+              className="w-full text-center group space-y-1"
+              aria-label="Copy join code"
             >
-              {totalQuestions === 0 ? "No Questions Added" : "Start Game"}
+              <div className="flex items-center justify-center gap-2">
+                <span className="font-mono text-4xl font-bold tracking-[0.2em] text-primary">
+                  {event.joinCode}
+                </span>
+                {copied ? (
+                  <svg className="size-5 text-correct shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
+                ) : (
+                  <svg className="size-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                  </svg>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground/60">
+                {copied ? "✓ Copied!" : "tap anywhere to copy"}
+              </p>
             </button>
 
             {totalQuestions === 0 && (
-              <p className="text-sm text-wrong">
+              <p className="text-sm text-wrong text-center">
                 Add questions before starting the game.
               </p>
             )}
 
             <a
               href={`/host/events/${event.id}/questions`}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="block text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               ← Back to questions
             </a>
 
             {sponsors.length > 0 && (
-              <div className="w-full pt-8">
+              <div className="w-full pt-4">
                 <SponsorBar sponsors={sponsors} />
               </div>
             )}
@@ -389,7 +444,7 @@ export function ControlPanel({
         )}
 
         {/* Phase: Playing — show current question */}
-        {phase === "playing" && currentQuestion && (
+        {gameState.phase === "playing" && currentQuestion && (
           <div className="py-8 space-y-6">
             {/* Progress */}
             <div className="space-y-2">
@@ -484,7 +539,7 @@ export function ControlPanel({
         )}
 
         {/* Phase: Revealing — show correct answer, then advance */}
-        {phase === "revealing" && currentQuestion && (
+        {gameState.phase === "revealing" && currentQuestion && (
           <div className="py-8 space-y-6">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
@@ -531,7 +586,7 @@ export function ControlPanel({
         )}
 
         {/* Phase: Leaderboard */}
-        {phase === "leaderboard" && (
+        {gameState.phase === "leaderboard" && (
           <div className="py-8 space-y-6">
             <div className="text-center space-y-2">
               <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
@@ -553,7 +608,7 @@ export function ControlPanel({
         )}
 
         {/* Phase: Interstitial — between rounds */}
-        {phase === "interstitial" && (
+        {gameState.phase === "interstitial" && (
           <div className="flex flex-col items-center justify-center py-16 space-y-8">
             <div className="text-center space-y-3">
               <p className="text-xs font-bold text-primary uppercase tracking-widest">
@@ -597,7 +652,7 @@ export function ControlPanel({
         )}
 
         {/* Phase: Ended */}
-        {phase === "ended" && (
+        {gameState.phase === "ended" && (
           <div className="flex flex-col items-center justify-center py-20 space-y-6">
             <div className="text-center space-y-3">
               <h1 className="font-heading text-3xl font-bold">Game Over</h1>
@@ -623,8 +678,8 @@ export function ControlPanel({
         )}
 
         {/* Paused state (lobby phase but game already started) */}
-        {phase === "lobby" && gameState.started_at && (
-          <div className="flex flex-col items-center justify-center py-20 space-y-8">
+        {gameState.phase === "lobby" && gameState.started_at && (
+          <div className="pt-8 pb-28 space-y-6">
             <div className="text-center space-y-3">
               <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5">
                 <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">
@@ -639,6 +694,48 @@ export function ControlPanel({
               </p>
             </div>
 
+            {/* QR + game code — players can still join while paused */}
+            <div className="flex justify-center">
+              <BrandedQR value={joinUrl} size={200} />
+            </div>
+
+            <button
+              onClick={copyCode}
+              className="w-full text-center group space-y-1"
+              aria-label="Copy join code"
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className="font-mono text-4xl font-bold tracking-[0.2em] text-primary">
+                  {event.joinCode}
+                </span>
+                {copied ? (
+                  <svg className="size-5 text-correct shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
+                ) : (
+                  <svg className="size-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                  </svg>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground/60">
+                {copied ? "✓ Copied!" : "tap anywhere to copy"}
+              </p>
+            </button>
+
+            {sponsors.length > 0 && (
+              <div className="w-full pt-4">
+                <SponsorBar sponsors={sponsors} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Sticky Resume Game — paused state */}
+      {gameState.phase === "lobby" && gameState.started_at && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-5 py-4 z-40">
+          <div className="max-w-2xl mx-auto">
             <button
               onClick={async () => {
                 await updateEventStatus("active");
@@ -650,13 +747,70 @@ export function ControlPanel({
                 }
               }}
               disabled={loading}
-              className="h-14 px-12 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
             >
               Resume Game
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Sticky Start Game — lobby pre-start only */}
+      {gameState.phase === "lobby" && !gameState.started_at && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-5 py-4 z-40">
+          <div className="max-w-2xl mx-auto">
+            <button
+              onClick={startGame}
+              disabled={loading || totalQuestions === 0}
+              className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+            >
+              {totalQuestions === 0 ? "No Questions Added" : "Start Game"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Stage View overlay — full-screen projector layout */}
+      {stageView && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center px-8 py-12">
+          <button
+            onClick={() => setStageView(false)}
+            className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Exit stage view"
+          >
+            <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-10 mb-6 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-10 mb-6 hidden dark:block" />
+
+          <h1 className="font-heading text-2xl font-bold text-center mb-8">{event.title}</h1>
+
+          <div className="mb-6">
+            <BrandedQR value={joinUrl} size={280} />
+          </div>
+
+          <p className="text-sm text-muted-foreground mb-2">blocktrivia.com/join</p>
+
+          <p className="font-mono text-[64px] font-bold tracking-[0.2em] text-primary leading-none mb-8">
+            {event.joinCode}
+          </p>
+
+          <div className="flex items-center gap-2.5">
+            <span className={`w-3 h-3 rounded-full bg-correct ${playerPulse ? "animate-ping" : "animate-pulse"}`} />
+            <span className="text-3xl font-bold tabular-nums">{playerCount}</span>
+            <span className="text-lg text-muted-foreground">player{playerCount !== 1 ? "s" : ""} joined</span>
+          </div>
+
+          {sponsors.length > 0 && (
+            <div className="absolute bottom-0 left-0 right-0">
+              <SponsorBar sponsors={sponsors} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -420,19 +420,22 @@ export function PlayView({
   // ── Paused ─────────────────────────────────────────────────────────────────
   if (phase === "lobby" && gameState.started_at) {
     return (
-      <div className="min-h-dvh bg-background flex flex-col items-center justify-center px-5 gap-6">
-        <a href="/join">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
-        </a>
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
-            <span className="w-2 h-2 rounded-full bg-timer-warn" />
-            <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">Game Paused</span>
+      <div className="min-h-dvh bg-background flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+          <a href="/join">
+            <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
+            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
+          </a>
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
+              <span className="w-2 h-2 rounded-full bg-timer-warn" />
+              <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">Game Paused</span>
+            </div>
+            <h1 className="font-heading text-xl font-bold">{event.title}</h1>
+            <p className="text-sm text-muted-foreground">Waiting for the host to resume...</p>
           </div>
-          <h1 className="font-heading text-xl font-bold">{event.title}</h1>
-          <p className="text-sm text-muted-foreground">Waiting for the host to resume...</p>
         </div>
+        <SponsorBar sponsors={sponsors} />
       </div>
     );
   }

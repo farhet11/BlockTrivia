@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { BrandedQR } from "@/app/_components/branded-qr";
+import { PlayerAvatar } from "@/app/_components/player-avatar";
 
 type Question = {
   id: string;
@@ -54,6 +55,13 @@ type EventInfo = {
   status: string;
 };
 
+type LeaderboardEntry = {
+  player_id: string;
+  display_name: string;
+  total_score: number;
+  rank: number | null;
+};
+
 export function ControlPanel({
   event,
   questions,
@@ -78,10 +86,34 @@ export function ControlPanel({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [copied, setCopied] = useState(false);
   const [stageView, setStageView] = useState(false);
   const [playerPulse, setPlayerPulse] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
+
+  // Fetch leaderboard when phase is "leaderboard"
+  useEffect(() => {
+    if (gameState.phase !== "leaderboard") return;
+    supabase
+      .from("leaderboard_entries")
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .eq("event_id", event.id)
+      .order("total_score", { ascending: false })
+      .limit(10)
+      .then(({ data }) => {
+        if (data) {
+          setLeaderboard(
+            data.map((e) => ({
+              player_id: e.player_id,
+              display_name: (e.profiles as Record<string, unknown>)?.display_name as string || "Player",
+              total_score: e.total_score,
+              rank: e.rank,
+            }))
+          );
+        }
+      });
+  }, [gameState.phase, event.id, supabase]);
 
   // Derive ordered unique rounds from questions
   const rounds = useMemo(() => {
@@ -605,6 +637,23 @@ export function ControlPanel({
                 Players see the live standings now
               </p>
             </div>
+
+            {leaderboard.length > 0 && (
+              <ul className="space-y-2">
+                {leaderboard.map((entry, i) => (
+                  <li key={entry.player_id} className="flex items-center gap-3 p-3 border border-border bg-surface">
+                    <span className={`w-7 text-center text-sm font-bold tabular-nums ${
+                      i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
+                    }`}>
+                      #{entry.rank ?? i + 1}
+                    </span>
+                    <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
+                    <span className="flex-1 text-sm font-medium text-foreground">{entry.display_name}</span>
+                    <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <div className="flex gap-3">
               <button

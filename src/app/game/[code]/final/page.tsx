@@ -17,7 +17,7 @@ export default async function FinalPage({
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, twitter_handle, hashtags")
+    .select("id, title, join_code, twitter_handle, hashtags, logo_url")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -61,6 +61,7 @@ export default async function FinalPage({
         joinCode: event.join_code,
         twitter_handle: event.twitter_handle ?? null,
         hashtags: event.hashtags ?? null,
+        logoUrl: event.logo_url ?? null,
       }}
       player={{ id: user.id }}
       leaderboard={leaderboard}

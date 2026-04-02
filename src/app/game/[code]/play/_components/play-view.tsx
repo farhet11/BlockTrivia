@@ -63,7 +63,7 @@ export function PlayView({
   sponsors,
   roundsInfo,
 }: {
-  event: { id: string; title: string; joinCode: string };
+  event: { id: string; title: string; joinCode: string; logoUrl: string | null };
   player: { id: string; displayName: string };
   questions: QuestionData[];
   initialGameState: GameState;
@@ -320,7 +320,10 @@ export function PlayView({
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
             <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
           </a>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-3">
+            {event.logoUrl && (
+              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+            )}
             <ThemeToggle />
             <button
               onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
@@ -384,7 +387,10 @@ export function PlayView({
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
             <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
           </a>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-3">
+            {event.logoUrl && (
+              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+            )}
             <ThemeToggle />
             <button
               onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}

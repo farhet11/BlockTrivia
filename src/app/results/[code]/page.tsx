@@ -43,7 +43,7 @@ export default async function ResultsPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, twitter_handle, hashtags")
+    .select("id, title, join_code, twitter_handle, hashtags, logo_url")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -83,6 +83,7 @@ export default async function ResultsPage({ params }: Props) {
         joinCode: event.join_code,
         twitter_handle: event.twitter_handle ?? null,
         hashtags: event.hashtags ?? null,
+        logoUrl: event.logo_url ?? null,
       }}
       leaderboard={leaderboard}
       sponsors={sponsors ?? []}

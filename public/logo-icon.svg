@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 111.44 115.27">
+  <!-- Top-left: warm canvas background + dark prompt -->
+  <rect x="0" y="3.83" width="51.71" height="51.55" rx="4.78" fill="#faf9f7"/>
+  <!-- Top-right: dark -->
+  <rect x="59.73" y="3.83" width="51.71" height="51.55" rx="4.78" fill="#151416"/>
+  <!-- Bottom-left: dark -->
+  <rect x="0" y="63.39" width="51.71" height="51.88" rx="4.83" fill="#151416"/>
+  <!-- Bottom-right: violet -->
+  <rect x="59.73" y="63.39" width="51.71" height="51.88" rx="4.78" fill="#7c3aed"/>
+  <!-- >_ prompt (dark) -->
+  <rect x="24.18" y="47.9" width="27.54" height="4.37" fill="#151416"/>
+  <polygon points="0 12.66 6.3 18.96 19.67 32.33 6.3 45.71 0 52.01 12.69 52.39 12.84 52.25 26.21 38.87 32.75 32.33 26.21 25.79 12.84 12.42 12.69 12.28 0 12.66" fill="#151416"/>
+  <!-- Checkmark (light violet) -->
+  <polygon points="105.19 71.75 79.47 97.48 74.84 92.85 65.7 93.13 79.44 106.92 105.47 80.89 105.19 71.75" fill="#f0e6fc"/>
+</svg>

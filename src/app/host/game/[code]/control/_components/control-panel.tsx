@@ -673,7 +673,7 @@ export function ControlPanel({
                 </ul>
               )}
 
-              <div className="flex gap-3">
+              <div className="sticky bottom-0 -mx-5 px-5 pt-3 pb-4 bg-background border-t border-border flex gap-3">
                 <button
                   onClick={isLastQuestion ? endGame : nextQuestion}
                   disabled={loading}

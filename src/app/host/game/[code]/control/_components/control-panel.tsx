@@ -47,6 +47,7 @@ type GameState = {
 type EventInfo = {
   id: string;
   title: string;
+  description?: string | null;
   joinCode: string;
   status: string;
 };
@@ -320,34 +321,42 @@ export function ControlPanel({
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-2xl mx-auto">
-          <div className="flex items-center gap-3">
-            <a href="/host">
-              <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-              <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-            </a>
-            <span className="text-xs text-muted-foreground">HOST CONTROL</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium tabular-nums">
-              {playerCount} player{playerCount !== 1 ? "s" : ""}
-            </span>
-            <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
-              {event.joinCode}
-            </span>
-          </div>
+          <a href="/host">
+            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          </a>
+          <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
+            {event.joinCode}
+          </span>
         </div>
       </header>
 
       <div className="flex-1 max-w-2xl mx-auto w-full px-5">
+        {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
         {phase === "lobby" && !gameState.started_at && (
           <div className="flex flex-col items-center justify-center py-20 space-y-8">
             <div className="text-center space-y-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Host Control</p>
               <h1 className="font-heading text-3xl font-bold">{event.title}</h1>
-              <p className="text-muted-foreground">
-                {playerCount} player{playerCount !== 1 ? "s" : ""} in lobby
-                &middot; {totalQuestions} questions ready
-              </p>
+              {event.description && (
+                <p className="text-muted-foreground text-sm max-w-sm">{event.description}</p>
+              )}
+              {/* Stat cards */}
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
+                  <span className="text-2xl font-bold text-primary tabular-nums">{playerCount}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">player{playerCount !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
+                  <span className="text-2xl font-bold tabular-nums">{roundsList.length}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">round{roundsList.length !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="flex flex-col items-center px-5 py-3 border border-border bg-surface min-w-[80px]">
+                  <span className="text-2xl font-bold tabular-nums">{totalQuestions}</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">question{totalQuestions !== 1 ? "s" : ""}</span>
+                </div>
+              </div>
             </div>
 
             <button
@@ -362,6 +371,19 @@ export function ControlPanel({
               <p className="text-sm text-wrong">
                 Add questions before starting the game.
               </p>
+            )}
+
+            <a
+              href={`/host/events/${event.id}/questions`}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ← Back to questions
+            </a>
+
+            {sponsors.length > 0 && (
+              <div className="w-full pt-8">
+                <SponsorBar sponsors={sponsors} />
+              </div>
             )}
           </div>
         )}

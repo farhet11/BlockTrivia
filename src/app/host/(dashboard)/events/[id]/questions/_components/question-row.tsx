@@ -39,7 +39,7 @@ export function QuestionRow({
   }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="border border-border bg-background p-3 space-y-3">
+    <div className={`border p-3 space-y-3 transition-colors ${expanded ? "border-primary/30 bg-accent-light" : "border-border/50 bg-background/40"}`}>
       {/* Question header */}
       <div className="flex items-start gap-2">
         {/* Q-number doubles as expand/collapse toggle */}

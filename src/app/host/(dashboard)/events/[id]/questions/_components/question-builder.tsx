@@ -318,6 +318,7 @@ export function QuestionBuilder({
           rounds={rounds}
           onImported={handleJsonImported}
           onRoundsCreated={(newRounds) => setRounds([...rounds, ...newRounds])}
+          onRoundsReplaced={(newRounds, newQuestions) => { setRounds(newRounds); setQuestions(newQuestions); }}
           onClose={() => setShowJsonImport(false)}
         />
       )}

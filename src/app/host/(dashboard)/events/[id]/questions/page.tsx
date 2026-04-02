@@ -2,6 +2,8 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect, notFound } from "next/navigation";
 import { QuestionBuilder } from "./_components/question-builder";
 import { SponsorsPanel } from "./_components/sponsors-panel";
+import { JoinCodeCopy } from "./_components/join-code-copy";
+import { ShareButton } from "./_components/share-button";
 
 export default async function QuestionsPage({
   params,
@@ -54,12 +56,10 @@ export default async function QuestionsPage({
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
             Build Questions
           </h1>
-          <a
-            href={`/host/events/${eventId}/share`}
-            className="text-sm text-primary font-medium hover:underline underline-offset-4"
-          >
-            Share & QR
-          </a>
+          <div className="flex flex-col items-end gap-0.5">
+            <JoinCodeCopy joinCode={event.join_code} />
+            <ShareButton joinCode={event.join_code} />
+          </div>
         </div>
       </div>
 

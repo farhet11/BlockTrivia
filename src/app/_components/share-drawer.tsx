@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { BrandedQR } from "@/app/_components/branded-qr";
+import { useState, useEffect, useRef } from "react";
 
 export function ShareDrawer({
   joinCode,
@@ -11,10 +10,37 @@ export function ShareDrawer({
   onClose: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
   const joinUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/join/${joinCode}`
       : `/join/${joinCode}`;
+
+  // Generate QR code
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src =
+      "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
+    script.onload = () => {
+      // @ts-expect-error — loaded via CDN
+      const qr = qrcode(0, "M");
+      qr.addData(joinUrl);
+      qr.make();
+      if (qrRef.current) {
+        qrRef.current.innerHTML = qr.createSvgTag({
+          cellSize: 5,
+          margin: 0,
+        });
+        const svg = qrRef.current.querySelector("svg");
+        if (svg) {
+          svg.setAttribute("width", "100%");
+          svg.setAttribute("height", "100%");
+        }
+      }
+    };
+    document.head.appendChild(script);
+    return () => script.remove();
+  }, [joinUrl]);
 
   async function copyLink() {
     await navigator.clipboard.writeText(joinUrl);
@@ -56,7 +82,7 @@ export function ShareDrawer({
 
           {/* QR Code */}
           <div className="flex justify-center">
-            <BrandedQR value={joinUrl} size={200} />
+            <div ref={qrRef} className="w-40 h-40 bg-white p-3" />
           </div>
 
           {/* Join code */}
@@ -73,13 +99,13 @@ export function ShareDrawer({
           <div className="flex gap-3">
             <button
               onClick={nativeShare}
-              className="flex-1 h-11 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors"
+              className="flex-1 h-11 bg-primary text-primary-foreground font-medium text-sm hover:bg-primary-hover transition-colors"
             >
               Share Link
             </button>
             <button
               onClick={copyLink}
-              className="flex-1 h-11 bg-surface border border-border text-foreground font-heading font-medium text-sm hover:bg-background transition-colors"
+              className="flex-1 h-11 bg-surface border border-border text-foreground font-medium text-sm hover:bg-background transition-colors"
             >
               {copied ? "Copied!" : "Copy Link"}
             </button>

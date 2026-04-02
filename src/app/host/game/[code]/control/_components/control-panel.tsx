@@ -61,6 +61,7 @@ export function ControlPanel({
   initialGameState,
   playerCount: initialPlayerCount,
   sponsors,
+  isHost,
 }: {
   event: EventInfo;
   questions: Question[];
@@ -68,6 +69,7 @@ export function ControlPanel({
   initialGameState: GameState;
   playerCount: number;
   sponsors: Sponsor[];
+  isHost: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
@@ -758,12 +760,33 @@ export function ControlPanel({
       {/* Sticky Start Game — lobby pre-start only */}
       {gameState.phase === "lobby" && !gameState.started_at && (
         <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-5 py-4 z-40">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mx-auto space-y-3">
+            {!isHost && (
+              <div className="border border-border bg-surface px-4 py-3 flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">You need host access to go live</p>
+                  <p className="text-xs text-muted-foreground">Your event is saved as a draft — reach out and we&apos;ll activate you.</p>
+                </div>
+                <a
+                  href="https://t.me/AdamElfarouq"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 h-9 px-4 bg-primary text-primary-foreground text-xs font-medium hover:bg-primary-hover transition-colors inline-flex items-center"
+                >
+                  Request Access →
+                </a>
+              </div>
+            )}
             <button
-              onClick={startGame}
-              disabled={loading || totalQuestions === 0}
-              className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              onClick={isHost ? startGame : undefined}
+              disabled={!isHost || loading || totalQuestions === 0}
+              className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
             >
+              {!isHost && (
+                <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+              )}
               {totalQuestions === 0 ? "No Questions Added" : "Start Game"}
             </button>
           </div>

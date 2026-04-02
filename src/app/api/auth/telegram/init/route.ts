@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
-const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_SITE_URL ?? "https://blocktrivia.xyz";
+const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_SITE_URL ?? "https://blocktrivia.com";
 
 function isSafeReturnUrl(url: unknown): url is string {
   if (typeof url !== "string") return false;

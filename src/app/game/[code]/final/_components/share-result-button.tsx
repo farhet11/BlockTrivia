@@ -31,7 +31,7 @@ export function ShareResultButton({
     setCanNativeShare(typeof navigator !== "undefined" && !!navigator.share);
   }, []);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://blocktrivia.xyz";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://blocktrivia.com";
   const resultUrl = `${siteUrl}/results/${event.joinCode}`;
   const btTwitter = process.env.NEXT_PUBLIC_BLOCKTRIVIA_TWITTER;
 

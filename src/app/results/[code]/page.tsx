@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!event) return { title: "Results | BlockTrivia" };
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://blocktrivia.xyz";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://blocktrivia.com";
   const ogUrl = `${siteUrl}/api/og/result?event_id=${event.id}`;
 
   return {

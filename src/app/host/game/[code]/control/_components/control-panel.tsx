@@ -648,11 +648,11 @@ export function ControlPanel({
                     { label: "Players", value: playerCount },
                     { label: "Question", value: `${currentIndex + 1} / ${questions.length}` },
                     { label: "Round", value: `${currentRoundIdx + 1} / ${rounds.length}` },
-                    { label: "Top Score", value: topScore !== null ? `${topScore} pts` : "—" },
+                    { label: "Join Code", value: event.joinCode },
                   ].map(({ label, value }) => (
                     <div key={label} className="border border-border bg-surface p-3 text-center space-y-1">
                       <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
-                      <p className="font-bold tabular-nums text-foreground">{value}</p>
+                      <p className={`font-bold text-foreground ${label === "Join Code" ? "font-mono tracking-widest text-primary" : "tabular-nums"}`}>{value}</p>
                     </div>
                   ))}
                 </div>

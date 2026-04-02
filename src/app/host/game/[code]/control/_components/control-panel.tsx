@@ -638,6 +638,7 @@ export function ControlPanel({
             <div className="flex flex-col" style={{ minHeight: "calc(100dvh - 3.5rem)" }}>
               <div className="flex-1 py-8 space-y-6">
                 <div className="text-center space-y-2">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{event.title}</p>
                   <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
                   <p className="text-sm text-muted-foreground">
                     Players see the live standings now

@@ -1,5 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
+import { createClient } from "@/lib/supabase";
+import { ThemeToggle } from "@/app/_components/theme-toggle";
+
 type Entry = {
   player_id: string;
   display_name: string;
@@ -22,6 +26,8 @@ export function SummaryView({
   leaderboard: Entry[];
   playerCount: number;
 }) {
+  const supabase = useMemo(() => createClient(), []);
+
   function downloadCSV() {
     const headers = ["Rank", "Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%"];
     const rows = leaderboard.map((e) => [
@@ -61,19 +67,28 @@ export function SummaryView({
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-3xl mx-auto">
-          <div className="flex items-center gap-3">
-            <a href="/host">
-              <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-              <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-            </a>
-            <span className="text-xs text-muted-foreground">POST-EVENT SUMMARY</span>
+          <a href="/host">
+            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+          </a>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={downloadCSV}
+              className="h-9 px-4 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
+            >
+              Export CSV
+            </button>
+            <ThemeToggle />
+            <button
+              onClick={async () => { await supabase.auth.signOut(); window.location.href = "/login"; }}
+              aria-label="Sign out"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+              </svg>
+            </button>
           </div>
-          <button
-            onClick={downloadCSV}
-            className="h-11 px-4 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
-          >
-            Export CSV
-          </button>
         </div>
       </header>
 

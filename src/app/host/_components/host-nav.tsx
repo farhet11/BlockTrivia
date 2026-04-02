@@ -9,6 +9,11 @@ export function HostNav({ user }: { user: User }) {
   const router = useRouter();
   const supabase = createClient();
 
+  const shortName =
+    user.user_metadata?.name ||
+    user.email?.split("@")[0] ||
+    "Host";
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     router.push("/login");
@@ -22,6 +27,7 @@ export function HostNav({ user }: { user: User }) {
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
         </a>
         <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground hidden sm:block">{shortName}</span>
           <ThemeToggle />
           <button
             onClick={handleSignOut}

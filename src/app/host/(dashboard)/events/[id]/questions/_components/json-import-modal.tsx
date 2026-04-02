@@ -91,12 +91,14 @@ export function JsonImportModal({
   rounds,
   onImported,
   onRoundsCreated,
+  onRoundsReplaced,
   onClose,
 }: {
   eventId: string;
   rounds: Round[];
   onImported: (questions: Question[]) => void;
   onRoundsCreated: (rounds: Round[]) => void;
+  onRoundsReplaced: (rounds: Round[], questions: Question[]) => void;
   onClose: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
@@ -105,8 +107,147 @@ export function JsonImportModal({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showSample, setShowSample] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [importMode, setImportMode] = useState<"add" | "replace">("add");
 
   const format = json.trim() ? detectFormat(json) : null;
+  const showModeChoice = format === "full" && rounds.length > 0;
+
+  const SAMPLE_JSON = JSON.stringify([
+    {
+      title: "What is BlockTrivia?",
+      round_type: "mcq",
+      time_limit_seconds: 20,
+      base_points: 100,
+      questions: [
+        {
+          body: "What is BlockTrivia?",
+          options: [
+            "A real-time trivia platform for Web3 communities",
+            "A blockchain-based casino",
+            "An NFT marketplace",
+            "A DeFi yield protocol",
+          ],
+          correct_answer: 0,
+          explanation: "BlockTrivia is a live trivia game that helps Web3 projects find who actually understands their protocol — not just airdrop farmers.",
+        },
+        {
+          body: "What does a player's rank on the BlockTrivia leaderboard actually prove?",
+          options: [
+            "How much ETH they hold",
+            "How fast and accurately they answered questions about the protocol",
+            "How many NFTs they own",
+            "Their on-chain transaction history",
+          ],
+          correct_answer: 1,
+          explanation: "The leaderboard reflects knowledge + speed — a signal of genuine protocol understanding, not just token wealth.",
+        },
+        {
+          body: "Who is BlockTrivia primarily built for?",
+          options: [
+            "Casual gamers looking for crypto prizes",
+            "Web3 projects that want to identify informed community members",
+            "Developers building smart contracts",
+            "Crypto influencers running giveaways",
+          ],
+          correct_answer: 1,
+          explanation: "BlockTrivia is a tool for protocols and DAOs to run knowledge-based events — separating real community from airdrop hunters.",
+        },
+        {
+          body: "Which of the following is NOT a feature of BlockTrivia?",
+          options: [
+            "Real-time leaderboard during the game",
+            "CSV export of player results after the event",
+            "On-chain token rewards distributed automatically",
+            "A host control panel to manage the game live",
+          ],
+          correct_answer: 2,
+          explanation: "BlockTrivia does not handle on-chain rewards. It provides data (leaderboard, CSV) that projects can use to distribute rewards however they choose.",
+        },
+      ],
+    },
+    {
+      title: "True or False Round",
+      round_type: "true_false",
+      time_limit_seconds: 15,
+      base_points: 100,
+      questions: [
+        {
+          body: "BlockTrivia requires players to connect a crypto wallet to join.",
+          correct_answer: 1,
+          explanation: "False — players join with Google or email. No wallet needed to play.",
+        },
+        {
+          body: "Hosts can pause a live BlockTrivia game at any time.",
+          correct_answer: 0,
+          explanation: "True — the host control panel includes a pause button that freezes the timer for all players.",
+        },
+        {
+          body: "BlockTrivia automatically distributes token rewards to top-ranked players.",
+          correct_answer: 1,
+          explanation: "False — BlockTrivia provides a CSV export with rankings. The project decides how to reward players.",
+        },
+        {
+          body: "Faster correct answers earn more points in BlockTrivia.",
+          correct_answer: 0,
+          explanation: "True — scoring includes a speed bonus, so answering quickly and correctly maximises your score.",
+        },
+      ],
+    },
+    {
+      title: "WipeOut — Go All In",
+      round_type: "wipeout",
+      time_limit_seconds: 20,
+      base_points: 100,
+      questions: [
+        {
+          body: "What happens to a player's score if they use the WipeOut wager and answer incorrectly?",
+          options: [
+            "Their wager is subtracted from their score",
+            "They lose all their points and are eliminated",
+            "Nothing — wrong answers are ignored in WipeOut",
+            "They drop to the bottom of the leaderboard",
+          ],
+          correct_answer: 0,
+          explanation: "In WipeOut, players set a wager before answering. A wrong answer deducts the wagered amount — high risk, high reward.",
+        },
+        {
+          body: "In a WipeOut round, what does wagering your maximum points mean?",
+          options: [
+            "You double your score if correct, lose it all if wrong",
+            "You are guaranteed to win the round",
+            "Your answer is locked in before the question appears",
+            "You skip the question entirely",
+          ],
+          correct_answer: 0,
+          explanation: "Maximum wager = maximum leverage. Correct answer doubles your points; wrong answer wipes them out.",
+        },
+        {
+          body: "Which player strategy is most rewarded in a WipeOut round?",
+          options: [
+            "Wager low and play it safe every time",
+            "Wager high only on questions you are confident about",
+            "Skip all questions to preserve your current score",
+            "Wager randomly to keep opponents guessing",
+          ],
+          correct_answer: 1,
+          explanation: "WipeOut rewards conviction — big wagers on confident answers can leapfrog multiple positions on the leaderboard.",
+        },
+      ],
+    },
+  ], null, 2);
+
+  function handleCopySample() {
+    navigator.clipboard.writeText(SAMPLE_JSON);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleUseSample() {
+    setJson(SAMPLE_JSON);
+    setShowSample(false);
+  }
 
   async function handleImport() {
     setError(null);
@@ -139,7 +280,19 @@ export function JsonImportModal({
       ? parsed
       : parsed.rounds;
 
-    const startRoundOrder = rounds.length;
+    // Replace mode: delete all existing rounds (cascade removes questions)
+    if (importMode === "replace" && rounds.length > 0) {
+      const { error: delErr } = await supabase
+        .from("rounds")
+        .delete()
+        .eq("event_id", eventId);
+      if (delErr) {
+        setError(`Failed to clear existing rounds: ${delErr.message}`);
+        return;
+      }
+    }
+
+    const startRoundOrder = importMode === "replace" ? 0 : rounds.length;
     const newRounds: Round[] = [];
     const newQuestions: Question[] = [];
 
@@ -192,8 +345,12 @@ export function JsonImportModal({
       }
     }
 
-    onRoundsCreated(newRounds);
-    onImported(newQuestions);
+    if (importMode === "replace") {
+      onRoundsReplaced(newRounds, newQuestions);
+    } else {
+      onRoundsCreated(newRounds);
+      onImported(newQuestions);
+    }
     onClose();
   }
 
@@ -322,6 +479,44 @@ export function JsonImportModal({
           )}
         </div>
 
+        {/* Sample quiz accordion */}
+        <div className="border border-border">
+          <button
+            onClick={() => setShowSample((v) => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span className="uppercase tracking-wider">Sample quiz — BlockTrivia</span>
+            <svg
+              className={`size-3.5 transition-transform ${showSample ? "rotate-180" : ""}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {showSample && (
+            <div className="border-t border-border bg-background">
+              <div className="px-3 py-2 flex items-center justify-between gap-3">
+                <p className="text-xs text-muted-foreground">3 rounds · 11 questions — MCQ, True/False, and WipeOut. Ready to import.</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleCopySample}
+                    className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors px-2 py-1 border border-border"
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                  <button
+                    onClick={handleUseSample}
+                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors px-2 py-1 border border-primary"
+                  >
+                    Use this
+                  </button>
+                </div>
+              </div>
+              <pre className="px-3 pb-3 text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">{SAMPLE_JSON}</pre>
+            </div>
+          )}
+        </div>
+
         {/* Auto-detected format badge */}
         {format && (
           <p className="text-xs font-medium">
@@ -330,6 +525,36 @@ export function JsonImportModal({
               {format === "full" ? "Full import — creates rounds + questions" : "Single round — adds to selected round"}
             </span>
           </p>
+        )}
+
+        {/* Add vs Replace — only shown for full import when rounds exist */}
+        {showModeChoice && (
+          <div className="border border-border">
+            <button
+              onClick={() => setImportMode("add")}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-border ${importMode === "add" ? "bg-accent-light" : "hover:bg-accent"}`}
+            >
+              <span className={`size-4 rounded-full border-2 flex items-center justify-center shrink-0 ${importMode === "add" ? "border-primary" : "border-border"}`}>
+                {importMode === "add" && <span className="size-2 rounded-full bg-primary" />}
+              </span>
+              <div>
+                <p className="text-sm font-medium text-foreground">Add to existing</p>
+                <p className="text-xs text-muted-foreground">Append new rounds after your {rounds.length} existing round{rounds.length !== 1 ? "s" : ""}</p>
+              </div>
+            </button>
+            <button
+              onClick={() => setImportMode("replace")}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${importMode === "replace" ? "bg-destructive/5" : "hover:bg-accent"}`}
+            >
+              <span className={`size-4 rounded-full border-2 flex items-center justify-center shrink-0 ${importMode === "replace" ? "border-destructive" : "border-border"}`}>
+                {importMode === "replace" && <span className="size-2 rounded-full bg-destructive" />}
+              </span>
+              <div>
+                <p className={`text-sm font-medium ${importMode === "replace" ? "text-destructive" : "text-foreground"}`}>Replace all</p>
+                <p className="text-xs text-muted-foreground">Delete existing rounds and questions, then import fresh</p>
+              </div>
+            </button>
+          </div>
         )}
 
         {/* Target round — only shown for single-round format */}
@@ -373,9 +598,9 @@ export function JsonImportModal({
           <Button
             onClick={handleImport}
             disabled={loading || !json.trim() || !format}
-            className="bg-primary text-primary-foreground hover:bg-primary-hover font-medium"
+            className={`font-medium ${showModeChoice && importMode === "replace" ? "bg-destructive text-white hover:bg-destructive/90" : "bg-primary text-primary-foreground hover:bg-primary-hover"}`}
           >
-            {loading ? "Importing..." : "Import"}
+            {loading ? "Importing..." : showModeChoice && importMode === "replace" ? "Replace & Import" : "Import"}
           </Button>
         </div>
       </div>

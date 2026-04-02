@@ -1,14 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-
-type Event = {
-  id: string;
-  title: string;
-  status: string;
-  join_code: string;
-  created_at: string;
-};
+import { EventList } from "./_components/event-list";
 
 export default async function HostDashboard() {
   const supabase = await createServerSupabaseClient();
@@ -22,13 +15,15 @@ export default async function HostDashboard() {
     .eq("created_by", user!.id)
     .order("created_at", { ascending: false });
 
+  const displayName = user!.email?.split("@")[0] || user!.user_metadata?.name || "Host";
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Your Events
+            Welcome back, <span className="text-primary">{displayName}</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Create and manage trivia events for your community.
@@ -50,48 +45,8 @@ export default async function HostDashboard() {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {events.map((event: Event) => (
-            <Link
-              key={event.id}
-              href={`/host/events/${event.id}/questions`}
-              className="block border border-border bg-surface p-5 hover:bg-accent transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h2 className="font-semibold text-foreground">
-                    {event.title}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Code: <span className="font-mono font-medium tracking-wider">{event.join_code}</span>
-                    <span className="mx-2">·</span>
-                    {new Date(event.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <StatusBadge status={event.status} />
-              </div>
-            </Link>
-          ))}
-        </div>
+        <EventList events={events} />
       )}
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    draft: "bg-muted text-muted-foreground",
-    lobby: "bg-accent-light text-accent-text",
-    active: "bg-correct/10 text-correct",
-    paused: "bg-timer-warn/10 text-timer-warn",
-    ended: "bg-muted text-muted-foreground",
-  };
-
-  return (
-    <span
-      className={`text-xs font-medium px-2.5 py-1 ${styles[status] ?? styles.draft}`}
-    >
-      {status}
-    </span>
   );
 }

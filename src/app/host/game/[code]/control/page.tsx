@@ -19,7 +19,7 @@ export default async function HostControlPage({
   // Load event + verify ownership
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, status, created_by")
+    .select("id, title, description, join_code, status, created_by")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -59,16 +59,24 @@ export default async function HostControlPage({
     .single();
 
   if (!gameState) {
-    // Insert, then re-fetch in case of unique-constraint race
-    await supabase
+    // Create game_state and return the row in one round-trip
+    const { data: created } = await supabase
       .from("game_state")
-      .insert({ event_id: event.id, phase: "lobby" });
-    const { data: refetched } = await supabase
-      .from("game_state")
-      .select("*")
-      .eq("event_id", event.id)
+      .upsert({ event_id: event.id, phase: "lobby" }, { onConflict: "event_id", ignoreDuplicates: true })
+      .select()
       .single();
-    gameState = refetched;
+
+    if (!created) {
+      // upsert returned nothing (row already existed due to race) — re-fetch
+      const { data: refetched } = await supabase
+        .from("game_state")
+        .select("*")
+        .eq("event_id", event.id)
+        .single();
+      gameState = refetched;
+    } else {
+      gameState = created;
+    }
   }
 
   // Ended game → send host straight to summary
@@ -120,13 +128,21 @@ export default async function HostControlPage({
     interstitial_text: r.interstitial_text ?? null,
   }));
 
-  if (!gameState) redirect("/host");
+  if (!gameState) {
+    // Shouldn't happen — surface the error rather than silently redirecting
+    return (
+      <div className="min-h-dvh flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Failed to initialise game state. <a href="/host" className="text-primary underline">Go back</a></p>
+      </div>
+    );
+  }
 
   return (
     <ControlPanel
       event={{
         id: event.id,
         title: event.title,
+        description: event.description ?? null,
         joinCode: event.join_code,
         status: event.status,
       }}

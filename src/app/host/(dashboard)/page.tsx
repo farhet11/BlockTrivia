@@ -13,6 +13,7 @@ export default async function HostDashboard() {
     .from("events")
     .select("id, title, status, join_code, created_at")
     .eq("created_by", user!.id)
+    .neq("status", "archived")
     .order("created_at", { ascending: false });
 
   const displayName = user!.email?.split("@")[0] || user!.user_metadata?.name || "Host";

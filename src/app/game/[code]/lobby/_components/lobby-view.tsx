@@ -300,7 +300,7 @@ export function LobbyView({
                 <p className="text-sm font-medium text-foreground truncate">
                   {p.display_name}
                   {p.player_id === player.id && (
-                    <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>
+                    <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>
                   )}
                 </p>
               </div>

@@ -42,7 +42,7 @@ export default async function CreateEventPage() {
             </p>
           </div>
           <a
-            href="https://t.me/elfarouq"
+            href="https://t.me/AdamElfarouq"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 h-11 px-5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"

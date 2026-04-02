@@ -2,9 +2,22 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+const ALLOWED_ORIGIN = process.env.NEXT_PUBLIC_SITE_URL ?? "https://blocktrivia.xyz";
+
+function isSafeReturnUrl(url: unknown): url is string {
+  if (typeof url !== "string") return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === ALLOWED_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const token = crypto.randomBytes(20).toString("hex");
   const { returnUrl } = await req.json().catch(() => ({}));
+  const safeReturnUrl = isSafeReturnUrl(returnUrl) ? returnUrl : null;
 
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

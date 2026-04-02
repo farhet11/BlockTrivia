@@ -108,7 +108,7 @@ export function ControlPanel({
           setLeaderboard(
             data.map((e) => ({
               player_id: e.player_id,
-              display_name: (e.profiles as Record<string, unknown>)?.display_name as string || "Player",
+              display_name: (e.profiles as unknown as Record<string, unknown>)?.display_name as string || "Player",
               total_score: e.total_score,
               rank: e.rank,
             }))

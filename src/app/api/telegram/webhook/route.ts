@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 
-  // Mark the token as completed with the user's Telegram data
-  const { error } = await supabaseAdmin
+  // Mark the token as completed and fetch return_url in one round-trip
+  const { data, error } = await supabaseAdmin
     .from("telegram_auth_tokens")
     .update({
       telegram_id: String(from.id),
@@ -41,10 +41,16 @@ export async function POST(req: NextRequest) {
     })
     .eq("token", token)
     .eq("completed", false)
-    .gt("expires_at", new Date().toISOString());
+    .gt("expires_at", new Date().toISOString())
+    .select("return_url")
+    .single();
 
   if (!error) {
-    // Send confirmation back in Telegram
+    const returnUrl = data?.return_url;
+    const linkLine = returnUrl
+      ? `\n\n<a href="${returnUrl}">← Back to BlockTrivia</a>`
+      : "";
+
     await fetch(
       `https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
       {
@@ -52,7 +58,8 @@ export async function POST(req: NextRequest) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: from.id,
-          text: "✅ You're logged in to BlockTrivia! Switch back to your browser to continue.",
+          parse_mode: "HTML",
+          text: `✅ You're logged in to BlockTrivia!${linkLine}`,
         }),
       }
     );

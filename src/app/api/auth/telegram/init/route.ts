@@ -1,9 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const token = crypto.randomBytes(20).toString("hex");
+  const { returnUrl } = await req.json().catch(() => ({}));
 
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,7 +14,7 @@ export async function POST() {
 
   const { error } = await supabaseAdmin
     .from("telegram_auth_tokens")
-    .insert({ token });
+    .insert({ token, return_url: returnUrl ?? null });
 
   if (error) {
     return NextResponse.json({ error: "Failed to create token" }, { status: 500 });

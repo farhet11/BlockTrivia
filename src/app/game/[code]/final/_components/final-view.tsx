@@ -219,7 +219,7 @@ export function FinalView({
         <div className="pt-2">
           <a
             href="/join"
-            className="block w-full h-11 bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center hover:bg-primary-hover transition-colors"
+            className="block w-full h-11 bg-primary text-primary-foreground font-heading font-medium text-sm flex items-center justify-center hover:bg-primary-hover transition-colors"
           >
             Play Again
           </a>

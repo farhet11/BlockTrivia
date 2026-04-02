@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
+import { Check, X } from "lucide-react";
 
 type Sponsor = {
   id: string;
@@ -87,6 +88,7 @@ export function PlayView({
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
@@ -256,6 +258,11 @@ export function PlayView({
           );
         }
       });
+    supabase
+      .from("event_players")
+      .select("player_id", { count: "exact", head: true })
+      .eq("event_id", event.id)
+      .then(({ count }) => { if (count !== null) setPlayerCount(count); });
   }, [gameState.phase, supabase, event.id]);
 
   async function submitAnswer(answerIndex: number) {
@@ -380,6 +387,8 @@ export function PlayView({
   // ── Leaderboard phase ──────────────────────────────────────────────────────
   if (phase === "leaderboard") {
     const myEntry = leaderboard.find((e) => e.player_id === player.id);
+    const lbQuestionIdx = questions.findIndex((q) => q.id === gameState.current_question_id);
+    const lbRoundIdx = rounds.findIndex((r) => r.id === gameState.current_round_id);
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
@@ -414,6 +423,30 @@ export function PlayView({
               </p>
             )}
           </div>
+
+          {/* Stats bar */}
+          <div className="grid grid-cols-4 border border-border divide-x divide-border">
+            <div className="px-3 py-2.5 text-center">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
+              <p className="font-heading text-lg font-bold tabular-nums">{playerCount ?? "—"}</p>
+            </div>
+            <div className="px-3 py-2.5 text-center">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
+              <p className="font-heading text-lg font-bold tabular-nums">
+                {lbQuestionIdx >= 0 ? `${lbQuestionIdx + 1}/${questions.length}` : "—"}
+              </p>
+            </div>
+            <div className="px-3 py-2.5 text-center">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
+              <p className="font-heading text-lg font-bold tabular-nums">
+                {lbRoundIdx >= 0 ? `${lbRoundIdx + 1}/${rounds.length}` : "—"}
+              </p>
+            </div>
+            <div className="px-3 py-2.5 text-center">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
+              <p className="font-heading text-lg font-bold tabular-nums font-mono tracking-wider">{event.joinCode}</p>
+            </div>
+          </div>
           <ul className="space-y-2">
             {leaderboard.map((entry, i) => {
               const isMe = entry.player_id === player.id;
@@ -424,11 +457,26 @@ export function PlayView({
                     isMe ? "border-primary bg-primary/5" : "border-border"
                   }`}
                 >
-                  <span className={`w-7 text-center text-sm font-bold tabular-nums ${
-                    i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
-                  }`}>
-                    #{entry.rank ?? i + 1}
-                  </span>
+                  {i === 0 ? (
+                    <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0">
+                      <rect x="0" y="0" width="36" height="36" fill="#7c3aed" fillOpacity="0.12"/>
+                      <text x="18" y="25" fontFamily="Outfit,sans-serif" fontSize="22" fontWeight="800" fill="#f59e0b" textAnchor="middle">1</text>
+                    </svg>
+                  ) : i === 1 ? (
+                    <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0">
+                      <rect x="0" y="0" width="36" height="36" fill="#7c3aed" fillOpacity="0.12"/>
+                      <text x="18" y="25" fontFamily="Outfit,sans-serif" fontSize="22" fontWeight="800" fill="#a1a1aa" textAnchor="middle">2</text>
+                    </svg>
+                  ) : i === 2 ? (
+                    <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0">
+                      <rect x="0" y="0" width="36" height="36" fill="#7c3aed" fillOpacity="0.12"/>
+                      <text x="18" y="25" fontFamily="Outfit,sans-serif" fontSize="22" fontWeight="800" fill="#d97706" textAnchor="middle">3</text>
+                    </svg>
+                  ) : (
+                    <span className="w-9 text-center text-sm font-bold tabular-nums text-muted-foreground shrink-0">
+                      {entry.rank ?? i + 1}
+                    </span>
+                  )}
                   <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
                   <span className={`flex-1 text-sm font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
                     {entry.display_name} {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}
@@ -518,6 +566,23 @@ export function PlayView({
         </div>
       </header>
 
+      {/* Timer bar — 4px shrinking bar per DESIGN.md */}
+      {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {
+        const pct = (timeLeft / currentQuestion.time_limit_seconds) * 100;
+        return (
+          <div className="w-full h-1 bg-transparent">
+            <div
+              className="h-full"
+              style={{
+                width: `${pct}%`,
+                backgroundColor: pct > 50 ? '#7c3aed' : pct > 20 ? '#f59e0b' : '#ef4444',
+                transition: 'width 1s linear, background-color 300ms ease',
+              }}
+            />
+          </div>
+        );
+      })()}
+
       {/* Progress bar */}
       {currentRoundData && questionsInRound.length > 0 && (
         <div className="border-b border-border px-5 py-2.5 max-w-lg mx-auto w-full">
@@ -552,8 +617,9 @@ export function PlayView({
             lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
           }`}
         >
-          <span className={`font-bold text-sm ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
-            {lastResult.isCorrect ? "✓ Correct!" : "✗ Wrong"}
+          <span className={`font-bold text-sm flex items-center gap-1.5 ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
+            {lastResult.isCorrect ? <Check size={16} strokeWidth={2.5} /> : <X size={16} strokeWidth={2.5} />}
+            {lastResult.isCorrect ? "Correct!" : "Wrong"}
           </span>
           <span className="font-bold text-sm tabular-nums">
             {lastResult.pointsAwarded >= 0 ? "+" : ""}{lastResult.pointsAwarded} pts

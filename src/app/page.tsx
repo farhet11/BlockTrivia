@@ -19,12 +19,12 @@ export default function Home() {
         </div>
         <div className="flex gap-3">
           <Link href="/join">
-            <Button className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-semibold">
+            <Button className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-medium">
               Join a Game
             </Button>
           </Link>
           <Link href="/host">
-            <Button variant="outline" className="h-11 px-6 font-semibold">
+            <Button variant="outline" className="h-11 px-6 font-medium">
               Host an Event
             </Button>
           </Link>

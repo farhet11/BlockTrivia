@@ -507,7 +507,7 @@ export function PlayView({
       {phase === "revealing" && lastResult && (
         <div
           className={`px-5 py-3 flex items-center justify-between ${
-            lastResult.isCorrect ? "bg-correct/10 border-b border-correct/30" : "bg-wrong/10 border-b border-wrong/30"
+            lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
           }`}
         >
           <span className={`font-bold text-sm ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
@@ -527,7 +527,7 @@ export function PlayView({
 
       <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 flex flex-col gap-5">
         {/* Question body — scales down for long text */}
-        <h1 className={`font-heading font-bold leading-snug break-words ${
+        <h1 className={`font-medium leading-snug break-words ${
           currentQuestion.body.length > 120 ? "text-base" : "text-xl"
         }`}>
           {currentQuestion.body}
@@ -563,17 +563,17 @@ export function PlayView({
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
 
-            let cls = "p-4 border text-left transition-colors ";
+            let cls = "p-4 min-h-14 border text-left transition-colors ";
             if (isRevealing) {
-              if (isCorrectOption) cls += "border-correct bg-correct/10 text-correct";
-              else if (isSelected) cls += "border-wrong bg-wrong/10 text-wrong";
+              if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
+              else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
               else cls += "border-border text-muted-foreground opacity-50";
             } else if (isSelected) {
-              cls += "border-primary bg-primary/10 text-primary";
+              cls += "border-primary bg-accent-light text-primary";
             } else if (hasAnswered) {
               cls += "border-border text-muted-foreground opacity-50";
             } else {
-              cls += "border-border text-foreground hover:border-primary hover:bg-primary/5 active:bg-primary/10 cursor-pointer";
+              cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
             }
 
             return (

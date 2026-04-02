@@ -292,13 +292,13 @@ export function LobbyView({
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
               Game Code
             </p>
-            <p className="font-heading text-2xl font-bold tracking-[0.2em] text-foreground">
+            <p className="font-mono text-2xl font-bold tracking-[0.15em] text-foreground">
               {event.joinCode}
             </p>
           </div>
           <button
             onClick={() => setShowShare(true)}
-            className="h-10 px-5 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors"
+            className="h-11 px-5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             Share
           </button>

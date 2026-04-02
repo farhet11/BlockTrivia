@@ -87,7 +87,7 @@ export function FeedbackButton() {
       {/* Trigger button — bottom-left */}
       <button
         onClick={() => { setOpen(true); resetForm(); }}
-        className="fixed bottom-4 left-4 z-50 h-9 w-9 rounded-full bg-surface border border-border shadow-sm flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+        className="fixed bottom-4 left-4 z-50 h-11 w-11 rounded-full bg-surface border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
         aria-label="Send feedback"
         title="Send feedback"
       >
@@ -106,7 +106,7 @@ export function FeedbackButton() {
           />
 
           {/* Panel */}
-          <div className="relative bg-background border border-border shadow-lg w-full max-w-sm mx-4 mb-4 sm:mb-0">
+          <div className="relative bg-background border border-border w-full max-w-sm mx-4 mb-4 sm:mb-0">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <p className="text-sm font-semibold">Send feedback</p>
@@ -127,7 +127,7 @@ export function FeedbackButton() {
                 <p className="text-sm text-muted-foreground">We read every submission.</p>
                 <button
                   onClick={() => setOpen(false)}
-                  className="mt-2 h-9 px-6 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors"
+                  className="mt-2 h-11 px-6 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
                 >
                   Done
                 </button>
@@ -162,7 +162,7 @@ export function FeedbackButton() {
                 />
 
                 {submitError && (
-                  <p className="text-xs text-red-500">Failed to send: {submitError}</p>
+                  <p className="text-xs text-destructive">Failed to send: {submitError}</p>
                 )}
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
@@ -171,7 +171,7 @@ export function FeedbackButton() {
                   <button
                     onClick={handleSubmit}
                     disabled={submitting || !message.trim() || !category}
-                    className="h-9 px-5 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                    className="h-11 px-5 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
                   >
                     {submitting ? "Sending..." : "Send"}
                   </button>

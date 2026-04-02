@@ -331,7 +331,7 @@ export function ControlPanel({
             <span className="text-sm font-medium tabular-nums">
               {playerCount} player{playerCount !== 1 ? "s" : ""}
             </span>
-            <span className="font-heading font-bold tracking-[0.15em] text-sm text-primary">
+            <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
               {event.joinCode}
             </span>
           </div>
@@ -446,7 +446,7 @@ export function ControlPanel({
               <button
                 onClick={revealAnswer}
                 disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
                 Reveal Answer
               </button>
@@ -493,14 +493,14 @@ export function ControlPanel({
               <button
                 onClick={showLeaderboard}
                 disabled={loading}
-                className="flex-1 h-12 bg-surface border border-border font-semibold hover:bg-background transition-colors disabled:opacity-50"
+                className="flex-1 h-12 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
               >
                 Show Leaderboard
               </button>
               <button
                 onClick={isLastQuestion ? endGame : nextQuestion}
                 disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
                 {nextLabel}
               </button>
@@ -522,7 +522,7 @@ export function ControlPanel({
               <button
                 onClick={isLastQuestion ? endGame : nextQuestion}
                 disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
                 {nextLabel}
               </button>
@@ -561,7 +561,7 @@ export function ControlPanel({
                 startFirstQuestionOfRound();
               }}
               disabled={loading}
-              className="h-12 px-10 bg-primary text-primary-foreground font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              className="h-12 px-10 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
             >
               Start Round →
             </button>
@@ -586,13 +586,13 @@ export function ControlPanel({
             <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href={`/host/game/${event.joinCode}/summary`}
-                className="h-12 px-8 bg-primary text-primary-foreground font-semibold flex items-center justify-center hover:bg-primary-hover transition-colors"
+                className="h-12 px-8 bg-primary text-primary-foreground font-medium flex items-center justify-center hover:bg-primary-hover transition-colors"
               >
                 View Summary →
               </a>
               <a
                 href="/host"
-                className="h-12 px-8 bg-surface border border-border font-semibold flex items-center justify-center hover:bg-background transition-colors"
+                className="h-12 px-8 bg-surface border border-border font-medium flex items-center justify-center hover:bg-background transition-colors"
               >
                 Dashboard
               </a>

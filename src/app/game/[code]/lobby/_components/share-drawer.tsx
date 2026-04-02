@@ -93,7 +93,7 @@ export function ShareDrawer({
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
               Game Code
             </p>
-            <p className="font-heading text-3xl font-bold tracking-[0.3em] text-foreground">
+            <p className="font-mono text-2xl font-bold tracking-[0.2em] text-foreground">
               {joinCode}
             </p>
           </div>
@@ -102,7 +102,7 @@ export function ShareDrawer({
           <div className="flex gap-3">
             <button
               onClick={nativeShare}
-              className="flex-1 h-11 bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary-hover transition-colors"
+              className="flex-1 h-11 bg-primary text-primary-foreground font-medium text-sm hover:bg-primary-hover transition-colors"
             >
               Share Link
             </button>

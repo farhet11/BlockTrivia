@@ -26,7 +26,7 @@ export default function HostGameError({
       <div className="flex flex-col gap-3 w-full max-w-xs">
         <button
           onClick={() => window.location.reload()}
-          className="w-full py-2.5 px-4 bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
+          className="w-full py-2.5 px-4 bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors"
         >
           Reload
         </button>

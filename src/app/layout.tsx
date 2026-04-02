@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Outfit, Inter, Lora, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { BgController } from "./_components/bg-controller";
 import { FeedbackButton } from "./_components/feedback-button";
 import "./globals.css";
 
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const lora = Lora({ subsets: ["latin"], variable: "--font-lora" });
+const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains-mono" });
 
 export const metadata: Metadata = {
   title: "BlockTrivia",
@@ -22,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={outfit.variable}>
+    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable} ${lora.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-dvh bg-background text-foreground font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
           <BgController />

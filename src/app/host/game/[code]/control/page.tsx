@@ -84,6 +84,14 @@ export default async function HostControlPage({
     redirect(`/host/game/${code}/summary`);
   }
 
+  // Host role check — gates Start Game
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isHost = profile?.role === "host" || profile?.role === "super_admin";
+
   // Player count
   const { count: playerCount } = await supabase
     .from("event_players")
@@ -151,6 +159,7 @@ export default async function HostControlPage({
       initialGameState={gameState}
       playerCount={playerCount ?? 0}
       sponsors={sponsors}
+      isHost={isHost}
     />
   );
 }

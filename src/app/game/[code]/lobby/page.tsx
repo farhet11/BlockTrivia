@@ -45,11 +45,15 @@ export default async function LobbyPage({
   if (gameState?.phase === "ended") redirect(`/game/${code}/final`);
   if (gameState && gameState.phase !== "lobby") redirect(`/game/${code}/play`);
 
-  // Get current player's display name + sponsors
-  const [{ data: profile }, { data: sponsors }] = await Promise.all([
+  // Get current player's display name, sponsors, and game stats
+  const [{ data: profile }, { data: sponsors }, { data: rounds }] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).single(),
     supabase.from("event_sponsors").select("id, name, logo_url, sort_order").eq("event_id", event.id).order("sort_order"),
+    supabase.from("rounds").select("id, questions(id)").eq("event_id", event.id),
   ]);
+
+  const roundCount = rounds?.length ?? 0;
+  const questionCount = rounds?.reduce((sum, r) => sum + ((r.questions as unknown[])?.length ?? 0), 0) ?? 0;
 
   return (
     <LobbyView
@@ -58,6 +62,8 @@ export default async function LobbyPage({
         title: event.title,
         joinCode: event.join_code,
         status: event.status,
+        roundCount,
+        questionCount,
       }}
       player={{
         id: user.id,

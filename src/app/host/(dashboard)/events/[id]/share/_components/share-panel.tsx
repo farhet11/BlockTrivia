@@ -60,7 +60,7 @@ export function SharePanel({
       {/* Join code */}
       <div className="border border-border bg-surface p-8 text-center space-y-3">
         <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Join Code</p>
-        <p className="text-5xl font-heading font-bold tracking-[0.3em] text-foreground">{joinCode}</p>
+        <p className="text-4xl font-mono font-bold tracking-[0.2em] text-foreground">{joinCode}</p>
         <p className="text-sm text-muted-foreground">{eventTitle}</p>
       </div>
 

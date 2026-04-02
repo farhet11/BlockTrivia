@@ -31,7 +31,7 @@ export default function GameError({
         {code && (
           <a
             href={`/game/${code}/lobby`}
-            className="w-full py-2.5 px-4 bg-primary text-primary-foreground font-semibold text-sm text-center hover:bg-primary/90 transition-colors"
+            className="w-full py-2.5 px-4 bg-primary text-primary-foreground font-medium text-sm text-center hover:bg-primary/90 transition-colors"
           >
             Rejoin game
           </a>

@@ -113,7 +113,7 @@ export function FindGame({
               onChange={(e) => handleChange(i, e.target.value)}
               onKeyDown={(e) => handleKeyDown(i, e)}
               onPaste={i === 0 ? handlePaste : undefined}
-              className={`w-14 h-16 text-center text-2xl font-bold tracking-wider bg-surface border-2 outline-none transition-colors ${
+              className={`w-14 h-16 text-center text-2xl font-mono font-bold tracking-wider bg-surface border-2 outline-none transition-colors ${
                 char
                   ? "border-primary text-foreground"
                   : "border-border text-foreground"
@@ -172,7 +172,7 @@ export function FindGame({
         <Button
           onClick={handleSubmit}
           disabled={!isComplete || loading}
-          className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover font-semibold text-base"
+          className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover font-medium text-base"
         >
           {loading ? "Finding..." : "Find Game"}
         </Button>

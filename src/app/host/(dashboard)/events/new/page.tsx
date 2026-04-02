@@ -93,7 +93,7 @@ export default function CreateEventPage() {
           <Button
             type="submit"
             disabled={loading}
-            className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-semibold"
+            className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-medium"
           >
             {loading ? "Creating..." : "Create Event"}
           </Button>

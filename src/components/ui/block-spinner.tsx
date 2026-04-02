@@ -18,7 +18,7 @@ export function BlockSpinner({ variant = 'story', size = 48 }: BlockSpinnerProps
 
   const dark = isDark ? '#e8e5e0' : '#1a1917';
   const violet = '#7c3aed';
-  const iconFill = isDark ? '#1a1917' : '#f0e6fc';
+  const iconFill = isDark ? '#1a1917' : '#f0ecfe';
   const id = Math.random().toString(36).slice(2, 8);
 
   if (variant === 'wave') {

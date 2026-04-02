@@ -35,7 +35,7 @@ export default async function HostDashboard() {
           </p>
         </div>
         <Link href="/host/events/new">
-          <Button className="h-10 px-5 bg-primary text-primary-foreground hover:bg-primary-hover font-semibold">
+          <Button className="h-11 px-5 bg-primary text-primary-foreground hover:bg-primary-hover font-medium">
             Create Event
           </Button>
         </Link>

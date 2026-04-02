@@ -70,7 +70,7 @@ export function SummaryView({
           </div>
           <button
             onClick={downloadCSV}
-            className="h-9 px-4 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors"
+            className="h-11 px-4 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             Export CSV
           </button>
@@ -182,13 +182,13 @@ export function SummaryView({
         <div className="flex gap-3 pt-2">
           <a
             href="/host"
-            className="h-10 px-6 bg-surface border border-border text-sm font-semibold flex items-center hover:bg-background transition-colors"
+            className="h-11 px-6 bg-surface border border-border text-sm font-medium flex items-center hover:bg-background transition-colors"
           >
             ← Dashboard
           </a>
           <button
             onClick={downloadCSV}
-            className="h-10 px-6 bg-primary text-primary-foreground text-sm font-semibold flex items-center hover:bg-primary-hover transition-colors"
+            className="h-11 px-6 bg-primary text-primary-foreground text-sm font-medium flex items-center hover:bg-primary-hover transition-colors"
           >
             Export CSV
           </button>

@@ -87,7 +87,7 @@ export function FinalView({
       <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
         {/* Title */}
         <div className="text-center space-y-1">
-          <p className="text-xs font-bold text-primary uppercase tracking-widest">Game Over</p>
+          <p className="font-brand text-sm font-semibold text-primary italic tracking-wide">Game Over</p>
           <h1 className="font-heading text-2xl font-bold">{event.title}</h1>
         </div>
 
@@ -191,7 +191,7 @@ export function FinalView({
         <div className="pt-2">
           <a
             href="/join"
-            className="block w-full h-11 bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center hover:bg-primary-hover transition-colors"
+            className="block w-full h-11 bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center hover:bg-primary-hover transition-colors"
           >
             Play Again
           </a>

@@ -6,8 +6,10 @@
 
 @theme inline {
   /* Fonts */
-  --font-sans: var(--font-outfit);
+  --font-sans: var(--font-inter);
   --font-heading: var(--font-outfit);
+  --font-brand: var(--font-lora);
+  --font-mono: var(--font-jetbrains-mono);
 
   /* Colors mapped from CSS variables */
   --color-background: var(--background);
@@ -44,6 +46,7 @@
   --color-correct: var(--correct);
   --color-wrong: var(--wrong);
   --color-timer-warn: var(--timer-warn);
+  --color-warm-hover: var(--warm-hover);
 
   /* Radius */
   --radius-sm: calc(var(--radius) * 0.6);
@@ -92,6 +95,8 @@
   --wrong: #ef4444;
   --timer-warn: #f59e0b;
 
+  --warm-hover: #f5f3ef;
+
   --radius: 0rem;
 }
 
@@ -130,6 +135,8 @@
   --correct: #22c55e;
   --wrong: #ef4444;
   --timer-warn: #f59e0b;
+
+  --warm-hover: #1f1f23;
 }
 
 @layer base {

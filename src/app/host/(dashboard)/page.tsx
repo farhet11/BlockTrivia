@@ -16,7 +16,11 @@ export default async function HostDashboard() {
     .neq("status", "archived")
     .order("created_at", { ascending: false });
 
-  const displayName = user!.email?.split("@")[0] || user!.user_metadata?.name || "Host";
+  const fullName: string = user!.user_metadata?.full_name || user!.user_metadata?.name || "";
+  const displayName =
+    fullName.split(" ")[0] ||
+    user!.user_metadata?.username ||
+    "Host";
 
   return (
     <div className="space-y-8">

@@ -27,7 +27,6 @@ export function HostNav({ user }: { user: User }) {
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
         </a>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground hidden sm:block">{shortName}</span>
           <ThemeToggle />
           <button
             onClick={handleSignOut}

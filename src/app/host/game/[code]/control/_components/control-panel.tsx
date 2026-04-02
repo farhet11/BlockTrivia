@@ -629,43 +629,62 @@ export function ControlPanel({
         )}
 
         {/* Phase: Leaderboard */}
-        {gameState.phase === "leaderboard" && (
-          <div className="py-8 space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-              <p className="text-sm text-muted-foreground">
-                Players see the live standings now
-              </p>
-            </div>
+        {gameState.phase === "leaderboard" && (() => {
+          const currentRoundIdx = rounds.findIndex(r => r.id === currentQuestion?.round_id);
+          const topScore = leaderboard[0]?.total_score ?? null;
+          return (
+            <div className="py-8 space-y-6">
+              <div className="text-center space-y-2">
+                <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
+                <p className="text-sm text-muted-foreground">
+                  Players see the live standings now
+                </p>
+              </div>
 
-            {leaderboard.length > 0 && (
-              <ul className="space-y-2">
-                {leaderboard.map((entry, i) => (
-                  <li key={entry.player_id} className="flex items-center gap-3 p-3 border border-border bg-surface">
-                    <span className={`w-7 text-center text-sm font-bold tabular-nums ${
-                      i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
-                    }`}>
-                      #{entry.rank ?? i + 1}
-                    </span>
-                    <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
-                    <span className="flex-1 text-sm font-medium text-foreground">{entry.display_name}</span>
-                    <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
-                  </li>
+              {/* Stats bar */}
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: "Players", value: playerCount },
+                  { label: "Question", value: `${currentIndex + 1} / ${questions.length}` },
+                  { label: "Round", value: `${currentRoundIdx + 1} / ${rounds.length}` },
+                  { label: "Top Score", value: topScore !== null ? `${topScore} pts` : "—" },
+                ].map(({ label, value }) => (
+                  <div key={label} className="border border-border bg-surface p-3 text-center space-y-1">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                    <p className="font-bold tabular-nums text-foreground">{value}</p>
+                  </div>
                 ))}
-              </ul>
-            )}
+              </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={isLastQuestion ? endGame : nextQuestion}
-                disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-              >
-                {nextLabel}
-              </button>
+              {leaderboard.length > 0 && (
+                <ul className="space-y-2">
+                  {leaderboard.map((entry, i) => (
+                    <li key={entry.player_id} className="flex items-center gap-3 p-3 border border-border bg-surface">
+                      <span className={`w-7 text-center text-sm font-bold tabular-nums ${
+                        i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
+                      }`}>
+                        #{entry.rank ?? i + 1}
+                      </span>
+                      <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
+                      <span className="flex-1 text-sm font-medium text-foreground">{entry.display_name}</span>
+                      <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={isLastQuestion ? endGame : nextQuestion}
+                  disabled={loading}
+                  className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                >
+                  {nextLabel}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Phase: Interstitial — between rounds */}
         {gameState.phase === "interstitial" && (

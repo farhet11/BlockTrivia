@@ -464,26 +464,11 @@ export function PlayView({
                     willChange: 'transform, opacity',
                   } as React.CSSProperties}
                 >
-                  {i === 0 ? (
-                    <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0">
-                      <rect x="0" y="0" width="36" height="36" fill="#7c3aed" fillOpacity="0.12"/>
-                      <text x="18" y="25" fontFamily="Outfit,sans-serif" fontSize="22" fontWeight="800" fill="#f59e0b" textAnchor="middle">1</text>
-                    </svg>
-                  ) : i === 1 ? (
-                    <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0">
-                      <rect x="0" y="0" width="36" height="36" fill="#7c3aed" fillOpacity="0.12"/>
-                      <text x="18" y="25" fontFamily="Outfit,sans-serif" fontSize="22" fontWeight="800" fill="#a1a1aa" textAnchor="middle">2</text>
-                    </svg>
-                  ) : i === 2 ? (
-                    <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0">
-                      <rect x="0" y="0" width="36" height="36" fill="#7c3aed" fillOpacity="0.12"/>
-                      <text x="18" y="25" fontFamily="Outfit,sans-serif" fontSize="22" fontWeight="800" fill="#d97706" textAnchor="middle">3</text>
-                    </svg>
-                  ) : (
-                    <span className="w-9 text-center text-sm font-bold tabular-nums text-muted-foreground shrink-0">
-                      {entry.rank ?? i + 1}
-                    </span>
-                  )}
+                  <span className={`w-7 text-center text-sm font-bold tabular-nums ${
+                    i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
+                  }`}>
+                    #{entry.rank ?? i + 1}
+                  </span>
                   <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
                   <span className={`flex-1 text-sm font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
                     {entry.display_name} {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}

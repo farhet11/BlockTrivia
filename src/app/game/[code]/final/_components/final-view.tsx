@@ -192,7 +192,7 @@ export function FinalView({
                   </span>
                   <span className={`flex-1 font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
                     {entry.display_name}
-                    {isMe && <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>}
+                    {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}
                   </span>
                   <span className="font-bold tabular-nums">{entry.total_score}</span>
                 </li>

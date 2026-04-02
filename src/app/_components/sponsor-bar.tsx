@@ -11,7 +11,7 @@ export function SponsorBar({ sponsors }: { sponsors: Sponsor[] }) {
   if (!sponsors || sponsors.length === 0) return null;
 
   return (
-    <div className="w-full border-t border-border/50 bg-background/80 py-5 px-4">
+    <div className="w-full sticky bottom-0 z-10 border-t border-border/50 bg-background/80 backdrop-blur-sm shadow-[0_-4px_20px_rgba(0,0,0,0.06)] py-5 px-4">
       <p className="text-center text-xs text-muted-foreground uppercase tracking-wider mb-3">
         Today&apos;s sponsors
       </p>

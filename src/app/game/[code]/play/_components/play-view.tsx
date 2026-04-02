@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
+import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 
 type Sponsor = {
@@ -422,8 +423,9 @@ export function PlayView({
                   }`}>
                     #{entry.rank ?? i + 1}
                   </span>
+                  <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
                   <span className={`flex-1 text-sm font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
-                    {entry.display_name} {isMe && <span className="text-xs text-muted-foreground">(you)</span>}
+                    {entry.display_name} {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}
                   </span>
                   <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
                 </li>

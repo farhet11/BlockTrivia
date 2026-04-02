@@ -175,7 +175,18 @@ export function LobbyView({
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
             <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
           </a>
-          <ThemeToggle />
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Sign out"
+            >
+              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 

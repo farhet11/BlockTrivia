@@ -13,7 +13,7 @@ export default async function LobbyPage({
   // Verify the event exists
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, status")
+    .select("id, title, join_code, status, logo_url")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -62,6 +62,7 @@ export default async function LobbyPage({
         title: event.title,
         joinCode: event.join_code,
         status: event.status,
+        logoUrl: event.logo_url ?? null,
         roundCount,
         questionCount,
       }}

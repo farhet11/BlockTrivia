@@ -33,6 +33,7 @@ export function ResultsView({
     joinCode: string;
     twitter_handle: string | null;
     hashtags: string[] | null;
+    logoUrl: string | null;
   };
   leaderboard: Entry[];
   sponsors: Sponsor[];
@@ -47,6 +48,9 @@ export function ResultsView({
           <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
         </a>
+        {event.logoUrl && (
+          <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+        )}
         <ThemeToggle />
       </header>
 

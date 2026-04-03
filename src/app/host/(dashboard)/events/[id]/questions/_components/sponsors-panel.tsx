@@ -22,6 +22,7 @@ export function SponsorsPanel({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(initialSponsors.length > 0);
+  const [previewTheme, setPreviewTheme] = useState<"light" | "dark">("light");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -92,7 +93,7 @@ export function SponsorsPanel({
           <span className="text-sm font-medium">Sponsors</span>
           <span className="text-xs text-muted-foreground">{sponsors.length}/4</span>
           {sponsors.length > 0 && (
-            <span className="text-xs text-muted-foreground">· shown grayscale on all player screens</span>
+            <span className="text-xs text-muted-foreground">· appears grayscale on player screens</span>
           )}
         </div>
         {sponsors.length === 0 && (
@@ -102,6 +103,35 @@ export function SponsorsPanel({
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 space-y-3 border-t border-border">
+          {/* Sample logo card — shown only when no sponsors uploaded yet */}
+          {sponsors.length === 0 && (
+            <div className="border border-dashed border-border bg-background p-3">
+              <div className="flex items-center gap-3">
+                <img
+                  src="/logo-light.svg"
+                  alt="Sample sponsor logo"
+                  className="h-8 w-16 object-contain grayscale opacity-50 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">
+                    Sample — your sponsor&apos;s logo will appear here
+                  </p>
+                </div>
+                <a
+                  href="/logo-light.svg"
+                  download="sponsor-logo-template.svg"
+                  className="text-xs text-primary hover:underline shrink-0 flex items-center gap-1"
+                  title="Download as SVG template"
+                >
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download template
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Existing logos */}
           {sponsors.length > 0 && (
             <div className="space-y-2">
@@ -131,6 +161,78 @@ export function SponsorsPanel({
             </div>
           )}
 
+          {/* Player screen preview — always visible when panel is expanded */}
+          <div className="space-y-2">
+            {/* Label + Light/Dark toggle */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Player screen preview</span>
+              <div className="flex border border-border text-xs">
+                <button
+                  onClick={() => setPreviewTheme("light")}
+                  className={`px-3 py-1 transition-colors ${
+                    previewTheme === "light"
+                      ? "bg-foreground/[0.08] text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Light
+                </button>
+                <button
+                  onClick={() => setPreviewTheme("dark")}
+                  className={`px-3 py-1 border-l border-border transition-colors ${
+                    previewTheme === "dark"
+                      ? "bg-foreground/[0.08] text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Dark
+                </button>
+              </div>
+            </div>
+
+            {/* Preview strip — mirrors SponsorBar exactly */}
+            <div
+              className="w-full border border-border py-5 px-4"
+              style={{ background: previewTheme === "dark" ? "#09090b" : "#faf9f7" }}
+            >
+              <p
+                className="text-center text-xs uppercase tracking-widest mb-3"
+                style={{ color: previewTheme === "dark" ? "#71717a" : "#9ca3af" }}
+              >
+                Today&apos;s sponsors
+              </p>
+              <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg mx-auto">
+                {sponsors.length > 0
+                  ? sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
+                      <img
+                        key={s.id}
+                        src={s.logo_url}
+                        alt={s.name ?? "Sponsor"}
+                        className={`h-8 max-w-[120px] object-contain grayscale opacity-60 ${
+                          previewTheme === "dark" ? "invert brightness-200" : ""
+                        }`}
+                      />
+                    ))
+                  : (
+                      <img
+                        src="/logo-light.svg"
+                        alt="Sample sponsor logo"
+                        className={`h-8 max-w-[120px] object-contain grayscale opacity-60 ${
+                          previewTheme === "dark" ? "invert brightness-200" : ""
+                        }`}
+                      />
+                    )
+                }
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              {sponsors.length === 0
+                ? "Sample logo shown — replaced automatically when you upload your own."
+                : "Logos appear grayscale and muted on player screens. Dark mode inverts the image."}
+            </p>
+          </div>
+
           {/* Upload slot */}
           {sponsors.length < 4 && (
             <div>
@@ -149,7 +251,10 @@ export function SponsorsPanel({
                 {uploading ? "Uploading..." : "+ Add Sponsor Logo"}
               </label>
               <p className="text-xs text-muted-foreground mt-1.5">
-                PNG, JPG, SVG or WebP · Max 2 MB · Wide/landscape logos work best
+                PNG, JPG, SVG or WebP · Max 2 MB
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Recommended: 360 × 96 px or larger, 3:1 landscape. SVG is ideal — no sizing limits.
               </p>
             </div>
           )}

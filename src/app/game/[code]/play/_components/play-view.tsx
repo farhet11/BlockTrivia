@@ -425,7 +425,9 @@ export function PlayView({
           </div>
 
           {/* Stats bar */}
-          <div className="grid grid-cols-4 border border-border divide-x divide-border">
+          <div className="grid grid-cols-4 border border-border divide-x divide-border"
+            style={{ animation: 'lb-fade-up 280ms ease-out both', animationDelay: '80ms' }}
+          >
             <div className="px-3 py-2.5 text-center">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
               <p className="font-heading text-lg font-bold tabular-nums">{playerCount ?? "—"}</p>
@@ -456,6 +458,11 @@ export function PlayView({
                   className={`flex items-center gap-3 p-3 border ${
                     isMe ? "border-primary bg-primary/5" : "border-border"
                   }`}
+                  style={{
+                    animation: 'lb-slide-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
+                    animationDelay: `${i * 55}ms`,
+                    willChange: 'transform, opacity',
+                  } as React.CSSProperties}
                 >
                   {i === 0 ? (
                     <svg width="36" height="36" viewBox="0 0 36 36" className="shrink-0">

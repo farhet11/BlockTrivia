@@ -112,7 +112,9 @@ export function FinalView({
 
         {/* Personal result */}
         {myEntry && (
-          <div className={`border p-4 space-y-3 ${myEntry.is_top_10_pct ? "border-primary bg-primary/5" : "border-border bg-surface"}`}>
+          <div className={`border p-4 space-y-3 ${myEntry.is_top_10_pct ? "border-primary bg-primary/5" : "border-border bg-surface"}`}
+            style={{ animation: 'lb-fade-up 360ms ease-out both' }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Your result</p>
@@ -156,31 +158,49 @@ export function FinalView({
           <div className="space-y-3">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Top Players</p>
             <div className="flex items-end gap-2 sm:gap-3 justify-center pt-4">
-              {/* 2nd */}
+              {/* 2nd — appears second at 600ms */}
               {podium[1] && (
-                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1">
-                  <span className="text-xs font-medium text-foreground truncate w-full text-center">{podium[1].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{podium[1].total_score} pts</span>
+                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1"
+                  style={{ animation: 'podium-drop 520ms cubic-bezier(0.22, 1, 0.36, 1) both', animationDelay: '600ms', willChange: 'transform, opacity' } as React.CSSProperties}
+                >
+                  <span className="text-xs font-medium text-foreground truncate w-full text-center"
+                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '880ms' } as React.CSSProperties}
+                  >{podium[1].display_name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums"
+                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '900ms' } as React.CSSProperties}
+                  >{podium[1].total_score} pts</span>
                   <div className="w-full h-16 bg-zinc-400/20 border border-zinc-400/40 flex items-center justify-center">
                     <span className="text-2xl">2nd</span>
                   </div>
                 </div>
               )}
-              {/* 1st */}
+              {/* 1st — appears last at 1100ms */}
               {podium[0] && (
-                <div className="flex-1 max-w-[140px] flex flex-col items-center gap-1">
-                  <span className="text-sm font-semibold text-foreground truncate w-full text-center">{podium[0].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{podium[0].total_score} pts</span>
+                <div className="flex-1 max-w-[140px] flex flex-col items-center gap-1"
+                  style={{ animation: 'podium-drop 580ms cubic-bezier(0.22, 1, 0.36, 1) both', animationDelay: '1100ms', willChange: 'transform, opacity' } as React.CSSProperties}
+                >
+                  <span className="text-sm font-semibold text-foreground truncate w-full text-center"
+                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '1380ms' } as React.CSSProperties}
+                  >{podium[0].display_name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums"
+                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '1400ms' } as React.CSSProperties}
+                  >{podium[0].total_score} pts</span>
                   <div className="w-full h-24 bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center">
                     <span className="text-3xl">1st</span>
                   </div>
                 </div>
               )}
-              {/* 3rd */}
+              {/* 3rd — appears first at 200ms */}
               {podium[2] && (
-                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1">
-                  <span className="text-xs font-medium text-foreground truncate w-full text-center">{podium[2].display_name}</span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{podium[2].total_score} pts</span>
+                <div className="flex-1 max-w-[120px] flex flex-col items-center gap-1"
+                  style={{ animation: 'podium-drop 520ms cubic-bezier(0.22, 1, 0.36, 1) both', animationDelay: '200ms', willChange: 'transform, opacity' } as React.CSSProperties}
+                >
+                  <span className="text-xs font-medium text-foreground truncate w-full text-center"
+                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '480ms' } as React.CSSProperties}
+                  >{podium[2].display_name}</span>
+                  <span className="text-xs text-muted-foreground tabular-nums"
+                    style={{ animation: 'podium-label-pop 300ms ease-out both', animationDelay: '500ms' } as React.CSSProperties}
+                  >{podium[2].total_score} pts</span>
                   <div className="w-full h-12 bg-amber-700/20 border border-amber-700/40 flex items-center justify-center">
                     <span className="text-xl">3rd</span>
                   </div>
@@ -193,14 +213,20 @@ export function FinalView({
         {/* Full standings */}
         {rest.length > 0 && (
           <ul className="space-y-1.5">
-            {rest.map((entry) => {
+            {rest.map((entry, restIdx) => {
               const isMe = entry.player_id === player.id;
+              const rowDelay = 1900 + restIdx * 60;
               return (
                 <li
                   key={entry.player_id}
                   className={`flex items-center gap-3 px-3 py-2.5 border text-sm ${
                     isMe ? "border-primary/50 bg-primary/5" : "border-border"
                   }`}
+                  style={{
+                    animation: 'lb-fade-up 280ms ease-out both',
+                    animationDelay: `${rowDelay}ms`,
+                    willChange: 'transform, opacity',
+                  } as React.CSSProperties}
                 >
                   <span className="w-6 text-center font-bold text-muted-foreground tabular-nums">
                     {entry.rank}

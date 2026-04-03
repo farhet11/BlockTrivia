@@ -160,3 +160,27 @@
   75%       { transform: translateX(-3px); }
   90%       { transform: translateX(3px); }
 }
+
+/* ─── Leaderboard animations ──────────────────────────────────────── */
+
+@keyframes lb-slide-in {
+  from { opacity: 0; transform: translateX(56px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes podium-drop {
+  0%   { opacity: 0; transform: translateY(-48px) scaleY(0.85); }
+  60%  { opacity: 1; transform: translateY(6px) scaleY(1.03); }
+  80%  { transform: translateY(-3px) scaleY(0.98); }
+  100% { opacity: 1; transform: translateY(0) scaleY(1); }
+}
+
+@keyframes podium-label-pop {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes lb-fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

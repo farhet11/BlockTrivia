@@ -49,6 +49,8 @@ export default async function ResultsPage({ params }: Props) {
 
   if (!event) notFound();
 
+  const { data: { user } } = await supabase.auth.getUser();
+
   const [{ data: entries }, { data: sponsors }] = await Promise.all([
     supabase
       .from("leaderboard_entries")
@@ -87,6 +89,7 @@ export default async function ResultsPage({ params }: Props) {
       }}
       leaderboard={leaderboard}
       sponsors={sponsors ?? []}
+      myPlayerId={user?.id ?? null}
     />
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { AnnounceResultsButton } from "./announce-results-button";
+
 type Entry = {
   player_id: string;
   display_name: string;
@@ -165,13 +167,17 @@ export function SummaryView({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-wrap gap-3 pt-2">
           <a
             href="/host"
             className="h-11 px-6 bg-surface border border-border text-sm font-medium flex items-center hover:bg-background transition-colors"
           >
             ← Dashboard
           </a>
+          <AnnounceResultsButton
+            event={{ title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
+            playerCount={playerCount}
+          />
           <button
             onClick={downloadCSV}
             className="h-11 px-6 bg-primary text-primary-foreground text-sm font-heading font-medium flex items-center hover:bg-primary-hover transition-colors"

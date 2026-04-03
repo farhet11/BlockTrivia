@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
+import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 
 type Sponsor = {
@@ -49,12 +50,7 @@ type GameState = {
   ended_at: string | null;
 };
 
-type LeaderboardEntry = {
-  player_id: string;
-  display_name: string;
-  total_score: number;
-  rank: number;
-};
+type LeaderboardEntry = LbEntry;
 
 export function PlayView({
   event,
@@ -88,6 +84,9 @@ export function PlayView({
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
+  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
@@ -239,31 +238,65 @@ export function PlayView({
   // Load leaderboard when phase is "leaderboard"
   useEffect(() => {
     if (gameState.phase !== "leaderboard") return;
+
+    // Snapshot current ranks for delta computation
+    const snapshot = new Map<string, number>();
+    leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
+    const isFirstLoad = prevRanksRef.current.size === 0 && leaderboard.length === 0;
+
+    // Fetch top 10
     supabase
       .from("leaderboard_entries")
       .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
       .eq("event_id", event.id)
-      .order("total_score", { ascending: false })
+      .order("rank", { ascending: true })
       .limit(10)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data }) => {
         if (data) {
-          setLeaderboard(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data.map((row: any) => ({
-              player_id: row.player_id,
-              display_name: row.profiles?.display_name ?? "Player",
-              total_score: row.total_score,
-              rank: row.rank,
-            }))
-          );
+          const entries: LeaderboardEntry[] = data.map((row: any) => ({
+            player_id: row.player_id,
+            display_name: row.profiles?.display_name ?? "Player",
+            total_score: row.total_score,
+            rank: row.rank,
+          }));
+          // Compute rank deltas (positive = moved up)
+          const deltas = new Map<string, number | null>();
+          entries.forEach((e) => {
+            const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
+            deltas.set(e.player_id, prev != null ? prev - e.rank : null);
+          });
+          prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+          setLeaderboard(entries);
+          setLbDeltas(deltas);
         }
       });
+
+    // Also fetch current player's own entry (for pinned rank when outside top 10)
+    supabase
+      .from("leaderboard_entries")
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .eq("event_id", event.id)
+      .eq("player_id", player.id)
+      .maybeSingle()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }) => {
+        if (data) {
+          setMyLbEntry({
+            player_id: data.player_id,
+            display_name: (data as any).profiles?.display_name ?? "Player",
+            total_score: data.total_score,
+            rank: data.rank,
+          });
+        }
+      });
+
     supabase
       .from("event_players")
       .select("player_id", { count: "exact", head: true })
       .eq("event_id", event.id)
       .then(({ count }) => { if (count !== null) setPlayerCount(count); });
-  }, [gameState.phase, supabase, event.id]);
+  }, [gameState.phase, supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submitAnswer(answerIndex: number) {
     if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
@@ -386,9 +419,14 @@ export function PlayView({
 
   // ── Leaderboard phase ──────────────────────────────────────────────────────
   if (phase === "leaderboard") {
-    const myEntry = leaderboard.find((e) => e.player_id === player.id);
     const lbQuestionIdx = questions.findIndex((q) => q.id === gameState.current_question_id);
     const lbRoundIdx = rounds.findIndex((r) => r.id === gameState.current_round_id);
+    const podiumEntries = leaderboard.slice(0, 3);
+    const rankingEntries = leaderboard.slice(3);
+    const firstScore = leaderboard[0]?.total_score ?? 1;
+    const inVisibleList = leaderboard.some((e) => e.player_id === player.id);
+    const pinnedEntry = !inVisibleList ? myLbEntry : null;
+
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
@@ -412,21 +450,30 @@ export function PlayView({
             </button>
           </div>
         </header>
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-6">
-          <div className="text-center space-y-1">
-            <p className="text-xs font-bold text-primary uppercase tracking-widest">Standings</p>
+
+        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 space-y-5 pb-8">
+          {/* Heading + event info */}
+          <div
+            className="text-center space-y-0.5"
+            style={{ animation: "lb-fade-up 280ms ease-out both" }}
+          >
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Standings</p>
             <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-            {myEntry && (
-              <p className="text-sm text-muted-foreground">
-                You're ranked <span className="font-bold text-foreground">#{myEntry.rank}</span> with{" "}
-                <span className="font-bold text-foreground">{myEntry.total_score}</span> pts
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground font-medium">{event.title}</p>
           </div>
 
-          {/* Stats bar */}
-          <div className="grid grid-cols-4 border border-border divide-x divide-border"
-            style={{ animation: 'lb-fade-up 280ms ease-out both', animationDelay: '80ms' }}
+          {/* Waiting indicator — top */}
+          <p
+            className="text-center text-xs text-muted-foreground animate-pulse"
+            style={{ animation: "lb-fade-up 280ms ease-out 40ms both" }}
+          >
+            Waiting for host to continue...
+          </p>
+
+          {/* Stats bar — 3 cols */}
+          <div
+            className="grid grid-cols-3 border border-border divide-x divide-border"
+            style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
           >
             <div className="px-3 py-2.5 text-center">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
@@ -444,44 +491,38 @@ export function PlayView({
                 {lbRoundIdx >= 0 ? `${lbRoundIdx + 1}/${rounds.length}` : "—"}
               </p>
             </div>
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
-              <p className="font-heading text-lg font-bold tabular-nums font-mono tracking-wider">{event.joinCode}</p>
-            </div>
           </div>
-          <ul className="space-y-2">
-            {leaderboard.map((entry, i) => {
-              const isMe = entry.player_id === player.id;
-              return (
-                <li
+
+          {/* PODIUM — top 3 */}
+          {podiumEntries.length > 0 && (
+            <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+            </div>
+          )}
+
+          {/* RANKINGS — 4th+ */}
+          {rankingEntries.length > 0 && (
+            <div className="border-t border-border">
+              {rankingEntries.map((entry, i) => (
+                <RankingRow
                   key={entry.player_id}
-                  className={`flex items-center gap-3 p-3 border ${
-                    isMe ? "border-primary bg-primary/5" : "border-border"
-                  }`}
-                  style={{
-                    animation: 'lb-slide-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
-                    animationDelay: `${i * 55}ms`,
-                    willChange: 'transform, opacity',
-                  } as React.CSSProperties}
-                >
-                  <span className={`w-7 text-center text-sm font-bold tabular-nums ${
-                    i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
-                  }`}>
-                    #{entry.rank ?? i + 1}
-                  </span>
-                  <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
-                  <span className={`flex-1 text-sm font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
-                    {entry.display_name} {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}
-                  </span>
-                  <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="text-center text-xs text-muted-foreground animate-pulse">
-            Waiting for host to continue...
-          </p>
+                  entry={entry}
+                  firstScore={firstScore}
+                  delta={lbDeltas.get(entry.player_id) ?? null}
+                  isMe={entry.player_id === player.id}
+                  animIndex={i + 3}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* YOUR RANK — pinned (only when player not in visible top 10) */}
+          {pinnedEntry && (
+            <PinnedRankSection entry={pinnedEntry} firstScore={firstScore} />
+          )}
+
         </div>
+
         <SponsorBar sponsors={sponsors} />
       </div>
     );

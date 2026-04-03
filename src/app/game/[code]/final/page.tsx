@@ -17,11 +17,14 @@ export default async function FinalPage({
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, twitter_handle, hashtags, logo_url")
+    .select("id, title, join_code, status, twitter_handle, hashtags, logo_url")
     .eq("join_code", code.toUpperCase())
     .single();
 
   if (!event) redirect("/join");
+
+  // If game is still running, route to the correct phase
+  if (event.status !== "ended") redirect(`/game/${code}`);
 
   const [{ data: entries }, { count: totalPlayers }, { data: sponsors }] = await Promise.all([
     supabase

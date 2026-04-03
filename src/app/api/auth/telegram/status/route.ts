@@ -28,6 +28,8 @@ export async function GET(req: NextRequest) {
   // Token is complete — generate Supabase auth token
   const email = `tg_${data.telegram_id}@telegram.blocktrivia.app`;
   const fullName = [data.first_name, data.last_name].filter(Boolean).join(" ");
+  // Best display name: real name → @username → null (dashboard falls back to "Host")
+  const bestName = fullName || (data.username ? `@${data.username}` : null);
 
   const { data: linkData, error: linkError } =
     await supabaseAdmin.auth.admin.generateLink({
@@ -36,8 +38,8 @@ export async function GET(req: NextRequest) {
       options: {
         data: {
           telegram_id: data.telegram_id,
-          full_name: fullName,
-          username: data.username ?? null,
+          full_name: fullName || null,
+          telegram_username: data.username ?? null,
         },
       },
     });
@@ -46,12 +48,22 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Auth failed" }, { status: 500 });
   }
 
+  // Backfill profile display_name if it was set to the tg_ email prefix
+  // (happens when a user has no Telegram first/last name on first signup)
+  if (bestName) {
+    await supabaseAdmin
+      .from("profiles")
+      .update({ display_name: bestName })
+      .eq("id", linkData.user.id)
+      .like("display_name", "tg_%");
+  }
+
   // Consume the token so it can't be replayed
   await supabaseAdmin.from("telegram_auth_tokens").delete().eq("token", token);
 
   return NextResponse.json({
     completed: true,
     token_hash: linkData.properties.hashed_token,
-    user: { id: linkData.user.id, name: fullName, telegram_id: data.telegram_id },
+    user: { id: linkData.user.id, name: bestName ?? "", telegram_id: data.telegram_id },
   });
 }

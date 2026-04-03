@@ -9,13 +9,31 @@ export default async function HostDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: events } = await supabase
-    .from("events")
-    .select("id, title, status, join_code, created_at")
-    .eq("created_by", user!.id)
-    .order("created_at", { ascending: false });
+  const [{ data: events }, { data: profile }] = await Promise.all([
+    supabase
+      .from("events")
+      .select("id, title, status, join_code, created_at")
+      .eq("created_by", user!.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user!.id)
+      .single(),
+  ]);
 
-  const displayName = user!.email?.split("@")[0] || user!.user_metadata?.name || "Host";
+  // Resolve best display name — never show raw tg_ email prefixes
+  const rawName = profile?.display_name ?? "";
+  const isTgPrefix = rawName.startsWith("tg_") && !rawName.includes(" ");
+  const metaName: string =
+    user!.user_metadata?.full_name ||
+    user!.user_metadata?.name ||
+    (user!.user_metadata?.telegram_username
+      ? `@${user!.user_metadata.telegram_username}`
+      : "");
+  const displayName = isTgPrefix
+    ? metaName.split(" ")[0] || "Host"
+    : rawName.split(" ")[0] || metaName.split(" ")[0] || "Host";
 
   return (
     <div className="space-y-8">

@@ -4,6 +4,41 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
 
 const TARGET_SIZE = 72; // px diameter
+
+// Rogue block — violet logo block gone sentient (Option A)
+function RogueBot({ whacked = false }: { whacked?: boolean }) {
+  if (whacked) {
+    return (
+      <svg width="56" height="56" viewBox="0 0 64 64" style={{ opacity: 0.35 }}>
+        <g transform="translate(32,32) rotate(-20) translate(-32,-32)">
+          <rect x="8" y="8" width="48" height="48" rx="4" fill="#7c3aed" />
+          {/* X eyes */}
+          <line x1="20" y1="24" x2="28" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="28" y1="24" x2="20" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="36" y1="24" x2="44" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="44" y1="24" x2="36" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+          {/* Sad mouth */}
+          <path d="M24 42 Q32 38 40 42" fill="none" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+        </g>
+      </svg>
+    );
+  }
+  return (
+    <svg width="56" height="56" viewBox="0 0 64 64">
+      <g transform="translate(32,32) rotate(12) translate(-32,-32)">
+        <rect x="8" y="8" width="48" height="48" rx="4" fill="#7c3aed" />
+        {/* Eyes */}
+        <circle cx="24" cy="28" r="4" fill="#f0ecfe" />
+        <circle cx="40" cy="28" r="4" fill="#f0ecfe" />
+        {/* Pupils — shifty */}
+        <circle cx="25" cy="27" r="1.5" fill="#1a1917" />
+        <circle cx="41" cy="27" r="1.5" fill="#1a1917" />
+        {/* Smirk */}
+        <path d="M22 40 Q32 46 42 40" fill="none" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
 const TARGET_WINDOW_MS = 3000; // time to tap each target
 const NUM_TARGETS = 3;
 const RING_R = 34;
@@ -138,7 +173,7 @@ export function LivenessChallenge({
               Anti-Bot Check
             </p>
             <h2 className="font-heading text-2xl font-bold">
-              Whack-a-Bot 🤖
+              Whack-a-Bot
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               3 bots will try to sneak in. Whack each one before it escapes.
@@ -216,13 +251,10 @@ export function LivenessChallenge({
                   />
                 </svg>
 
-                {/* Bot emoji */}
-                <span
-                  className="text-3xl select-none group-hover:scale-110 transition-transform"
-                  style={{ animation: "wab-wobble 0.6s ease-in-out infinite" }}
-                >
-                  🤖
-                </span>
+                {/* Rogue block bot — wobbles to taunt the player */}
+                <div style={{ animation: "wab-wobble 0.7s ease-in-out infinite" }}>
+                  <RogueBot />
+                </div>
               </button>
             )}
           </div>
@@ -248,7 +280,10 @@ export function LivenessChallenge({
       {/* ── MISSED ─────────────────────────────────────────── */}
       {phase === "missed" && (
         <div className="text-center space-y-6 max-w-xs">
-          <span className="text-5xl leading-none">🏃</span>
+          {/* Whacked/escaped bot — faded, X eyes */}
+          <div className="flex justify-center">
+            <RogueBot whacked />
+          </div>
           <div className="space-y-2">
             <h2 className="font-heading text-xl font-bold">
               Bot {current + 1} escaped!
@@ -270,7 +305,6 @@ export function LivenessChallenge({
       {/* ── SAVING ─────────────────────────────────────────── */}
       {phase === "saving" && (
         <div className="text-center space-y-3">
-          <span className="text-4xl leading-none">🔍</span>
           <p className="text-sm text-muted-foreground">Checking your humanity…</p>
         </div>
       )}
@@ -278,7 +312,19 @@ export function LivenessChallenge({
       {/* ── DONE ───────────────────────────────────────────── */}
       {phase === "done" && (
         <div className="text-center space-y-4">
-          <span className="text-5xl leading-none">🎉</span>
+          <svg
+            className="w-16 h-16 text-correct mx-auto"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
+          </svg>
           <div className="space-y-1">
             <h2 className="font-heading text-xl font-bold">
               Bots: 0 — You: 3
@@ -327,8 +373,9 @@ export function LivenessChallenge({
           to   { stroke-dashoffset: ${RING_CIRC}; }
         }
         @keyframes wab-wobble {
-          0%, 100% { transform: rotate(-8deg) scale(1); }
-          50%       { transform: rotate(8deg) scale(1.08); }
+          0%, 100% { transform: rotate(0deg); }
+          25%       { transform: rotate(8deg); }
+          75%       { transform: rotate(-8deg); }
         }
       `}</style>
     </div>

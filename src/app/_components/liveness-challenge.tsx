@@ -93,8 +93,8 @@ export function LivenessChallenge({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const targetStartRef = useRef<number>(0);
-  const escapeTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const transitionTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const escapeTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     reducedMotion.current =

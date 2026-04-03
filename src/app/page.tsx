@@ -9,9 +9,9 @@ export default function Home() {
       <GlobalNav />
       <main className="flex-1 flex flex-col items-center justify-center px-4 text-center space-y-8">
         <div className="space-y-5">
-          <h1 className="font-heading text-3xl sm:text-4xl font-semibold tracking-tight leading-snug">
-            Find out who really knows<br />
-            <span className="text-primary">your protocol.</span>
+          <h1 className="font-heading text-3xl sm:text-4xl font-semibold leading-snug" style={{ letterSpacing: "-0.02em" }}>
+            Community Intelligence,{" "}
+            <span className="text-primary">Gamified.</span>
           </h1>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
             Real-time trivia for Web3 communities. Instant leaderboard. Zero cheating.

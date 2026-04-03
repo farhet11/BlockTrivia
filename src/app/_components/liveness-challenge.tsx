@@ -27,10 +27,13 @@ export function LivenessChallenge({
   eventId,
   playerId,
   onSuccess,
+  onSave,
 }: {
   eventId: string;
   playerId: string;
   onSuccess: (reactionTimeMs: number) => void;
+  /** Override the default Supabase save. Useful for previews / storybooks. */
+  onSave?: (avg: number) => Promise<void>;
 }) {
   const supabase = useRef(createClient());
 
@@ -77,17 +80,22 @@ export function LivenessChallenge({
       );
 
       try {
-        const { error } = await supabase.current
-          .from("event_players")
-          .update({
-            reaction_time_ms: avg,
-            liveness_check_passed: true,
-            challenged_at: new Date().toISOString(),
-          })
-          .eq("event_id", eventId)
-          .eq("player_id", playerId);
+        if (onSave) {
+          await onSave(avg);
+        } else {
+          const { error } = await supabase.current
+            .from("event_players")
+            .update({
+              reaction_time_ms: avg,
+              liveness_check_passed: true,
+              challenged_at: new Date().toISOString(),
+            })
+            .eq("event_id", eventId)
+            .eq("player_id", playerId);
 
-        if (error) throw error;
+          if (error) throw error;
+        }
+        // Only show success AFTER the save confirms — not optimistically
         setPhase("done");
         await new Promise((r) => setTimeout(r, 700));
         onSuccess(avg);
@@ -258,8 +266,15 @@ export function LivenessChallenge({
         </div>
       )}
 
-      {/* ── SAVING / DONE ──────────────────────────────────── */}
-      {(phase === "saving" || phase === "done") && (
+      {/* ── SAVING ─────────────────────────────────────────── */}
+      {phase === "saving" && (
+        <div className="text-center space-y-3">
+          <p className="text-sm text-muted-foreground">Verifying…</p>
+        </div>
+      )}
+
+      {/* ── DONE ───────────────────────────────────────────── */}
+      {phase === "done" && (
         <div className="text-center space-y-4">
           <svg
             className="w-16 h-16 text-correct mx-auto"

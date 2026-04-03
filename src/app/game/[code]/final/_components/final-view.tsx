@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import confetti from "canvas-confetti";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
+import { ShareResultButton } from "./share-result-button";
 
 type Sponsor = {
   id: string;
@@ -123,6 +124,15 @@ export function FinalView({
               </p>
             )}
           </div>
+        )}
+
+        {/* Share result */}
+        {myEntry && event.id && (
+          <ShareResultButton
+            event={{ id: event.id, title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
+            myEntry={myEntry}
+            totalPlayers={totalPlayers ?? leaderboard.length}
+          />
         )}
 
         {/* Podium */}

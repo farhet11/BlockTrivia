@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
+import { PlayerAvatar } from "@/app/_components/player-avatar";
 
 type Sponsor = {
   id: string;
@@ -266,16 +267,12 @@ export function LobbyView({
         <ul className="divide-y divide-border">
           {players.map((p, i) => (
             <li key={p.id} className="flex items-center gap-3 py-3.5">
-              <div className="w-9 h-9 bg-primary/10 flex items-center justify-center shrink-0">
-                <span className="text-sm font-bold text-primary">
-                  {(p.display_name || "P").charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <PlayerAvatar seed={p.player_id} name={p.display_name} size={36} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
                   {p.display_name}
                   {p.player_id === player.id && (
-                    <span className="ml-1.5 text-xs text-muted-foreground">(you)</span>
+                    <span className="ml-1.5 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 font-medium">you</span>
                   )}
                 </p>
               </div>

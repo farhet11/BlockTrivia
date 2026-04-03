@@ -53,6 +53,11 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
   const endedEvents = events.filter((e) => e.status === "ended");
 
   function renderCard(event: Event) {
+    const isEnded = event.status === "ended";
+    const href = isEnded
+      ? `/host/game/${event.join_code}/summary`
+      : `/host/events/${event.id}/questions`;
+
     return (
       <div key={event.id} className="border border-border bg-surface">
         {confirmId === event.id ? (
@@ -79,7 +84,7 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
           </div>
         ) : (
           <Link
-            href={`/host/events/${event.id}/questions`}
+            href={href}
             className="block p-5 hover:bg-accent transition-colors"
           >
             <div className="flex items-center justify-between gap-3">
@@ -93,6 +98,9 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
                   <span>{new Date(event.created_at).toLocaleDateString()}</span>
                   <span>·</span>
                   <StatusBadge status={event.status} />
+                  {isEnded && (
+                    <span className="text-xs text-primary font-medium">View Summary →</span>
+                  )}
                 </p>
               </div>
               {isDeletable(event.status) && (

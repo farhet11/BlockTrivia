@@ -124,8 +124,8 @@ export function FallingBlocksError({
         </div>
       </div>
 
-      {/* Copy */}
-      <div className="space-y-2">
+      {/* Copy — extra top margin to clear blocks that fall outside their container */}
+      <div className="space-y-2 mt-6">
         <h1 className="font-heading text-xl font-bold">{heading}</h1>
         <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">
           {body}

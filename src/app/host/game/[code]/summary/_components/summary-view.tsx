@@ -174,6 +174,14 @@ export function SummaryView({
           >
             ← Dashboard
           </a>
+          <a
+            href={`/results/${event.joinCode}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="h-11 px-6 bg-surface border border-border text-sm font-medium flex items-center hover:bg-background transition-colors"
+          >
+            Public Leaderboard ↗
+          </a>
           <AnnounceResultsButton
             event={{ title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
             playerCount={playerCount}

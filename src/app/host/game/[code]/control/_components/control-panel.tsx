@@ -630,31 +630,38 @@ export function ControlPanel({
         {/* Phase: Leaderboard */}
         {gameState.phase === "leaderboard" && (
           <div className="py-8 pb-36 space-y-6">
-            {/* Vital stats cards */}
-            <div className="grid grid-cols-4 gap-2">
-              <div className="border border-border bg-surface p-3 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Players</p>
-                <p className="font-heading text-xl font-bold tabular-nums">{playerCount}</p>
+            {/* Event name + description */}
+            <div className="text-center space-y-1">
+              <p className="text-xs font-bold text-primary uppercase tracking-widest">Standings</p>
+              <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
+              <p className="font-medium text-muted-foreground text-sm">{event.title}</p>
+              {event.description && (
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">{event.description}</p>
+              )}
+            </div>
+
+            {/* Stats bar — matches player view exactly */}
+            <div className="grid grid-cols-4 border border-border divide-x divide-border">
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{playerCount}</p>
               </div>
-              <div className="border border-border bg-surface p-3 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Question</p>
-                <p className="font-heading text-xl font-bold tabular-nums">{currentIndex + 1}/{totalQuestions}</p>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentIndex >= 0 ? `${currentIndex + 1}/${totalQuestions}` : "—"}</p>
               </div>
-              <div className="border border-border bg-surface p-3 text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Round</p>
-                <p className="font-heading text-xl font-bold tabular-nums">{currentRoundIndex >= 0 ? currentRoundIndex + 1 : "-"}/{rounds.length}</p>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentRoundIndex >= 0 ? `${currentRoundIndex + 1}/${rounds.length}` : "—"}</p>
               </div>
               <button
                 onClick={() => setShowShare(true)}
-                className="border border-border bg-surface p-3 text-center hover:bg-accent transition-colors"
+                className="px-3 py-2.5 text-center hover:bg-accent transition-colors"
               >
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Join Code</p>
-                <p className="font-heading text-xl font-bold text-primary font-mono tracking-wider">{event.joinCode}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
+                <p className="font-heading text-lg font-bold text-primary font-mono tracking-wider">{event.joinCode}</p>
               </button>
             </div>
-
-            {/* Leaderboard title */}
-            <h2 className="font-heading text-xl font-bold">Leaderboard</h2>
 
             {/* Live standings */}
             {lbLoading ? (
@@ -667,14 +674,21 @@ export function ControlPanel({
               <p className="text-sm text-muted-foreground text-center py-6">No scores yet</p>
             ) : (
               <ul className="space-y-2">
-                {lbEntries.map((entry) => (
-                  <li key={entry.player_id} className={`flex items-center gap-3 px-4 py-3 border text-sm ${entry.rank <= 3 ? "border-primary/30 bg-primary/5" : "border-border bg-surface"}`}>
-                    <span className={`w-7 font-bold tabular-nums text-center shrink-0 ${entry.rank === 1 ? "text-yellow-500" : entry.rank === 2 ? "text-zinc-400" : entry.rank === 3 ? "text-amber-700" : "text-muted-foreground"}`}>
-                      {entry.rank}
+                {lbEntries.map((entry, i) => (
+                  <li
+                    key={entry.player_id}
+                    className={`flex items-center gap-3 p-3 border ${entry.rank <= 3 ? "border-primary/30 bg-primary/5" : "border-border"}`}
+                    style={{
+                      animation: 'lb-slide-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
+                      animationDelay: `${i * 55}ms`,
+                    } as React.CSSProperties}
+                  >
+                    <span className={`w-7 text-center text-sm font-bold tabular-nums ${i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"}`}>
+                      #{entry.rank}
                     </span>
                     <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
-                    <span className="flex-1 font-medium truncate">{entry.display_name}</span>
-                    <span className="font-bold tabular-nums">{entry.total_score}</span>
+                    <span className="flex-1 text-sm font-medium truncate">{entry.display_name}</span>
+                    <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
                     <span className="text-xs text-muted-foreground tabular-nums hidden sm:block">
                       {entry.correct_count}/{entry.total_questions}
                     </span>

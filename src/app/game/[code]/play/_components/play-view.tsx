@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
+import { RankBadge } from "@/app/_components/rank-badge";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 import { Check, X } from "lucide-react";
 
@@ -464,11 +465,7 @@ export function PlayView({
                     willChange: 'transform, opacity',
                   } as React.CSSProperties}
                 >
-                  <span className={`w-7 text-center text-sm font-bold tabular-nums ${
-                    i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
-                  }`}>
-                    #{entry.rank ?? i + 1}
-                  </span>
+                  <RankBadge rank={entry.rank ?? i + 1} size={32} />
                   <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
                   <span className={`flex-1 text-sm font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
                     {entry.display_name} {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}

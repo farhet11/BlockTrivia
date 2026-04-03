@@ -6,6 +6,7 @@ import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { BrandedQR } from "@/app/_components/branded-qr";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
+import { RankBadge } from "@/app/_components/rank-badge";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 
 type Question = {
@@ -678,9 +679,7 @@ export function ControlPanel({
                       animationDelay: `${i * 55}ms`,
                     } as React.CSSProperties}
                   >
-                    <span className={`w-7 text-center text-sm font-bold tabular-nums ${i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"}`}>
-                      #{entry.rank}
-                    </span>
+                    <RankBadge rank={entry.rank} size={32} />
                     <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
                     <span className="flex-1 text-sm font-medium truncate">{entry.display_name}</span>
                     <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>

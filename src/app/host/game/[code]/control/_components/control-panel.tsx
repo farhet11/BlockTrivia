@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { BrandedQR } from "@/app/_components/branded-qr";
+import { PlayerAvatar } from "@/app/_components/player-avatar";
+import { ShareDrawer } from "@/app/_components/share-drawer";
 
 type Question = {
   id: string;
@@ -92,6 +94,7 @@ export function ControlPanel({
   const [playerPulse, setPlayerPulse] = useState(false);
   const [lbEntries, setLbEntries] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
   // Derive ordered unique rounds from questions
@@ -626,22 +629,38 @@ export function ControlPanel({
 
         {/* Phase: Leaderboard */}
         {gameState.phase === "leaderboard" && (
-          <div className="py-8 space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-                <p className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wider">
-                  {playerCount} player{playerCount !== 1 ? "s" : ""} · Live standings
-                </p>
+          <div className="py-8 pb-36 space-y-6">
+            {/* Vital stats cards */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="border border-border bg-surface p-3 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Players</p>
+                <p className="font-heading text-xl font-bold tabular-nums">{playerCount}</p>
               </div>
-              <span className="font-mono text-sm font-bold text-primary">{event.joinCode}</span>
+              <div className="border border-border bg-surface p-3 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Question</p>
+                <p className="font-heading text-xl font-bold tabular-nums">{currentIndex + 1}/{totalQuestions}</p>
+              </div>
+              <div className="border border-border bg-surface p-3 text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Round</p>
+                <p className="font-heading text-xl font-bold tabular-nums">{currentRoundIndex >= 0 ? currentRoundIndex + 1 : "-"}/{rounds.length}</p>
+              </div>
+              <button
+                onClick={() => setShowShare(true)}
+                className="border border-border bg-surface p-3 text-center hover:bg-accent transition-colors"
+              >
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Join Code</p>
+                <p className="font-heading text-xl font-bold text-primary font-mono tracking-wider">{event.joinCode}</p>
+              </button>
             </div>
+
+            {/* Leaderboard title */}
+            <h2 className="font-heading text-xl font-bold">Leaderboard</h2>
 
             {/* Live standings */}
             {lbLoading ? (
               <div className="space-y-2">
                 {[...Array(5)].map((_, i) => (
-                  <div key={i} className="h-12 bg-surface border border-border animate-pulse" />
+                  <div key={i} className="h-14 bg-surface border border-border animate-pulse" />
                 ))}
               </div>
             ) : lbEntries.length === 0 ? (
@@ -650,9 +669,10 @@ export function ControlPanel({
               <ul className="space-y-2">
                 {lbEntries.map((entry) => (
                   <li key={entry.player_id} className={`flex items-center gap-3 px-4 py-3 border text-sm ${entry.rank <= 3 ? "border-primary/30 bg-primary/5" : "border-border bg-surface"}`}>
-                    <span className={`w-7 font-bold tabular-nums text-center ${entry.rank === 1 ? "text-yellow-500" : entry.rank === 2 ? "text-zinc-400" : entry.rank === 3 ? "text-amber-700" : "text-muted-foreground"}`}>
+                    <span className={`w-7 font-bold tabular-nums text-center shrink-0 ${entry.rank === 1 ? "text-yellow-500" : entry.rank === 2 ? "text-zinc-400" : entry.rank === 3 ? "text-amber-700" : "text-muted-foreground"}`}>
                       {entry.rank}
                     </span>
+                    <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
                     <span className="flex-1 font-medium truncate">{entry.display_name}</span>
                     <span className="font-bold tabular-nums">{entry.total_score}</span>
                     <span className="text-xs text-muted-foreground tabular-nums hidden sm:block">
@@ -662,14 +682,6 @@ export function ControlPanel({
                 ))}
               </ul>
             )}
-
-            <button
-              onClick={isLastQuestion ? endGame : nextQuestion}
-              disabled={loading}
-              className="w-full h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-            >
-              {nextLabel}
-            </button>
           </div>
         )}
 
@@ -855,6 +867,29 @@ export function ControlPanel({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Sticky bottom — leaderboard phase */}
+      {gameState.phase === "leaderboard" && (
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <SponsorBar sponsors={sponsors} />
+          <div className="bg-background/95 backdrop-blur-sm border-t border-border px-5 py-4">
+            <div className="max-w-2xl mx-auto">
+              <button
+                onClick={isLastQuestion ? endGame : nextQuestion}
+                disabled={loading}
+                className="w-full h-12 bg-primary text-primary-foreground font-heading font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              >
+                {nextLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share drawer — triggered by join code card */}
+      {showShare && (
+        <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
       )}
 
       {/* Stage View overlay — full-screen projector layout */}

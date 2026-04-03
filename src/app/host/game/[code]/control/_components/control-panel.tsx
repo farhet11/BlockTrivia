@@ -5,9 +5,8 @@ import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { BrandedQR } from "@/app/_components/branded-qr";
-import { PlayerAvatar } from "@/app/_components/player-avatar";
-import { RankBadge } from "@/app/_components/rank-badge";
 import { ShareDrawer } from "@/app/_components/share-drawer";
+import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-podium";
 
 type Question = {
   id: string;
@@ -38,11 +37,7 @@ type Sponsor = {
   sort_order: number;
 };
 
-type LeaderboardEntry = {
-  player_id: string;
-  display_name: string;
-  total_score: number;
-  rank: number;
+type LeaderboardEntry = LbEntry & {
   correct_count: number;
   total_questions: number;
 };
@@ -95,6 +90,8 @@ export function ControlPanel({
   const [playerPulse, setPlayerPulse] = useState(false);
   const [lbEntries, setLbEntries] = useState<LeaderboardEntry[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
+  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
@@ -175,27 +172,41 @@ export function ControlPanel({
   useEffect(() => {
     if (gameState.phase !== "leaderboard") return;
     setLbLoading(true);
+
+    // Snapshot current ranks for delta computation
+    const snapshot = new Map<string, number>();
+    lbEntries.forEach((e) => snapshot.set(e.player_id, e.rank));
+    const isFirstLoad = prevRanksRef.current.size === 0 && lbEntries.length === 0;
+
     supabase
       .from("leaderboard_entries")
       .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
-      .limit(10)
+      .limit(20)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data }) => {
         if (data) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setLbEntries(data.map((row: any) => ({
+          const entries: LeaderboardEntry[] = data.map((row: any) => ({
             player_id: row.player_id,
             display_name: row.profiles?.display_name ?? "Player",
             total_score: row.total_score,
             rank: row.rank,
             correct_count: row.correct_count,
             total_questions: row.total_questions,
-          })));
+          }));
+          const deltas = new Map<string, number | null>();
+          entries.forEach((e) => {
+            const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
+            deltas.set(e.player_id, prev != null ? prev - e.rank : null);
+          });
+          prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+          setLbEntries(entries);
+          setLbDeltas(deltas);
         }
         setLbLoading(false);
       });
-  }, [gameState.phase, event.id, supabase]);
+  }, [gameState.phase, event.id, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown timer (question)
   useEffect(() => {
@@ -625,19 +636,25 @@ export function ControlPanel({
 
         {/* Phase: Leaderboard */}
         {gameState.phase === "leaderboard" && (
-          <div className="py-8 pb-36 space-y-6">
-            {/* Event name + description */}
-            <div className="text-center space-y-1">
-              <p className="text-xs font-bold text-primary uppercase tracking-widest">Standings</p>
+          <div className="py-6 pb-8 space-y-5">
+            {/* Event name + heading */}
+            <div
+              className="text-center space-y-0.5"
+              style={{ animation: "lb-fade-up 280ms ease-out both" }}
+            >
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Standings</p>
               <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-              <p className="font-medium text-muted-foreground text-sm">{event.title}</p>
+              <p className="text-sm text-muted-foreground font-medium">{event.title}</p>
               {event.description && (
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">{event.description}</p>
               )}
             </div>
 
-            {/* Stats bar — matches player view exactly */}
-            <div className="grid grid-cols-4 border border-border divide-x divide-border">
+            {/* Stats bar — 3 data cols + clickable join code */}
+            <div
+              className="grid grid-cols-4 border border-border divide-x divide-border"
+              style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
+            >
               <div className="px-3 py-2.5 text-center">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
                 <p className="font-heading text-lg font-bold tabular-nums">{playerCount}</p>
@@ -659,7 +676,7 @@ export function ControlPanel({
               </button>
             </div>
 
-            {/* Live standings */}
+            {/* PODIUM — top 3 */}
             {lbLoading ? (
               <div className="space-y-2">
                 {[...Array(5)].map((_, i) => (
@@ -669,27 +686,40 @@ export function ControlPanel({
             ) : lbEntries.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">No scores yet</p>
             ) : (
-              <ul className="space-y-2">
-                {lbEntries.map((entry, i) => (
-                  <li
-                    key={entry.player_id}
-                    className={`flex items-center gap-3 p-3 border ${entry.rank <= 3 ? "border-primary/30 bg-primary/5" : "border-border"}`}
-                    style={{
-                      animation: 'lb-slide-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
-                      animationDelay: `${i * 55}ms`,
-                    } as React.CSSProperties}
-                  >
-                    <RankBadge rank={entry.rank} size={32} />
-                    <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
-                    <span className="flex-1 text-sm font-medium truncate">{entry.display_name}</span>
-                    <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums hidden sm:block">
-                      {entry.correct_count}/{entry.total_questions}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+                  <PodiumLayout entries={lbEntries.slice(0, 3)} />
+                </div>
+
+                {/* RANKINGS — 4th+ */}
+                {lbEntries.slice(3).length > 0 && (
+                  <div className="border-t border-border">
+                    {lbEntries.slice(3).map((entry, i) => (
+                      <RankingRow
+                        key={entry.player_id}
+                        entry={entry}
+                        firstScore={lbEntries[0]?.total_score ?? 1}
+                        delta={lbDeltas.get(entry.player_id) ?? null}
+                        isMe={false}
+                        animIndex={i + 3}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
+
+            {/* Sponsors + Next button — inline, no sticky overlap */}
+            {sponsors.length > 0 && <SponsorBar sponsors={sponsors} />}
+            <div className="pt-2 pb-4">
+              <button
+                onClick={isLastQuestion ? endGame : nextQuestion}
+                disabled={loading}
+                className="w-full h-12 bg-primary text-primary-foreground font-heading font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+              >
+                {nextLabel}
+              </button>
+            </div>
           </div>
         )}
 
@@ -877,23 +907,6 @@ export function ControlPanel({
         </div>
       )}
 
-      {/* Sticky bottom — leaderboard phase */}
-      {gameState.phase === "leaderboard" && (
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-          <SponsorBar sponsors={sponsors} />
-          <div className="bg-background/95 backdrop-blur-sm border-t border-border px-5 py-4">
-            <div className="max-w-2xl mx-auto">
-              <button
-                onClick={isLastQuestion ? endGame : nextQuestion}
-                disabled={loading}
-                className="w-full h-12 bg-primary text-primary-foreground font-heading font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
-              >
-                {nextLabel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Share drawer — triggered by join code card */}
       {showShare && (

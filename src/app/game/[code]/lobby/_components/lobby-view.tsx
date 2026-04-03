@@ -26,6 +26,9 @@ type EventInfo = {
   title: string;
   joinCode: string;
   status: string;
+  logoUrl?: string | null;
+  roundCount?: number;
+  questionCount?: number;
 };
 
 export function LobbyView({

@@ -18,7 +18,7 @@ export function SummaryView({
   leaderboard,
   playerCount,
 }: {
-  event: { id: string; title: string; joinCode: string; status: string };
+  event: { id: string; title: string; joinCode: string; status: string; twitter_handle?: string | null; hashtags?: string[] | null };
   leaderboard: Entry[];
   playerCount: number;
 }) {

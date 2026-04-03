@@ -29,12 +29,14 @@ export function FinalView({
   player,
   leaderboard,
   myEntry,
+  totalPlayers,
   sponsors,
 }: {
-  event: { title: string; joinCode: string };
+  event: { id?: string; title: string; joinCode: string; twitter_handle?: string | null; hashtags?: string[] | null; logoUrl?: string | null };
   player: { id: string };
   leaderboard: Entry[];
   myEntry: Entry | null;
+  totalPlayers?: number;
   sponsors: Sponsor[];
 }) {
   const podium = leaderboard.slice(0, 3);

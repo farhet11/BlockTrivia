@@ -5,11 +5,32 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 
+type EventFormat = "irl" | "virtual" | "hybrid";
+
+const FORMAT_OPTIONS: { value: EventFormat; label: string; description: string }[] = [
+  {
+    value: "irl",
+    label: "IRL",
+    description: "Everyone in the room",
+  },
+  {
+    value: "virtual",
+    label: "Virtual",
+    description: "Players on Zoom / X Space",
+  },
+  {
+    value: "hybrid",
+    label: "Hybrid",
+    description: "Mix of both",
+  },
+];
+
 export function CreateEventForm() {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [format, setFormat] = useState<EventFormat>("hybrid");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,6 +56,7 @@ export function CreateEventForm() {
       .insert({
         title,
         description: description || null,
+        format,
         created_by: user.id,
       })
       .select("id")
@@ -75,6 +97,35 @@ export function CreateEventForm() {
           className="w-full bg-surface border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors resize-none"
           placeholder="Brief description of the event"
         />
+      </div>
+
+      {/* Event format selector */}
+      <div className="space-y-2">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Event Format
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {FORMAT_OPTIONS.map((opt) => {
+            const selected = format === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setFormat(opt.value)}
+                className={`flex flex-col items-center gap-1 py-3.5 px-2 border text-center transition-colors focus:outline-none focus:ring-1 focus:ring-primary ${
+                  selected
+                    ? "border-primary bg-primary/5 text-foreground"
+                    : "border-border bg-surface text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                }`}
+              >
+                <span className={`font-heading font-bold text-sm ${selected ? "text-primary" : ""}`}>
+                  {opt.label}
+                </span>
+                <span className="text-[11px] leading-tight">{opt.description}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

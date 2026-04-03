@@ -19,9 +19,11 @@ type VerifiedEvent = {
 export function IdentityPanel({
   event,
   onBack,
+  onIdentityConfirmed,
 }: {
   event: VerifiedEvent;
   onBack: () => void;
+  onIdentityConfirmed?: (playerId: string) => void;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -147,8 +149,9 @@ export function IdentityPanel({
     if (joinError) {
       // Might already be joined
       if (joinError.code === "23505") {
-        // Duplicate — already joined, just proceed
-        router.push(`/game/${event.join_code}/lobby`);
+        // Duplicate — already joined, proceed to liveness challenge
+        onIdentityConfirmed?.(user.id);
+        setJoining(false);
         return;
       }
       setError(joinError.message);
@@ -156,7 +159,8 @@ export function IdentityPanel({
       return;
     }
 
-    router.push(`/game/${event.join_code}/lobby`);
+    // Proceed to liveness challenge instead of directly to lobby
+    onIdentityConfirmed?.(user.id);
   }
 
   // Step 1: Not authenticated — show auth options

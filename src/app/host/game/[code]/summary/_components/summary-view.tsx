@@ -16,6 +16,7 @@ type Entry = {
   avg_speed_ms: number;
   rank: number;
   is_top_10_pct: boolean;
+  is_suspicious: boolean;
 };
 
 export function SummaryView({
@@ -30,7 +31,7 @@ export function SummaryView({
   const supabase = useMemo(() => createClient(), []);
 
   function downloadCSV() {
-    const headers = ["Rank", "Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%"];
+    const headers = ["Rank", "Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%", "Flagged"];
     const rows = leaderboard.map((e) => [
       e.rank,
       `"${e.display_name.replace(/"/g, '""')}"`,
@@ -41,6 +42,7 @@ export function SummaryView({
       Math.round(Number(e.accuracy)),
       (e.avg_speed_ms / 1000).toFixed(2),
       e.is_top_10_pct ? "Yes" : "No",
+      e.is_suspicious ? "YES" : "No",
     ]);
 
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -142,6 +144,7 @@ export function SummaryView({
                   <th className="text-right py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Accuracy</th>
                   <th className="text-right py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Avg Speed</th>
                   <th className="text-center py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden sm:table-cell w-16">Top 10%</th>
+                  <th className="text-center py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden sm:table-cell w-12">Flagged</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -179,6 +182,11 @@ export function SummaryView({
                     <td className="py-3 px-3 text-center hidden sm:table-cell">
                       {entry.is_top_10_pct && (
                         <span className="text-xs font-bold text-primary">★</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-center hidden sm:table-cell">
+                      {entry.is_suspicious && (
+                        <span className="text-sm">🚩</span>
                       )}
                     </td>
                   </tr>

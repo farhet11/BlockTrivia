@@ -35,6 +35,7 @@ export default async function SummaryPage({
       avg_speed_ms,
       rank,
       is_top_10_pct,
+      is_suspicious,
       profiles!leaderboard_entries_player_id_fkey ( display_name, email )
     `)
     .eq("event_id", event.id)
@@ -44,7 +45,7 @@ export default async function SummaryPage({
   if (lbError) {
     const fallback = await supabase
       .from("leaderboard_entries")
-      .select("player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct")
+      .select("player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct, is_suspicious")
       .eq("event_id", event.id)
       .order("rank", { ascending: true });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,6 +64,7 @@ export default async function SummaryPage({
     avg_speed_ms: row.avg_speed_ms,
     rank: row.rank,
     is_top_10_pct: row.is_top_10_pct,
+    is_suspicious: row.is_suspicious ?? false,
   }));
 
   // Total player count

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { FindGame } from "./find-game";
 import { IdentityPanel } from "./identity-panel";
+import { LivenessChallenge } from "@/app/_components/liveness-challenge";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 
 type VerifiedEvent = {
@@ -14,8 +16,10 @@ type VerifiedEvent = {
 };
 
 export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
+  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const [step, setStep] = useState<"find" | "identity">("find");
+  const [step, setStep] = useState<"find" | "identity" | "liveness">("find");
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [verifiedEvent, setVerifiedEvent] = useState<VerifiedEvent | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -53,6 +57,18 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   function handleBack() {
     setStep("find");
     setVerifiedEvent(null);
+    setCurrentPlayerId(null);
+  }
+
+  function handleIdentityConfirmed(playerId: string) {
+    setCurrentPlayerId(playerId);
+    setStep("liveness");
+  }
+
+  function handleLivenessSuccess() {
+    if (verifiedEvent && currentPlayerId) {
+      router.push(`/game/${verifiedEvent.join_code}/lobby`);
+    }
   }
 
   return (
@@ -94,12 +110,12 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
         <div
           className="flex transition-transform duration-400 ease-out"
           style={{
-            width: "200%",
-            transform: step === "identity" ? "translateX(-50%)" : "translateX(0)",
+            width: "300%",
+            transform: step === "identity" ? "translateX(-33.333%)" : step === "liveness" ? "translateX(-66.666%)" : "translateX(0)",
           }}
         >
           {/* Panel 1: Find Game */}
-          <div className="w-1/2">
+          <div className="w-1/3">
             <FindGame
               initialCode={initialCode}
               onVerified={verifyCode}
@@ -107,11 +123,23 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
           </div>
 
           {/* Panel 2: Identity */}
-          <div className="w-1/2">
+          <div className="w-1/3">
             {verifiedEvent && (
               <IdentityPanel
                 event={verifiedEvent}
                 onBack={handleBack}
+                onIdentityConfirmed={handleIdentityConfirmed}
+              />
+            )}
+          </div>
+
+          {/* Panel 3: Liveness Check */}
+          <div className="w-1/3">
+            {verifiedEvent && currentPlayerId && (
+              <LivenessChallenge
+                eventId={verifiedEvent.id}
+                playerId={currentPlayerId}
+                onSuccess={handleLivenessSuccess}
               />
             )}
           </div>

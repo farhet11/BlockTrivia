@@ -31,14 +31,14 @@ export default function GameError({
         {code && (
           <a
             href={`/game/${code}/lobby`}
-            className="w-full py-2.5 px-4 bg-primary text-primary-foreground font-heading font-medium text-sm text-center hover:bg-primary/90 transition-colors"
+            className="w-full py-2.5 px-4 bg-primary text-primary-foreground font-medium text-sm text-center hover:bg-primary/90 transition-colors"
           >
             Rejoin game
           </a>
         )}
         <button
           onClick={reset}
-          className="w-full py-2.5 px-4 border border-border font-heading text-sm font-medium hover:bg-muted/50 transition-colors"
+          className="w-full py-2.5 px-4 border border-border text-sm font-medium hover:bg-muted/50 transition-colors"
         >
           Try again
         </button>

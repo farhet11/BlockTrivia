@@ -73,13 +73,13 @@ export function ShareDrawer({
           <div className="flex gap-3">
             <button
               onClick={nativeShare}
-              className="flex-1 h-11 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors"
+              className="flex-1 h-11 bg-primary text-primary-foreground font-medium text-sm hover:bg-primary-hover transition-colors"
             >
               Share Link
             </button>
             <button
               onClick={copyLink}
-              className="flex-1 h-11 bg-surface border border-border text-foreground font-heading font-medium text-sm hover:bg-background transition-colors"
+              className="flex-1 h-11 bg-surface border border-border text-foreground font-medium text-sm hover:bg-background transition-colors"
             >
               {copied ? "Copied!" : "Copy Link"}
             </button>

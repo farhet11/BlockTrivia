@@ -1,10 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
-import { createClient } from "@/lib/supabase";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
-import { AnnounceResultsButton } from "./announce-results-button";
-
 type Entry = {
   player_id: string;
   display_name: string;
@@ -16,7 +11,6 @@ type Entry = {
   avg_speed_ms: number;
   rank: number;
   is_top_10_pct: boolean;
-  is_suspicious: boolean;
 };
 
 export function SummaryView({
@@ -24,14 +18,12 @@ export function SummaryView({
   leaderboard,
   playerCount,
 }: {
-  event: { id: string; title: string; joinCode: string; status: string; twitter_handle: string | null; hashtags: string[] | null };
+  event: { id: string; title: string; joinCode: string; status: string; twitter_handle?: string | null; hashtags?: string[] | null };
   leaderboard: Entry[];
   playerCount: number;
 }) {
-  const supabase = useMemo(() => createClient(), []);
-
   function downloadCSV() {
-    const headers = ["Rank", "Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%", "Flagged"];
+    const headers = ["Rank", "Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%"];
     const rows = leaderboard.map((e) => [
       e.rank,
       `"${e.display_name.replace(/"/g, '""')}"`,
@@ -42,7 +34,6 @@ export function SummaryView({
       Math.round(Number(e.accuracy)),
       (e.avg_speed_ms / 1000).toFixed(2),
       e.is_top_10_pct ? "Yes" : "No",
-      e.is_suspicious ? "YES" : "No",
     ]);
 
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -70,28 +61,19 @@ export function SummaryView({
       {/* Header */}
       <header className="border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-3xl mx-auto">
-          <a href="/host">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={downloadCSV}
-              className="h-9 px-4 bg-primary text-primary-foreground text-sm font-heading font-medium hover:bg-primary-hover transition-colors"
-            >
-              Export CSV
-            </button>
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); window.location.href = "/login"; }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
+          <div className="flex items-center gap-3">
+            <a href="/host">
+              <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+              <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+            </a>
+            <span className="text-xs text-muted-foreground">POST-EVENT SUMMARY</span>
           </div>
+          <button
+            onClick={downloadCSV}
+            className="h-11 px-4 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
+          >
+            Export CSV
+          </button>
         </div>
       </header>
 
@@ -144,7 +126,6 @@ export function SummaryView({
                   <th className="text-right py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden sm:table-cell">Accuracy</th>
                   <th className="text-right py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden md:table-cell">Avg Speed</th>
                   <th className="text-center py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden sm:table-cell w-16">Top 10%</th>
-                  <th className="text-center py-2.5 px-3 text-xs font-bold text-muted-foreground uppercase tracking-wider hidden sm:table-cell w-12">Flagged</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -184,11 +165,6 @@ export function SummaryView({
                         <span className="text-xs font-bold text-primary">★</span>
                       )}
                     </td>
-                    <td className="py-3 px-3 text-center hidden sm:table-cell">
-                      {entry.is_suspicious && (
-                        <span className="text-sm">🚩</span>
-                      )}
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -202,23 +178,17 @@ export function SummaryView({
           )}
         </div>
 
-        {/* Announce results */}
-        <AnnounceResultsButton
-          event={event}
-          playerCount={playerCount}
-        />
-
         {/* Actions */}
         <div className="flex gap-3 pt-2">
           <a
             href="/host"
-            className="h-11 px-6 bg-surface border border-border text-sm font-heading font-medium flex items-center hover:bg-background transition-colors"
+            className="h-11 px-6 bg-surface border border-border text-sm font-medium flex items-center hover:bg-background transition-colors"
           >
             ← Dashboard
           </a>
           <button
             onClick={downloadCSV}
-            className="h-11 px-6 bg-primary text-primary-foreground text-sm font-heading font-medium flex items-center hover:bg-primary-hover transition-colors"
+            className="h-11 px-6 bg-primary text-primary-foreground text-sm font-medium flex items-center hover:bg-primary-hover transition-colors"
           >
             Export CSV
           </button>

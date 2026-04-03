@@ -2,8 +2,6 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect, notFound } from "next/navigation";
 import { QuestionBuilder } from "./_components/question-builder";
 import { SponsorsPanel } from "./_components/sponsors-panel";
-import { SocialPanel } from "./_components/social-panel";
-import { EventLogoPanel } from "./_components/event-logo-panel";
 import { JoinCodeCopy } from "./_components/join-code-copy";
 import { ShareButton } from "./_components/share-button";
 
@@ -23,7 +21,7 @@ export default async function QuestionsPage({
   // Fetch event
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, status, created_by, description, twitter_handle, hashtags, logo_url")
+    .select("id, title, join_code, status, created_by, description")
     .eq("id", eventId)
     .single();
 
@@ -65,16 +63,7 @@ export default async function QuestionsPage({
         </div>
       </div>
 
-      <EventLogoPanel eventId={eventId} initialLogoUrl={event.logo_url ?? null} />
-
       <SponsorsPanel eventId={eventId} initialSponsors={sponsors ?? []} />
-
-      <SocialPanel
-        eventId={eventId}
-        eventTitle={event.title}
-        initialTwitterHandle={event.twitter_handle ?? null}
-        initialHashtags={event.hashtags ?? null}
-      />
 
       <QuestionBuilder
         eventId={eventId}

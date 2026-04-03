@@ -35,6 +35,15 @@ type Sponsor = {
   sort_order: number;
 };
 
+type LeaderboardEntry = {
+  player_id: string;
+  display_name: string;
+  total_score: number;
+  rank: number;
+  correct_count: number;
+  total_questions: number;
+};
+
 type GameState = {
   id: string;
   event_id: string;
@@ -81,6 +90,8 @@ export function ControlPanel({
   const [copied, setCopied] = useState(false);
   const [stageView, setStageView] = useState(false);
   const [playerPulse, setPlayerPulse] = useState(false);
+  const [lbEntries, setLbEntries] = useState<LeaderboardEntry[]>([]);
+  const [lbLoading, setLbLoading] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
   // Derive ordered unique rounds from questions
@@ -155,6 +166,32 @@ export function ControlPanel({
       supabase.removeChannel(channel);
     };
   }, [supabase, event.id]);
+
+  // Fetch leaderboard when phase is "leaderboard"
+  useEffect(() => {
+    if (gameState.phase !== "leaderboard") return;
+    setLbLoading(true);
+    supabase
+      .from("leaderboard_entries")
+      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .eq("event_id", event.id)
+      .order("rank", { ascending: true })
+      .limit(10)
+      .then(({ data }) => {
+        if (data) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setLbEntries(data.map((row: any) => ({
+            player_id: row.player_id,
+            display_name: row.profiles?.display_name ?? "Player",
+            total_score: row.total_score,
+            rank: row.rank,
+            correct_count: row.correct_count,
+            total_questions: row.total_questions,
+          })));
+        }
+        setLbLoading(false);
+      });
+  }, [gameState.phase, event.id, supabase]);
 
   // Countdown timer (question)
   useEffect(() => {
@@ -590,22 +627,49 @@ export function ControlPanel({
         {/* Phase: Leaderboard */}
         {gameState.phase === "leaderboard" && (
           <div className="py-8 space-y-6">
-            <div className="text-center space-y-2">
-              <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-              <p className="text-sm text-muted-foreground">
-                Players see the live standings now
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
+                <p className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wider">
+                  {playerCount} player{playerCount !== 1 ? "s" : ""} · Live standings
+                </p>
+              </div>
+              <span className="font-mono text-sm font-bold text-primary">{event.joinCode}</span>
             </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={isLastQuestion ? endGame : nextQuestion}
-                disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-              >
-                {nextLabel}
-              </button>
-            </div>
+            {/* Live standings */}
+            {lbLoading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-12 bg-surface border border-border animate-pulse" />
+                ))}
+              </div>
+            ) : lbEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No scores yet</p>
+            ) : (
+              <ul className="space-y-2">
+                {lbEntries.map((entry) => (
+                  <li key={entry.player_id} className={`flex items-center gap-3 px-4 py-3 border text-sm ${entry.rank <= 3 ? "border-primary/30 bg-primary/5" : "border-border bg-surface"}`}>
+                    <span className={`w-7 font-bold tabular-nums text-center ${entry.rank === 1 ? "text-yellow-500" : entry.rank === 2 ? "text-zinc-400" : entry.rank === 3 ? "text-amber-700" : "text-muted-foreground"}`}>
+                      {entry.rank}
+                    </span>
+                    <span className="flex-1 font-medium truncate">{entry.display_name}</span>
+                    <span className="font-bold tabular-nums">{entry.total_score}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums hidden sm:block">
+                      {entry.correct_count}/{entry.total_questions}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button
+              onClick={isLastQuestion ? endGame : nextQuestion}
+              disabled={loading}
+              className="w-full h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+            >
+              {nextLabel}
+            </button>
           </div>
         )}
 

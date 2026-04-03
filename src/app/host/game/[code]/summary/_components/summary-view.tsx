@@ -66,14 +66,8 @@ export function SummaryView({
               <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
               <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
             </a>
-            <span className="text-xs text-muted-foreground">POST-EVENT SUMMARY</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">Post-Event Summary</span>
           </div>
-          <button
-            onClick={downloadCSV}
-            className="h-11 px-4 bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-hover transition-colors"
-          >
-            Export CSV
-          </button>
         </div>
       </header>
 
@@ -102,17 +96,9 @@ export function SummaryView({
 
         {/* Leaderboard table */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Full Standings — {leaderboard.length} players
-            </p>
-            <button
-              onClick={downloadCSV}
-              className="text-xs text-primary hover:underline"
-            >
-              Download CSV
-            </button>
-          </div>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+            Full Standings — {leaderboard.length} players
+          </p>
 
           {/* Desktop table */}
           <div className="overflow-x-auto">
@@ -146,7 +132,7 @@ export function SummaryView({
                     </td>
                     <td className="py-3 px-3">
                       <p className="font-medium text-foreground">{entry.display_name}</p>
-                      {entry.email && (
+                      {entry.email && !entry.email.startsWith("tg_") && (
                         <p className="text-xs text-muted-foreground">{entry.email}</p>
                       )}
                     </td>
@@ -188,7 +174,7 @@ export function SummaryView({
           </a>
           <button
             onClick={downloadCSV}
-            className="h-11 px-6 bg-primary text-primary-foreground text-sm font-medium flex items-center hover:bg-primary-hover transition-colors"
+            className="h-11 px-6 bg-primary text-primary-foreground text-sm font-heading font-medium flex items-center hover:bg-primary-hover transition-colors"
           >
             Export CSV
           </button>

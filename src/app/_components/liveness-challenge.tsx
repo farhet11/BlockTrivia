@@ -135,21 +135,20 @@ export function LivenessChallenge({
         <>
           <div className="text-center space-y-3 max-w-xs">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
-              Quick check
+              Anti-Bot Check
             </p>
             <h2 className="font-heading text-2xl font-bold">
-              Tap 3 targets
+              Whack-a-Bot 🤖
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              They'll appear one at a time in different spots. Tap each one
-              before the ring runs out.
+              3 bots will try to sneak in. Whack each one before it escapes.
             </p>
           </div>
           <button
             onClick={startChallenge}
             className="h-12 px-8 bg-primary text-primary-foreground font-heading font-medium hover:bg-primary-hover transition-colors"
           >
-            I'm ready
+            Let's go
           </button>
         </>
       )}
@@ -159,19 +158,18 @@ export function LivenessChallenge({
         <>
           <div className="text-center space-y-1">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
-              Target {current + 1} of {NUM_TARGETS}
+              Bot {current + 1} of {NUM_TARGETS}
             </p>
-            <h2 className="font-heading text-xl font-bold">Tap it!</h2>
+            <h2 className="font-heading text-xl font-bold">Whack it!</h2>
           </div>
 
-          {/* Arena — fixed-height container, targets positioned within */}
+          {/* Arena */}
           <div
             className="relative w-full max-w-xs"
             style={{ height: 280 }}
           >
             {positions[current] && (
               <button
-                // key remounts the element when current changes, restarting the CSS animation
                 key={current}
                 onClick={handleTap}
                 style={{
@@ -181,7 +179,7 @@ export function LivenessChallenge({
                   ...positions[current],
                 }}
                 className="rounded-full flex items-center justify-center focus:outline-none group"
-                aria-label={`Tap target ${current + 1}`}
+                aria-label={`Whack bot ${current + 1}`}
               >
                 {/* Draining countdown ring */}
                 <svg
@@ -194,7 +192,6 @@ export function LivenessChallenge({
                     transform: "rotate(-90deg)",
                   }}
                 >
-                  {/* Track */}
                   <circle
                     cx={TARGET_SIZE / 2}
                     cy={TARGET_SIZE / 2}
@@ -203,7 +200,6 @@ export function LivenessChallenge({
                     stroke="var(--color-border)"
                     strokeWidth={4}
                   />
-                  {/* Timer arc */}
                   <circle
                     cx={TARGET_SIZE / 2}
                     cy={TARGET_SIZE / 2}
@@ -220,8 +216,13 @@ export function LivenessChallenge({
                   />
                 </svg>
 
-                {/* Tap dot */}
-                <div className="w-11 h-11 rounded-full bg-primary group-hover:scale-110 transition-transform" />
+                {/* Bot emoji */}
+                <span
+                  className="text-3xl select-none group-hover:scale-110 transition-transform"
+                  style={{ animation: "wab-wobble 0.6s ease-in-out infinite" }}
+                >
+                  🤖
+                </span>
               </button>
             )}
           </div>
@@ -247,14 +248,14 @@ export function LivenessChallenge({
       {/* ── MISSED ─────────────────────────────────────────── */}
       {phase === "missed" && (
         <div className="text-center space-y-6 max-w-xs">
-          <span className="text-5xl leading-none">⏱</span>
+          <span className="text-5xl leading-none">🏃</span>
           <div className="space-y-2">
             <h2 className="font-heading text-xl font-bold">
-              Too slow on target {current + 1}
+              Bot {current + 1} escaped!
             </h2>
             <p className="text-sm text-muted-foreground">
-              You have {TARGET_WINDOW_MS / 1000}s to tap each target. Give it
-              another go.
+              Each bot only sticks around for {TARGET_WINDOW_MS / 1000}s. Be
+              quicker next time.
             </p>
           </div>
           <button
@@ -269,30 +270,21 @@ export function LivenessChallenge({
       {/* ── SAVING ─────────────────────────────────────────── */}
       {phase === "saving" && (
         <div className="text-center space-y-3">
-          <p className="text-sm text-muted-foreground">Verifying…</p>
+          <span className="text-4xl leading-none">🔍</span>
+          <p className="text-sm text-muted-foreground">Checking your humanity…</p>
         </div>
       )}
 
       {/* ── DONE ───────────────────────────────────────────── */}
       {phase === "done" && (
         <div className="text-center space-y-4">
-          <svg
-            className="w-16 h-16 text-correct mx-auto"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+          <span className="text-5xl leading-none">🎉</span>
           <div className="space-y-1">
-            <h2 className="font-heading text-xl font-bold">You're in!</h2>
+            <h2 className="font-heading text-xl font-bold">
+              Bots: 0 — You: 3
+            </h2>
             <p className="text-sm text-muted-foreground">
-              Heading to the lobby…
+              Clearly human. Heading to the lobby…
             </p>
           </div>
         </div>
@@ -329,11 +321,14 @@ export function LivenessChallenge({
         </div>
       )}
 
-      {/* Ring drain animation */}
       <style>{`
         @keyframes liveness-drain {
           from { stroke-dashoffset: 0; }
           to   { stroke-dashoffset: ${RING_CIRC}; }
+        }
+        @keyframes wab-wobble {
+          0%, 100% { transform: rotate(-8deg) scale(1); }
+          50%       { transform: rotate(8deg) scale(1.08); }
         }
       `}</style>
     </div>

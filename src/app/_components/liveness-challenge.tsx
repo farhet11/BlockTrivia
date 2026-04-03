@@ -353,11 +353,15 @@ export function LivenessChallenge({
       {/* ── MISSED ─────────────────────────────────────────────────── */}
       {phase === "missed" && (
         <div className="text-center space-y-6 max-w-xs">
-          <div className="flex justify-center" style={{ opacity: 0.35 }}>
-            <RogueBot face="whacked" size={64} />
+          {/* Bot escaped — it's happy and taunting */}
+          <div
+            className="flex justify-center"
+            style={{ animation: "wab-wobble 0.7s ease-in-out infinite" }}
+          >
+            <RogueBot face="active" size={64} />
           </div>
           <div className="space-y-2">
-            <h2 className="font-heading text-xl font-bold">
+            <h2 className="font-heading text-xl font-bold text-wrong">
               Bot {current + 1} escaped!
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -382,14 +386,14 @@ export function LivenessChallenge({
       {/* ── DONE ───────────────────────────────────────────────────── */}
       {phase === "done" && (
         <>
-          <div style={{ animation: "wab-peek 1.2s ease-in-out infinite" }}>
-            <RogueBot face="peeking" size={64} />
+          <div style={{ opacity: 0.5 }}>
+            <RogueBot face="whacked" size={64} />
           </div>
           <div className="text-center space-y-2 max-w-xs">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
               Challenge Complete
             </p>
-            <h2 className="font-heading text-2xl font-bold">Challenge passed!</h2>
+            <h2 className="font-heading text-2xl font-bold text-correct">Challenge passed!</h2>
             {avgReaction !== null && (
               <p className="text-sm text-muted-foreground">
                 Avg reaction time: {avgReaction}ms
@@ -411,19 +415,12 @@ export function LivenessChallenge({
       {/* ── ERROR ──────────────────────────────────────────────────── */}
       {phase === "error" && (
         <div className="text-center space-y-6 max-w-xs">
-          <svg
-            className="w-12 h-12 text-wrong mx-auto"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          <div
+            className="flex justify-center"
+            style={{ animation: "wab-wobble 0.7s ease-in-out infinite" }}
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+            <RogueBot face="active" size={64} />
+          </div>
           <div className="space-y-2">
             <h2 className="font-heading text-lg font-bold">Verification failed</h2>
             <p className="text-sm text-muted-foreground">{errorMsg}</p>

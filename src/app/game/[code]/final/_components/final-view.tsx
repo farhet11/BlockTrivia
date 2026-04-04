@@ -92,7 +92,7 @@ export function FinalView({
       <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
         {/* Title */}
         <div className="text-center space-y-1">
-          <p className="font-brand text-sm font-semibold text-primary italic tracking-wide">Game Over</p>
+          <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">Game Over</p>
           <h1 className="font-heading text-2xl font-bold">{event.title}</h1>
         </div>
 

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { LogOut } from "lucide-react";
 
 export function HostNav({ user }: { user: User }) {
   const router = useRouter();
@@ -30,12 +31,10 @@ export function HostNav({ user }: { user: User }) {
           <ThemeToggle />
           <button
             onClick={handleSignOut}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-2 text-stone-500 dark:text-zinc-400 hover:text-violet-600 transition-colors duration-150"
             aria-label="Sign out"
           >
-            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-            </svg>
+            <LogOut size={20} strokeWidth={2.5} />
           </button>
         </div>
       </div>

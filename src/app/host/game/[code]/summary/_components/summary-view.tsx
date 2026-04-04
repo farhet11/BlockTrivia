@@ -119,16 +119,16 @@ export function SummaryView({
           </p>
           <h1 className="font-heading text-[28px] font-bold leading-tight">{event.title}</h1>
           <p className="text-sm text-muted-foreground">
-            <span className="uppercase">Game Ended</span>
+            <span className="font-mono text-primary tracking-wider font-bold">{event.joinCode}</span>
             <span className="mx-1.5">&middot;</span>
-            <span className="font-mono text-primary tracking-wider">{event.joinCode}</span>
+            <span className="uppercase">Game Ended</span>
           </p>
         </div>
 
         {/* ── Stat cards (3 max) ──────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "Players", value: playerCount },
+            { label: "Joined", value: playerCount },
             { label: "Avg Score", value: avgScore },
             { label: "Accuracy", value: `${avgAccuracy}%` },
           ].map(({ label, value }) => (

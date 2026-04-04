@@ -122,15 +122,6 @@ export function FinalView({
           </div>
         )}
 
-        {/* Share result */}
-        {myEntry && event.id && (
-          <ShareResultButton
-            event={{ id: event.id, title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
-            myEntry={myEntry}
-            totalPlayers={totalPlayers ?? leaderboard.length}
-          />
-        )}
-
         {/* Podium — top 3 */}
         {podiumEntries.length > 0 && (
           <div className="space-y-2">
@@ -160,6 +151,15 @@ export function FinalView({
               />
             ))}
           </div>
+        )}
+
+        {/* Share result */}
+        {myEntry && event.id && (
+          <ShareResultButton
+            event={{ id: event.id, title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
+            myEntry={myEntry}
+            totalPlayers={totalPlayers ?? leaderboard.length}
+          />
         )}
 
       </div>

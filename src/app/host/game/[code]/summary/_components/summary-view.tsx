@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, Share2, Send, Copy, Download } from "lucide-react";
+import { ArrowLeft, ExternalLink, Share2, Send, Link2, Download } from "lucide-react";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 
 const ICON_CLASS = "text-stone-500 dark:text-zinc-400";
@@ -191,59 +191,63 @@ export function SummaryView({
           )}
         </div>
 
-        {/* ── Actions: Navigation zone ────────────────────────────────────── */}
+        {/* ── Row 1: Navigation + data (most important) ─────────────────── */}
         <div className="space-y-4 pt-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <a
               href="/host"
-              className="h-12 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
+              className="h-14 bg-primary text-primary-foreground text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors duration-150"
             >
-              <ArrowLeft {...ICON_PROPS} className={ICON_CLASS} />
+              <ArrowLeft size={20} strokeWidth={2.5} />
               Dashboard
             </a>
             <a
               href={`/results/${event.joinCode}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="h-12 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
+              className="h-14 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
             >
               <ExternalLink {...ICON_PROPS} className={ICON_CLASS} />
               Public Leaderboard
             </a>
-          </div>
-
-          {/* ── Actions: Share & export zone ──────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-3">
             <button
-              onClick={openTwitter}
-              className="h-12 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
+              onClick={downloadCSV}
+              className="h-14 bg-primary text-primary-foreground text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-primary-hover transition-colors duration-150"
             >
-              <Share2 {...ICON_PROPS} className={ICON_CLASS} />
-              X Post
-            </button>
-            <button
-              onClick={openTelegram}
-              className="h-12 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
-            >
-              <Send {...ICON_PROPS} className={ICON_CLASS} />
-              Telegram
-            </button>
-            <button
-              onClick={copyLink}
-              className="h-12 text-sm font-heading font-medium text-primary flex items-center justify-center gap-2 hover:bg-primary/5 transition-colors duration-150"
-            >
-              <Copy {...ICON_PROPS} className="text-primary" />
-              Copy link
+              <Download size={20} strokeWidth={2.5} />
+              Export CSV
             </button>
           </div>
 
-          <button
-            onClick={downloadCSV}
-            className="w-full h-12 text-sm font-heading font-medium text-primary flex items-center justify-center gap-2 hover:bg-primary/5 transition-colors duration-150"
-          >
-            <Download {...ICON_PROPS} className="text-primary" />
-            Export CSV
-          </button>
+          {/* ── Row 2: Share results ──────────────────────────────────────── */}
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400 text-center mb-2">
+              Share Results
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={openTwitter}
+                className="h-12 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
+              >
+                <Share2 size={16} strokeWidth={2.5} className={ICON_CLASS} />
+                X Post
+              </button>
+              <button
+                onClick={openTelegram}
+                className="h-12 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
+              >
+                <Send size={16} strokeWidth={2.5} className={ICON_CLASS} />
+                Telegram
+              </button>
+              <button
+                onClick={copyLink}
+                className="h-12 border border-border text-sm font-heading font-medium text-primary flex items-center justify-center gap-2 hover:bg-primary/5 hover:border-primary transition-colors duration-150"
+              >
+                <Link2 size={16} strokeWidth={2.5} className="text-primary" />
+                Copy Link
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

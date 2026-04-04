@@ -32,6 +32,8 @@ export function IdentityPanel({
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [gameAlias, setGameAlias] = useState("");
+  const [showAlias, setShowAlias] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -150,7 +152,14 @@ export function IdentityPanel({
     if (joinError) {
       // Might already be joined
       if (joinError.code === "23505") {
-        // Duplicate — already joined, proceed to liveness challenge
+        // Duplicate — already joined, update alias if set then proceed
+        if (gameAlias.trim()) {
+          await supabase
+            .from("event_players")
+            .update({ game_alias: gameAlias.trim() })
+            .eq("event_id", event.id)
+            .eq("player_id", user.id);
+        }
         onIdentityConfirmed?.(user.id);
         setJoining(false);
         return;
@@ -158,6 +167,15 @@ export function IdentityPanel({
       setError(joinError.message);
       setJoining(false);
       return;
+    }
+
+    // Set alias if provided
+    if (gameAlias.trim()) {
+      await supabase
+        .from("event_players")
+        .update({ game_alias: gameAlias.trim() })
+        .eq("event_id", event.id)
+        .eq("player_id", user.id);
     }
 
     // Proceed to liveness challenge instead of directly to lobby
@@ -370,6 +388,34 @@ export function IdentityPanel({
             Pre-filled from your account — change it if you'd like.
           </p>
         </div>
+
+        {/* Game alias — optional */}
+        {!showAlias ? (
+          <button
+            type="button"
+            onClick={() => setShowAlias(true)}
+            className="text-sm text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors"
+          >
+            Want a game alias? <span className="font-medium">Change</span>
+          </button>
+        ) : (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Game Alias <span className="normal-case tracking-normal font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={gameAlias}
+              onChange={(e) => setGameAlias(e.target.value)}
+              maxLength={20}
+              className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+              placeholder="Enter a game alias..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Shows on the leaderboard for this game only.
+            </p>
+          </div>
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 

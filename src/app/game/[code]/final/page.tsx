@@ -26,6 +26,12 @@ export default async function FinalPage({
   // If game is still running, route to the correct phase
   if (event.status !== "ended") redirect(`/game/${code}`);
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user.id)
+    .single();
+
   const [{ data: entries }, { count: totalPlayers }, { data: sponsors }] = await Promise.all([
     supabase
       .from("leaderboard_entries")
@@ -66,7 +72,7 @@ export default async function FinalPage({
         hashtags: event.hashtags ?? null,
         logoUrl: event.logo_url ?? null,
       }}
-      player={{ id: user.id }}
+      player={{ id: user.id, displayName: profile?.display_name ?? "Player" }}
       leaderboard={leaderboard}
       myEntry={myEntry}
       totalPlayers={totalPlayers ?? leaderboard.length}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,35 @@ export function CreateEventForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<EventFormat>("hybrid");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["image/png", "image/jpeg", "image/svg+xml", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setError("Logo: only PNG, JPG, SVG, or WebP allowed.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Logo must be under 2 MB.");
+      return;
+    }
+
+    setError(null);
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  }
+
+  function clearLogo() {
+    setLogoFile(null);
+    if (logoPreview) URL.revokeObjectURL(logoPreview);
+    setLogoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -40,6 +69,7 @@ export function CreateEventForm() {
     const form = new FormData(e.currentTarget);
     const title = form.get("title") as string;
     const description = form.get("description") as string;
+    const organizerName = (form.get("organizer_name") as string)?.trim() || null;
 
     const {
       data: { user },
@@ -56,6 +86,7 @@ export function CreateEventForm() {
       .insert({
         title,
         description: description || null,
+        organizer_name: organizerName,
         format,
         created_by: user.id,
       })
@@ -66,6 +97,24 @@ export function CreateEventForm() {
       setError(insertError.message);
       setLoading(false);
       return;
+    }
+
+    // Upload logo after event creation (need event ID for storage path)
+    if (logoFile && data) {
+      const ext = logoFile.name.split(".").pop();
+      const path = `event-logos/${data.id}/logo.${ext}`;
+
+      const { error: storageErr } = await supabase.storage
+        .from("sponsor-logos")
+        .upload(path, logoFile, { upsert: true });
+
+      if (!storageErr) {
+        const { data: urlData } = supabase.storage.from("sponsor-logos").getPublicUrl(path);
+        await supabase
+          .from("events")
+          .update({ logo_url: urlData.publicUrl })
+          .eq("id", data.id);
+      }
     }
 
     router.push(`/host/events/${data.id}/questions`);
@@ -84,6 +133,21 @@ export function CreateEventForm() {
           className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
           placeholder="e.g. ETH Denver 2026 — Main Stage Trivia"
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Organizer Name <span className="text-muted-foreground/50">(optional)</span>
+        </label>
+        <input
+          name="organizer_name"
+          maxLength={60}
+          className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+          placeholder="e.g. Uniswap, Aave, your project name"
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Shown on the public results page. Defaults to your profile name if left blank.
+        </p>
       </div>
 
       <div className="space-y-1.5">
@@ -126,6 +190,56 @@ export function CreateEventForm() {
             );
           })}
         </div>
+      </div>
+
+      {/* Event logo upload */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Event Logo <span className="text-muted-foreground/50">(optional)</span>
+        </label>
+
+        {logoPreview ? (
+          <div className="flex items-center gap-4 border border-border bg-surface px-4 py-3">
+            <div className="border border-border bg-background p-2 flex-shrink-0">
+              <img
+                src={logoPreview}
+                alt="Logo preview"
+                className="h-8 max-w-[120px] object-contain"
+              />
+            </div>
+            <span className="text-sm text-muted-foreground truncate flex-1">{logoFile?.name}</span>
+            <button
+              type="button"
+              onClick={clearLogo}
+              className="text-xs text-destructive hover:underline flex-shrink-0"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full border-2 border-dashed border-border hover:border-primary/50 transition-colors py-5 flex flex-col items-center gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+            <span className="text-sm font-medium">Upload logo</span>
+            <span className="text-[11px]">PNG, JPG, SVG, WebP · max 2 MB</span>
+          </button>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          className="hidden"
+          onChange={handleLogoSelect}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Your project logo — shown to players in the game header.
+        </p>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

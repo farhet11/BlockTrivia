@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ShareResultButton } from "./share-result-button";
 import { PodiumLayout, RankingRow } from "@/app/_components/lb-podium";
@@ -35,7 +35,7 @@ export function FinalView({
   sponsors,
 }: {
   event: { id?: string; title: string; joinCode: string; twitter_handle?: string | null; hashtags?: string[] | null; logoUrl?: string | null };
-  player: { id: string };
+  player: { id: string; displayName: string };
   leaderboard: Entry[];
   myEntry: Entry | null;
   totalPlayers?: number;
@@ -81,13 +81,7 @@ export function FinalView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-        <a href="/join">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-        </a>
-        <ThemeToggle />
-      </header>
+      <PlayerHeader user={player} />
 
       <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
         {/* Title */}
@@ -128,15 +122,6 @@ export function FinalView({
           </div>
         )}
 
-        {/* Share result */}
-        {myEntry && event.id && (
-          <ShareResultButton
-            event={{ id: event.id, title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
-            myEntry={myEntry}
-            totalPlayers={totalPlayers ?? leaderboard.length}
-          />
-        )}
-
         {/* Podium — top 3 */}
         {podiumEntries.length > 0 && (
           <div className="space-y-2">
@@ -166,6 +151,15 @@ export function FinalView({
               />
             ))}
           </div>
+        )}
+
+        {/* Share result */}
+        {myEntry && event.id && (
+          <ShareResultButton
+            event={{ id: event.id, title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
+            myEntry={myEntry}
+            totalPlayers={totalPlayers ?? leaderboard.length}
+          />
         )}
 
       </div>

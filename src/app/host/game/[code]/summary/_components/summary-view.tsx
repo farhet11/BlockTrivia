@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, Share2, Send, Link2, Download } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ExternalLink, Send, Link2, Check, Download } from "lucide-react";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 
 const ICON_CLASS = "text-stone-500 dark:text-zinc-400";
@@ -77,8 +78,11 @@ export function SummaryView({
     );
   }
 
+  const [copied, setCopied] = useState(false);
   async function copyLink() {
     await navigator.clipboard.writeText(resultUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   // ── Computed stats ──────────────────────────────────────────────────────────
@@ -142,7 +146,7 @@ export function SummaryView({
         {/* ── Standings table ─────────────────────────────────────────────── */}
         <div className="space-y-2">
           <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">
-            Full Standings — {leaderboard.length} players
+            Final Standings — {leaderboard.length} players
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -229,7 +233,7 @@ export function SummaryView({
                 onClick={openTwitter}
                 className="h-12 border border-border text-sm font-heading font-medium flex items-center justify-center gap-2 hover:bg-accent transition-colors duration-150"
               >
-                <Share2 size={16} strokeWidth={2.5} className={ICON_CLASS} />
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" className={ICON_CLASS} aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.259 5.63L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/></svg>
                 X Post
               </button>
               <button
@@ -243,8 +247,8 @@ export function SummaryView({
                 onClick={copyLink}
                 className="h-12 border border-border text-sm font-heading font-medium text-primary flex items-center justify-center gap-2 hover:bg-primary/5 hover:border-primary transition-colors duration-150"
               >
-                <Link2 size={16} strokeWidth={2.5} className="text-primary" />
-                Copy Link
+                {copied ? <Check size={16} strokeWidth={2.5} className="text-green-500" /> : <Link2 size={16} strokeWidth={2.5} className="text-primary" />}
+                {copied ? "Copied!" : "Copy Link"}
               </button>
             </div>
           </div>

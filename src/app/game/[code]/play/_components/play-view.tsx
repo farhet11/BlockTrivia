@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
@@ -87,6 +87,7 @@ export function PlayView({
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const aliasMapRef = useRef<Map<string, string>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
@@ -244,6 +245,22 @@ export function PlayView({
     leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && leaderboard.length === 0;
 
+    // Refresh alias map (only once per leaderboard phase, aliases are stable)
+    if (aliasMapRef.current.size === 0) {
+      supabase
+        .from("event_players")
+        .select("player_id, game_alias")
+        .eq("event_id", event.id)
+        .not("game_alias", "is", null)
+        .then(({ data }) => {
+          if (data) {
+            const map = new Map<string, string>();
+            data.forEach((row) => { if (row.game_alias) map.set(row.player_id, row.game_alias); });
+            aliasMapRef.current = map;
+          }
+        });
+    }
+
     // Fetch top 10
     supabase
       .from("leaderboard_entries")
@@ -256,7 +273,7 @@ export function PlayView({
         if (data) {
           const entries: LeaderboardEntry[] = data.map((row: any) => ({
             player_id: row.player_id,
-            display_name: row.profiles?.display_name ?? "Player",
+            display_name: aliasMapRef.current.get(row.player_id) ?? row.profiles?.display_name ?? "Player",
             total_score: row.total_score,
             rank: row.rank,
           }));
@@ -284,7 +301,7 @@ export function PlayView({
         if (data) {
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: (data as any).profiles?.display_name ?? "Player",
+            display_name: aliasMapRef.current.get(data.player_id) ?? (data as any).profiles?.display_name ?? "Player",
             total_score: data.total_score,
             rank: data.rank,
           });
@@ -355,25 +372,7 @@ export function PlayView({
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-3">
-            {event.logoUrl && (
-              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-stone-500 dark:text-zinc-400 hover:text-violet-600 transition-colors duration-150"
-            >
-              <LogOut size={20} strokeWidth={2.5} />
-            </button>
-          </div>
-        </header>
+        <PlayerHeader user={player} />
         <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
           <div className="text-center space-y-3 max-w-sm">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
@@ -427,25 +426,7 @@ export function PlayView({
 
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-3">
-            {event.logoUrl && (
-              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-stone-500 dark:text-zinc-400 hover:text-violet-600 transition-colors duration-150"
-            >
-              <LogOut size={20} strokeWidth={2.5} />
-            </button>
-          </div>
-        </header>
+        <PlayerHeader user={player} />
 
         <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 space-y-5 pb-8">
           {/* Heading + event info */}
@@ -567,31 +548,17 @@ export function PlayView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border">
-        <div className="px-5 h-14 flex items-center justify-between max-w-lg mx-auto">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          <div className="flex items-center gap-3">
-            {timeLeft !== null && !hasAnswered && (
-              <span
-                className={`font-heading text-lg font-bold tabular-nums ${
-                  timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
-                }`}
-              >
-                {timeLeft}s
-              </span>
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-stone-500 dark:text-zinc-400 hover:text-violet-600 transition-colors duration-150"
-            >
-              <LogOut size={20} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <PlayerHeader user={player}>
+        {timeLeft !== null && !hasAnswered && (
+          <span
+            className={`font-heading text-lg font-bold tabular-nums ${
+              timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
+            }`}
+          >
+            {timeLeft}s
+          </span>
+        )}
+      </PlayerHeader>
 
       {/* Timer bar — 4px shrinking bar per DESIGN.md */}
       {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {

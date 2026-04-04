@@ -43,13 +43,24 @@ export default async function ResultsPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, twitter_handle, hashtags, logo_url")
+    .select("id, title, join_code, twitter_handle, hashtags, logo_url, organizer_name, created_by, profiles!events_created_by_fkey ( display_name )")
     .eq("join_code", code.toUpperCase())
     .single();
 
   if (!event) notFound();
 
   const { data: { user } } = await supabase.auth.getUser();
+
+  // Fetch profile for authenticated user (for header avatar)
+  let viewerProfile: { displayName: string } | null = null;
+  if (user) {
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .single();
+    if (p) viewerProfile = { displayName: p.display_name ?? "Player" };
+  }
 
   const [{ data: entries }, { data: sponsors }] = await Promise.all([
     supabase
@@ -79,6 +90,7 @@ export default async function ResultsPage({ params }: Props) {
 
   return (
     <ResultsView
+      hostName={(event as any).organizer_name ?? (event.profiles as any)?.display_name ?? null}
       event={{
         id: event.id,
         title: event.title,
@@ -90,6 +102,7 @@ export default async function ResultsPage({ params }: Props) {
       leaderboard={leaderboard}
       sponsors={sponsors ?? []}
       myPlayerId={user?.id ?? null}
+      viewer={user && viewerProfile ? { id: user.id, displayName: viewerProfile.displayName } : null}
     />
   );
 }

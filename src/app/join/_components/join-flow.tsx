@@ -6,8 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { FindGame } from "./find-game";
 import { IdentityPanel } from "./identity-panel";
 import { LivenessChallenge } from "@/app/_components/liveness-challenge";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
-import { LogOut } from "lucide-react";
+import { PlayerHeader } from "@/app/_components/player-header";
 
 type VerifiedEvent = {
   id: string;
@@ -22,7 +21,22 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   const [step, setStep] = useState<"find" | "identity" | "liveness">("find");
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [verifiedEvent, setVerifiedEvent] = useState<VerifiedEvent | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split("@")[0] ||
+          "Player";
+        setSessionUser({ id: user.id, displayName: name });
+      }
+    });
+  }, [supabase]);
 
   // Auto-verify if code is provided via URL
   useEffect(() => {
@@ -75,34 +89,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   return (
     <div className="min-h-dvh bg-background overflow-hidden" ref={containerRef}>
       {/* Fixed header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <img
-            src="/logo-light.svg"
-            alt="BlockTrivia"
-            className="h-6 dark:hidden"
-          />
-          <img
-            src="/logo-dark.svg"
-            alt="BlockTrivia"
-            className="h-6 hidden dark:block"
-          />
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                setStep("find");
-                setVerifiedEvent(null);
-              }}
-              aria-label="Sign out"
-              className="p-2 text-stone-500 dark:text-zinc-400 hover:text-violet-600 transition-colors duration-150"
-            >
-              <LogOut size={20} strokeWidth={2.5} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <PlayerHeader user={sessionUser} fixed />
 
       {/* Sliding panels container */}
       <div className="relative pt-14">

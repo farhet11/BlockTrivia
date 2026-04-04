@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "@/app/_components/share-drawer";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { Users, Layers, HelpCircle, Copy, Check, QrCode, Share2 } from "lucide-react";
@@ -23,6 +23,7 @@ type Player = {
   id: string;
   player_id: string;
   display_name: string;
+  game_alias: string | null;
   joined_at: string;
 };
 
@@ -107,7 +108,7 @@ export function LobbyView({
     async function loadPlayers() {
       const { data } = await supabase
         .from("event_players")
-        .select(`id, player_id, joined_at, profiles!event_players_player_id_fkey ( display_name )`)
+        .select(`id, player_id, joined_at, game_alias, profiles!event_players_player_id_fkey ( display_name )`)
         .eq("event_id", event.id)
         .order("joined_at", { ascending: true });
 
@@ -117,6 +118,7 @@ export function LobbyView({
             id: row.id as string,
             player_id: row.player_id as string,
             display_name: (row.profiles as Record<string, unknown>)?.display_name as string || "Player",
+            game_alias: (row.game_alias as string) || null,
             joined_at: row.joined_at as string,
           }))
         );
@@ -141,6 +143,7 @@ export function LobbyView({
             id: payload.new.id,
             player_id: payload.new.player_id,
             display_name: profile?.display_name || "Player",
+            game_alias: payload.new.game_alias || null,
             joined_at: payload.new.joined_at,
           };
 
@@ -176,16 +179,8 @@ export function LobbyView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      {/* Header: logo left, utility right */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <ThemeToggle />
-        </div>
-      </header>
+      {/* Header */}
+      <PlayerHeader user={player} />
 
       {/* Main content */}
       <div className="flex-1 max-w-lg mx-auto w-full px-5">
@@ -284,7 +279,7 @@ export function LobbyView({
               <PlayerAvatar seed={p.player_id} name={p.display_name} size={36} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {p.display_name}
+                  {p.game_alias || p.display_name}
                   {p.player_id === player.id && (
                     <span className="ml-1.5 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 font-medium">you</span>
                   )}

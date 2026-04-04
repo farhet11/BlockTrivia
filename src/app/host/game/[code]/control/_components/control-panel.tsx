@@ -92,6 +92,7 @@ export function ControlPanel({
   const [lbLoading, setLbLoading] = useState(false);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const aliasMapRef = useRef<Map<string, string>>(new Map());
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
@@ -178,6 +179,22 @@ export function ControlPanel({
     lbEntries.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && lbEntries.length === 0;
 
+    // Fetch aliases for annotation
+    if (aliasMapRef.current.size === 0) {
+      supabase
+        .from("event_players")
+        .select("player_id, game_alias")
+        .eq("event_id", event.id)
+        .not("game_alias", "is", null)
+        .then(({ data }) => {
+          if (data) {
+            const map = new Map<string, string>();
+            data.forEach((row) => { if (row.game_alias) map.set(row.player_id, row.game_alias); });
+            aliasMapRef.current = map;
+          }
+        });
+    }
+
     supabase
       .from("leaderboard_entries")
       .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
@@ -187,14 +204,18 @@ export function ControlPanel({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data }) => {
         if (data) {
-          const entries: LeaderboardEntry[] = data.map((row: any) => ({
-            player_id: row.player_id,
-            display_name: row.profiles?.display_name ?? "Player",
-            total_score: row.total_score,
-            rank: row.rank,
-            correct_count: row.correct_count,
-            total_questions: row.total_questions,
-          }));
+          const entries: LeaderboardEntry[] = data.map((row: any) => {
+            const realName = row.profiles?.display_name ?? "Player";
+            const alias = aliasMapRef.current.get(row.player_id);
+            return {
+              player_id: row.player_id,
+              display_name: alias && alias !== realName ? `${realName} (${alias})` : realName,
+              total_score: row.total_score,
+              rank: row.rank,
+              correct_count: row.correct_count,
+              total_questions: row.total_questions,
+            };
+          });
           const deltas = new Map<string, number | null>();
           entries.forEach((e) => {
             const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));

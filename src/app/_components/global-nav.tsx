@@ -17,21 +17,7 @@ export function GlobalNav() {
             className="h-[22px] hidden dark:block"
           />
         </Link>
-        <div className="flex items-center gap-5">
-          <Link
-            href="/join"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Join Game
-          </Link>
-          <Link
-            href="/host"
-            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Host
-          </Link>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
       </div>
     </header>
   );

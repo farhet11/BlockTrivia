@@ -8,7 +8,7 @@ import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
-import { Check, X } from "lucide-react";
+import { Check, X, LogOut } from "lucide-react";
 
 type Sponsor = {
   id: string;

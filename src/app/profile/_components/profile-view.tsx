@@ -84,7 +84,7 @@ export function ProfileView({
   async function saveUsername() {
     const trimmed = usernameInput.trim();
     if (trimmed.length < 5 || trimmed.length > 16) {
-      setUsernameError("5–16 characters required.");
+      setUsernameError("5-16 characters required.");
       return;
     }
     if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
@@ -229,7 +229,7 @@ export function ProfileView({
                   </button>
                 </div>
                 {usernameError && <p className="text-xs text-destructive">{usernameError}</p>}
-                <p className="text-[11px] text-muted-foreground">5–16 chars. Letters, numbers, underscores. Changes allowed once every 14 days.</p>
+                <p className="text-[11px] text-muted-foreground">5-16 chars. Letters, numbers, underscores. Changes allowed once every 14 days.</p>
               </div>
             ) : user.username ? (
               <div className="flex items-center gap-1.5 mt-0.5">

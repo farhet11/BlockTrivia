@@ -261,10 +261,19 @@ export function PlayView({
         });
     }
 
+    // Helper: resolve display name with priority: game_alias > @username > display_name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function resolveName(playerId: string, profile: any): string {
+      const alias = aliasMapRef.current.get(playerId);
+      if (alias) return alias;
+      if (profile?.username) return `@${profile.username}`;
+      return profile?.display_name ?? "Player";
+    }
+
     // Fetch top 10
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
@@ -273,7 +282,7 @@ export function PlayView({
         if (data) {
           const entries: LeaderboardEntry[] = data.map((row: any) => ({
             player_id: row.player_id,
-            display_name: aliasMapRef.current.get(row.player_id) ?? row.profiles?.display_name ?? "Player",
+            display_name: resolveName(row.player_id, row.profiles),
             total_score: row.total_score,
             rank: row.rank,
           }));
@@ -292,7 +301,7 @@ export function PlayView({
     // Also fetch current player's own entry (for pinned rank when outside top 10)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
@@ -301,7 +310,7 @@ export function PlayView({
         if (data) {
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: aliasMapRef.current.get(data.player_id) ?? (data as any).profiles?.display_name ?? "Player",
+            display_name: resolveName(data.player_id, (data as any).profiles),
             total_score: data.total_score,
             rank: data.rank,
           });

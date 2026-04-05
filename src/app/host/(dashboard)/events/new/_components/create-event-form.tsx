@@ -69,6 +69,7 @@ export function CreateEventForm() {
     const form = new FormData(e.currentTarget);
     const title = form.get("title") as string;
     const description = form.get("description") as string;
+    const prizes = (form.get("prizes") as string)?.trim() || null;
     const organizerName = (form.get("organizer_name") as string)?.trim() || null;
 
     const {
@@ -86,6 +87,7 @@ export function CreateEventForm() {
       .insert({
         title,
         description: description || null,
+        prizes,
         organizer_name: organizerName,
         format,
         created_by: user.id,
@@ -161,6 +163,22 @@ export function CreateEventForm() {
           className="w-full bg-surface border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors resize-none"
           placeholder="Brief description of the event"
         />
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Prizes <span className="text-muted-foreground/50">(optional)</span>
+        </label>
+        <textarea
+          name="prizes"
+          rows={2}
+          maxLength={300}
+          className="w-full bg-surface border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors resize-none"
+          placeholder="e.g. 500 USDC to top 3, merch for top 10%, whitelist spots"
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Shown to players before they join. Sets expectations for rewards.
+        </p>
       </div>
 
       {/* Event format selector */}

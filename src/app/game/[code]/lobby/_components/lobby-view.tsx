@@ -7,7 +7,7 @@ import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
-import { Users, Layers, HelpCircle, Copy, Check, QrCode, Share2 } from "lucide-react";
+import { Users, Layers, HelpCircle, Clock, Trophy, Copy, Check, QrCode, Share2 } from "lucide-react";
 
 const ICON_CLASS = "text-stone-500 dark:text-zinc-400";
 const ICON_PROPS = { size: 20, strokeWidth: 2.5 } as const;
@@ -22,6 +22,7 @@ type Sponsor = {
 type Player = {
   id: string;
   player_id: string;
+  username: string | null;
   display_name: string;
   game_alias: string | null;
   joined_at: string;
@@ -33,8 +34,10 @@ type EventInfo = {
   joinCode: string;
   status: string;
   logoUrl?: string | null;
+  prizes?: string | null;
   roundCount?: number;
   questionCount?: number;
+  estimatedMinutes?: number | null;
 };
 
 export function LobbyView({
@@ -108,19 +111,23 @@ export function LobbyView({
     async function loadPlayers() {
       const { data } = await supabase
         .from("event_players")
-        .select(`id, player_id, joined_at, game_alias, profiles!event_players_player_id_fkey ( display_name )`)
+        .select(`id, player_id, joined_at, game_alias, profiles!event_players_player_id_fkey ( display_name, username )`)
         .eq("event_id", event.id)
         .order("joined_at", { ascending: true });
 
       if (data) {
         setPlayers(
-          data.map((row: Record<string, unknown>) => ({
-            id: row.id as string,
-            player_id: row.player_id as string,
-            display_name: (row.profiles as Record<string, unknown>)?.display_name as string || "Player",
-            game_alias: (row.game_alias as string) || null,
-            joined_at: row.joined_at as string,
-          }))
+          data.map((row: Record<string, unknown>) => {
+            const prof = row.profiles as Record<string, unknown>;
+            return {
+              id: row.id as string,
+              player_id: row.player_id as string,
+              username: (prof?.username as string) || null,
+              display_name: prof?.display_name as string || "Player",
+              game_alias: (row.game_alias as string) || null,
+              joined_at: row.joined_at as string,
+            };
+          })
         );
       }
     }
@@ -135,13 +142,14 @@ export function LobbyView({
         async (payload) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("display_name")
+            .select("display_name, username")
             .eq("id", payload.new.player_id)
             .single();
 
           const newPlayer: Player = {
             id: payload.new.id,
             player_id: payload.new.player_id,
+            username: profile?.username || null,
             display_name: profile?.display_name || "Player",
             game_alias: payload.new.game_alias || null,
             joined_at: payload.new.joined_at,
@@ -199,23 +207,39 @@ export function LobbyView({
         </section>
 
         {/* Stat cards with icons */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="border border-border bg-surface p-4 space-y-2 text-center">
-            <Users {...ICON_PROPS} className={`${ICON_CLASS} mx-auto`} />
-            <p className="font-heading text-xl font-bold tabular-nums">{players.length}</p>
-            <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">players</p>
+        <div className="grid grid-cols-4 gap-2 mb-6">
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <Users size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{players.length}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">players</p>
           </div>
-          <div className="border border-border bg-surface p-4 space-y-2 text-center">
-            <Layers {...ICON_PROPS} className={`${ICON_CLASS} mx-auto`} />
-            <p className="font-heading text-xl font-bold tabular-nums">{event.roundCount ?? "—"}</p>
-            <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">rounds</p>
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <Layers size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{event.roundCount ?? "—"}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">rounds</p>
           </div>
-          <div className="border border-border bg-surface p-4 space-y-2 text-center">
-            <HelpCircle {...ICON_PROPS} className={`${ICON_CLASS} mx-auto`} />
-            <p className="font-heading text-xl font-bold tabular-nums">{event.questionCount ?? "—"}</p>
-            <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">questions</p>
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <HelpCircle size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{event.questionCount ?? "—"}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">questions</p>
+          </div>
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <Clock size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{event.estimatedMinutes ? `~${event.estimatedMinutes}` : "—"}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">min</p>
           </div>
         </div>
+
+        {/* Prizes banner */}
+        {event.prizes && (
+          <div className="border border-primary/20 bg-primary/5 p-4 mb-6 flex items-start gap-3">
+            <Trophy size={20} strokeWidth={2} className="text-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-0.5">Prizes</p>
+              <p className="text-sm text-foreground">{event.prizes}</p>
+            </div>
+          </div>
+        )}
 
         {/* Join card */}
         <div className="border border-border bg-surface p-5 mb-6 space-y-4">
@@ -279,7 +303,7 @@ export function LobbyView({
               <PlayerAvatar seed={p.player_id} name={p.display_name} size={36} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {p.game_alias || p.display_name}
+                  {p.game_alias || (p.username ? `@${p.username}` : p.display_name)}
                   {p.player_id === player.id && (
                     <span className="ml-1.5 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 font-medium">you</span>
                   )}

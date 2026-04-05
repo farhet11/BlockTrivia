@@ -197,7 +197,7 @@ export function ControlPanel({
 
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(20)
@@ -205,11 +205,13 @@ export function ControlPanel({
       .then(({ data }) => {
         if (data) {
           const entries: LeaderboardEntry[] = data.map((row: any) => {
+            // Host sees: display_name + alias annotation if different
             const realName = row.profiles?.display_name ?? "Player";
+            const handle = row.profiles?.username ? `@${row.profiles.username}` : realName;
             const alias = aliasMapRef.current.get(row.player_id);
             return {
               player_id: row.player_id,
-              display_name: alias && alias !== realName ? `${realName} (${alias})` : realName,
+              display_name: alias ? `${handle} (${alias})` : handle,
               total_score: row.total_score,
               rank: row.rank,
               correct_count: row.correct_count,

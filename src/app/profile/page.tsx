@@ -13,7 +13,7 @@ export default async function ProfilePage() {
   // Fetch profile
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, email, avatar_url, role")
+    .select("display_name, username, email, avatar_url, role")
     .eq("id", user.id)
     .single();
 
@@ -74,6 +74,7 @@ export default async function ProfilePage() {
       user={{
         id: user.id,
         displayName: profile.display_name ?? "Player",
+        username: profile.username ?? null,
         email: profile.email ?? user.email ?? "",
         role: profile.role as "super_admin" | "host" | "player",
         avatarUrl: profile.avatar_url,

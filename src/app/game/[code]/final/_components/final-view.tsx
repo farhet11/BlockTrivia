@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ShareResultButton } from "./share-result-button";
-import { PodiumLayout, RankingRow } from "@/app/_components/lb-podium";
+import { PodiumLayout, RankingRow, PinnedRankSection } from "@/app/_components/lb-podium";
 
 type Sponsor = {
   id: string;
@@ -44,6 +44,8 @@ export function FinalView({
   const podiumEntries = leaderboard.slice(0, 3);
   const rankingEntries = leaderboard.slice(3);
   const firstScore = leaderboard[0]?.total_score ?? 1;
+  const myRank = myEntry?.rank ?? null;
+  const inTop3 = myRank !== null && myRank <= 3;
 
   useEffect(() => {
     // Burst from both sides
@@ -81,15 +83,9 @@ export function FinalView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-        <a href="/join">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-        </a>
-        <ThemeToggle />
-      </header>
+      <PlayerHeader />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
         {/* Title */}
         <div className="text-center space-y-1">
           <p className="font-brand text-sm font-semibold text-primary italic tracking-wide">Game Over</p>
@@ -152,8 +148,15 @@ export function FinalView({
           </div>
         )}
 
-        {/* Full standings — 4th+ with progress bars */}
-        {rankingEntries.length > 0 && (
+        {/* Full standings — pinned design for player not in top 3, raw list otherwise */}
+        {!inTop3 && myEntry ? (
+          <PinnedRankSection
+            entry={myEntry}
+            firstScore={firstScore}
+            topEntries={podiumEntries}
+            allEntries={leaderboard}
+          />
+        ) : rankingEntries.length > 0 ? (
           <div className="border-t border-border">
             {rankingEntries.map((entry, i) => (
               <RankingRow
@@ -166,7 +169,7 @@ export function FinalView({
               />
             ))}
           </div>
-        )}
+        ) : null}
 
       </div>
       <SponsorBar sponsors={sponsors} />

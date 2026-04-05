@@ -3,11 +3,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
-import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
+import type { LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 
 type Sponsor = {
@@ -61,7 +61,7 @@ export function PlayView({
   roundsInfo,
 }: {
   event: { id: string; title: string; joinCode: string; logoUrl: string | null };
-  player: { id: string; displayName: string };
+  player: { id: string; displayName: string; avatarUrl?: string | null };
   questions: QuestionData[];
   initialGameState: GameState;
   sponsors: Sponsor[];
@@ -122,6 +122,13 @@ export function PlayView({
   // Keep ref in sync with state (for use in polling interval)
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
+  // If already in leaderboard or ended phase on mount, go to leaderboard page
+  useEffect(() => {
+    if (gameState.phase === "leaderboard" || gameState.phase === "ended") {
+      router.replace(`/game/${event.joinCode}/leaderboard`);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Shared handler for any game state update (Realtime or polling)
   function applyGameState(next: GameState) {
     const prev = gameStateRef.current;
@@ -133,8 +140,8 @@ export function PlayView({
       setLeverage(1.0);
       setLastResult(null);
       submitLockRef.current = false;
-    } else if (next.phase === "ended") {
-      router.push(`/game/${event.joinCode}/final`);
+    } else if (next.phase === "ended" || next.phase === "leaderboard") {
+      router.push(`/game/${event.joinCode}/leaderboard`);
     }
   }
 
@@ -244,7 +251,7 @@ export function PlayView({
     leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && leaderboard.length === 0;
 
-    // Fetch top 10
+    // Fetch top 10 (with fallback to event_players at 0 pts if no scores yet)
     supabase
       .from("leaderboard_entries")
       .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
@@ -252,24 +259,45 @@ export function PlayView({
       .order("rank", { ascending: true })
       .limit(10)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data }) => {
-        if (data) {
-          const entries: LeaderboardEntry[] = data.map((row: any) => ({
-            player_id: row.player_id,
-            display_name: row.profiles?.display_name ?? "Player",
-            total_score: row.total_score,
-            rank: row.rank,
-          }));
-          // Compute rank deltas (positive = moved up)
-          const deltas = new Map<string, number | null>();
-          entries.forEach((e) => {
-            const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
-            deltas.set(e.player_id, prev != null ? prev - e.rank : null);
-          });
-          prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
-          setLeaderboard(entries);
-          setLbDeltas(deltas);
+      .then(async ({ data }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
+          player_id: row.player_id,
+          display_name: row.profiles?.display_name ?? "Player",
+          total_score: row.total_score,
+          rank: row.rank,
+        }));
+
+        // Fallback: no scores yet — show all joined players at 0 pts
+        if (entries.length === 0) {
+          const { data: players } = await supabase
+            .from("event_players")
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .select(`player_id, profiles ( display_name )`)
+            .eq("event_id", event.id)
+            .limit(10);
+          if (players) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            entries = players.map((p: any, i: number) => ({
+              player_id: p.player_id,
+              display_name: p.profiles?.display_name ?? "Player",
+              total_score: 0,
+              rank: i + 1,
+            }));
+            // Also set the current player's entry from the fallback list
+            const myFallback = entries.find((e) => e.player_id === player.id);
+            if (myFallback) setMyLbEntry(myFallback);
+          }
         }
+
+        const deltas = new Map<string, number | null>();
+        entries.forEach((e) => {
+          const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
+          deltas.set(e.player_id, prev != null ? prev - e.rank : null);
+        });
+        prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+        setLeaderboard(entries);
+        setLbDeltas(deltas);
       });
 
     // Also fetch current player's own entry (for pinned rank when outside top 10)
@@ -355,27 +383,13 @@ export function PlayView({
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-3">
-            {event.logoUrl && (
-              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </header>
+        <PlayerHeader
+          user={{ id: player.id, displayName: player.displayName }}
+          avatarUrl={player.avatarUrl}
+          right={event.logoUrl ? (
+            <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+          ) : null}
+        />
         <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
           <div className="text-center space-y-3 max-w-sm">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
@@ -417,116 +431,6 @@ export function PlayView({
     );
   }
 
-  // ── Leaderboard phase ──────────────────────────────────────────────────────
-  if (phase === "leaderboard") {
-    const lbQuestionIdx = questions.findIndex((q) => q.id === gameState.current_question_id);
-    const lbRoundIdx = rounds.findIndex((r) => r.id === gameState.current_round_id);
-    const podiumEntries = leaderboard.slice(0, 3);
-    const rankingEntries = leaderboard.slice(3);
-    const firstScore = leaderboard[0]?.total_score ?? 1;
-    const inVisibleList = leaderboard.some((e) => e.player_id === player.id);
-    const pinnedEntry = !inVisibleList ? myLbEntry : null;
-
-    return (
-      <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-3">
-            {event.logoUrl && (
-              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </header>
-
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 space-y-5 pb-8">
-          {/* Heading + event info */}
-          <div
-            className="text-center space-y-0.5"
-            style={{ animation: "lb-fade-up 280ms ease-out both" }}
-          >
-            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Standings</p>
-            <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-            <p className="text-sm text-muted-foreground font-medium">{event.title}</p>
-          </div>
-
-          {/* Waiting indicator — top */}
-          <p
-            className="text-center text-xs text-muted-foreground animate-pulse"
-            style={{ animation: "lb-fade-up 280ms ease-out 40ms both" }}
-          >
-            Waiting for host to continue...
-          </p>
-
-          {/* Stats bar — 3 cols */}
-          <div
-            className="grid grid-cols-3 border border-border divide-x divide-border"
-            style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
-          >
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
-              <p className="font-heading text-lg font-bold tabular-nums">{playerCount ?? "—"}</p>
-            </div>
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
-              <p className="font-heading text-lg font-bold tabular-nums">
-                {lbQuestionIdx >= 0 ? `${lbQuestionIdx + 1}/${questions.length}` : "—"}
-              </p>
-            </div>
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
-              <p className="font-heading text-lg font-bold tabular-nums">
-                {lbRoundIdx >= 0 ? `${lbRoundIdx + 1}/${rounds.length}` : "—"}
-              </p>
-            </div>
-          </div>
-
-          {/* PODIUM — top 3 */}
-          {podiumEntries.length > 0 && (
-            <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
-              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
-            </div>
-          )}
-
-          {/* RANKINGS — 4th+ */}
-          {rankingEntries.length > 0 && (
-            <div className="border-t border-border">
-              {rankingEntries.map((entry, i) => (
-                <RankingRow
-                  key={entry.player_id}
-                  entry={entry}
-                  firstScore={firstScore}
-                  delta={lbDeltas.get(entry.player_id) ?? null}
-                  isMe={entry.player_id === player.id}
-                  animIndex={i + 3}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* YOUR RANK — pinned (only when player not in visible top 10) */}
-          {pinnedEntry && (
-            <PinnedRankSection entry={pinnedEntry} firstScore={firstScore} />
-          )}
-
-        </div>
-
-        <SponsorBar sponsors={sponsors} />
-      </div>
-    );
-  }
 
   // ── Paused ─────────────────────────────────────────────────────────────────
   if (phase === "lobby" && gameState.started_at) {
@@ -571,33 +475,19 @@ export function PlayView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border">
-        <div className="px-5 h-14 flex items-center justify-between max-w-lg mx-auto">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          <div className="flex items-center gap-3">
-            {timeLeft !== null && !hasAnswered && (
-              <span
-                className={`font-heading text-lg font-bold tabular-nums ${
-                  timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
-                }`}
-              >
-                {timeLeft}s
-              </span>
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
+      <PlayerHeader
+        user={{ id: player.id, displayName: player.displayName }}
+        avatarUrl={player.avatarUrl}
+        right={timeLeft !== null && !hasAnswered ? (
+          <span
+            className={`font-heading text-lg font-bold tabular-nums ${
+              timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
+            }`}
+          >
+            {timeLeft}s
+          </span>
+        ) : null}
+      />
 
       {/* Timer bar — 4px shrinking bar per DESIGN.md */}
       {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {
@@ -618,7 +508,7 @@ export function PlayView({
 
       {/* Progress bar */}
       {currentRoundData && questionsInRound.length > 0 && (
-        <div className="border-b border-border px-5 py-2.5 max-w-lg mx-auto w-full">
+        <div className="border-b border-border px-5 py-2.5 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
             <span className="font-medium truncate max-w-[60%]">
               {currentRoundData.title}
@@ -662,11 +552,11 @@ export function PlayView({
 
       {phase === "revealing" && !lastResult && (
         <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
-          <span className="text-sm text-muted-foreground">Time&apos;s up — you didn&apos;t answer in time.</span>
+          <span className="text-sm text-muted-foreground">Time&apos;s up - you didn&apos;t answer in time.</span>
         </div>
       )}
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 flex flex-col gap-5">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-6 flex flex-col gap-5">
         {/* Question body — scales down for long text */}
         <h1 className={`font-medium leading-snug break-words ${
           currentQuestion.body.length > 120 ? "text-base" : "text-xl"
@@ -751,7 +641,7 @@ export function PlayView({
         {/* Submitted / waiting */}
         {hasAnswered && phase === "playing" && (
           <p className="text-center text-sm text-muted-foreground animate-pulse">
-            Answer locked in — waiting for host to reveal...
+            Answer locked in - waiting for host to reveal...
           </p>
         )}
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { BrandedQR } from "@/app/_components/branded-qr";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-podium";
@@ -59,6 +59,9 @@ type EventInfo = {
   description?: string | null;
   joinCode: string;
   status: string;
+  logoUrl?: string | null;
+  logoDarkUrl?: string | null;
+  organizerName?: string | null;
 };
 
 export function ControlPanel({
@@ -69,6 +72,7 @@ export function ControlPanel({
   playerCount: initialPlayerCount,
   sponsors,
   isHost,
+  hostUser,
 }: {
   event: EventInfo;
   questions: Question[];
@@ -77,6 +81,7 @@ export function ControlPanel({
   playerCount: number;
   sponsors: Sponsor[];
   isHost: boolean;
+  hostUser?: { id: string; displayName: string; email: string; avatarUrl: string | null };
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [gameState, setGameState] = useState<GameState>(initialGameState);
@@ -92,6 +97,7 @@ export function ControlPanel({
   const [lbLoading, setLbLoading] = useState(false);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const [prePausePhase, setPrePausePhase] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
@@ -180,30 +186,53 @@ export function ControlPanel({
 
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(20)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data }) => {
-        if (data) {
-          const entries: LeaderboardEntry[] = data.map((row: any) => ({
-            player_id: row.player_id,
-            display_name: row.profiles?.display_name ?? "Player",
-            total_score: row.total_score,
-            rank: row.rank,
-            correct_count: row.correct_count,
-            total_questions: row.total_questions,
-          }));
-          const deltas = new Map<string, number | null>();
-          entries.forEach((e) => {
-            const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
-            deltas.set(e.player_id, prev != null ? prev - e.rank : null);
-          });
-          prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
-          setLbEntries(entries);
-          setLbDeltas(deltas);
+      .then(async ({ data }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
+          player_id: row.player_id,
+          display_name: row.profiles?.display_name ?? "Player",
+          avatar_url: row.profiles?.avatar_url ?? null,
+          total_score: row.total_score,
+          rank: row.rank,
+          correct_count: row.correct_count,
+          total_questions: row.total_questions,
+        }));
+
+        // Fallback: no scores yet — show all joined players at 0 pts
+        if (entries.length === 0) {
+          const { data: players } = await supabase
+            .from("event_players")
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .select(`player_id, profiles ( display_name, avatar_url )`)
+            .eq("event_id", event.id)
+            .limit(20);
+          if (players) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            entries = players.map((p: any, i: number) => ({
+              player_id: p.player_id,
+              display_name: p.profiles?.display_name ?? "Player",
+              avatar_url: p.profiles?.avatar_url ?? null,
+              total_score: 0,
+              rank: i + 1,
+              correct_count: 0,
+              total_questions: 0,
+            }));
+          }
         }
+
+        const deltas = new Map<string, number | null>();
+        entries.forEach((e) => {
+          const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
+          deltas.set(e.player_id, prev != null ? prev - e.rank : null);
+        });
+        prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+        setLbEntries(entries);
+        setLbDeltas(deltas);
         setLbLoading(false);
       });
   }, [gameState.phase, event.id, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -340,6 +369,7 @@ export function ControlPanel({
       return;
     }
 
+    await updateEventStatus("active");
     await updateGameState({
       phase: "playing",
       current_round_id: next.round_id,
@@ -353,16 +383,22 @@ export function ControlPanel({
     await updateGameState({ phase: "revealing" });
   }
 
-  // Show leaderboard between rounds
-  async function showLeaderboard() {
+  // Pause — shows leaderboard, remembers where we were
+  async function pauseGame() {
+    setPrePausePhase(gameState.phase);
+    await updateEventStatus("paused");
     await updateGameState({ phase: "leaderboard" });
   }
 
-  // Pause / resume
-  async function togglePause() {
-    if (gameState.phase === "playing") {
-      await updateEventStatus("paused");
-      await updateGameState({ phase: "lobby" });
+  // Resume — goes back to exactly where we paused
+  async function resumeGame() {
+    const phase = prePausePhase ?? "playing";
+    setPrePausePhase(null);
+    await updateEventStatus("active");
+    if (phase === "revealing") {
+      await updateGameState({ phase: "revealing" });
+    } else {
+      await updateGameState({ phase: "playing", question_started_at: new Date().toISOString() });
     }
   }
 
@@ -387,31 +423,13 @@ export function ControlPanel({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-5 h-14 max-w-2xl mx-auto">
-          <a href="/host">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-3">
-            {gameState.phase === "lobby" && !gameState.started_at && (
-              <button
-                onClick={() => setStageView(true)}
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75.125-.375-13.5C2.25 4.254 2.754 3.75 3.375 3.75h17.25c.621 0 1.125.504 1.125 1.125l-.375 13.5M20.625 19.5h-1.5c-.621 0-1.125-.504-1.125-1.125M6 18.375V6.375m12 12V6.375M6 6.375h12" />
-                </svg>
-                Stage View
-              </button>
-            )}
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <PlayerHeader
+        logoHref="/host"
+        user={hostUser ?? null}
+        avatarUrl={hostUser?.avatarUrl}
+      />
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-5">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5">
         {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
         {gameState.phase === "lobby" && !gameState.started_at && (
@@ -577,7 +595,7 @@ export function ControlPanel({
                 Reveal Answer
               </button>
               <button
-                onClick={togglePause}
+                onClick={pauseGame}
                 disabled={loading}
                 className="h-12 px-6 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
               >
@@ -617,11 +635,11 @@ export function ControlPanel({
 
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={showLeaderboard}
+                onClick={pauseGame}
                 disabled={loading}
-                className="flex-1 h-12 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
+                className="h-12 px-6 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
               >
-                Show Leaderboard
+                Pause
               </button>
               <button
                 onClick={isLastQuestion ? endGame : nextQuestion}
@@ -636,18 +654,32 @@ export function ControlPanel({
 
         {/* Phase: Leaderboard */}
         {gameState.phase === "leaderboard" && (
-          <div className="py-6 pb-8 space-y-5">
-            {/* Event name + heading */}
-            <div
-              className="text-center space-y-0.5"
-              style={{ animation: "lb-fade-up 280ms ease-out both" }}
-            >
-              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Standings</p>
-              <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-              <p className="text-sm text-muted-foreground font-medium">{event.title}</p>
-              {event.description && (
-                <p className="text-xs text-muted-foreground max-w-sm mx-auto">{event.description}</p>
-              )}
+          <div className="py-6 pb-36 space-y-5">
+            {/* Event title + hosted by + status — matches leaderboard page */}
+            <div className="text-center space-y-2" style={{ animation: "lb-fade-up 280ms ease-out both" }}>
+              <h2 className="font-heading text-2xl font-bold leading-tight">{event.title}</h2>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "Inter, sans-serif" }}>
+                  Hosted by
+                </p>
+                {event.logoUrl ? (
+                  <img src={event.logoUrl} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
+                ) : (
+                  <>
+                    <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
+                    <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain hidden dark:block" />
+                  </>
+                )}
+              </div>
+              <div className="flex justify-center pt-1">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                >
+                  <span className="size-1.5 rounded-full shrink-0" style={{ background: "#f59e0b" }} />
+                  Paused
+                </span>
+              </div>
             </div>
 
             {/* Stats bar — 3 data cols + clickable join code */}
@@ -683,8 +715,6 @@ export function ControlPanel({
                   <div key={i} className="h-14 bg-surface border border-border animate-pulse" />
                 ))}
               </div>
-            ) : lbEntries.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">No scores yet</p>
             ) : (
               <>
                 <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
@@ -709,23 +739,12 @@ export function ControlPanel({
               </>
             )}
 
-            {/* Sponsors + Next button — inline, no sticky overlap */}
-            {sponsors.length > 0 && <SponsorBar sponsors={sponsors} />}
-            <div className="pt-2 pb-4">
-              <button
-                onClick={isLastQuestion ? endGame : nextQuestion}
-                disabled={loading}
-                className="w-full h-12 bg-primary text-primary-foreground font-heading font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
-              >
-                {nextLabel}
-              </button>
-            </div>
           </div>
         )}
 
         {/* Phase: Interstitial — between rounds */}
         {gameState.phase === "interstitial" && (
-          <div className="flex flex-col items-center justify-center py-16 space-y-8">
+          <div className="flex flex-col items-center justify-center py-16 pb-28 space-y-8">
             <div className="text-center space-y-3">
               <p className="text-xs font-bold text-primary uppercase tracking-widest">
                 Next Up
@@ -758,12 +777,6 @@ export function ControlPanel({
             >
               Start Round →
             </button>
-
-            {sponsors.length > 0 && (
-              <div className="w-full pt-4">
-                <SponsorBar sponsors={sponsors} />
-              </div>
-            )}
           </div>
         )}
 
@@ -793,83 +806,7 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Paused state (lobby phase but game already started) */}
-        {gameState.phase === "lobby" && gameState.started_at && (
-          <div className="pt-8 pb-28 space-y-6">
-            <div className="text-center space-y-3">
-              <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5">
-                <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">
-                  Game Paused
-                </span>
-              </div>
-              <h1 className="font-heading text-2xl font-bold">{event.title}</h1>
-              <p className="text-muted-foreground">
-                {currentQuestion
-                  ? `Paused at Q${currentIndex + 1} / ${totalQuestions}`
-                  : "Game is paused"}
-              </p>
-            </div>
-
-            {/* QR + game code — players can still join while paused */}
-            <div className="flex justify-center">
-              <BrandedQR value={joinUrl} size={200} />
-            </div>
-
-            <button
-              onClick={copyCode}
-              className="w-full text-center group space-y-1"
-              aria-label="Copy join code"
-            >
-              <div className="flex items-center justify-center gap-2">
-                <span className="font-mono text-4xl font-bold tracking-[0.2em] text-primary">
-                  {event.joinCode}
-                </span>
-                {copied ? (
-                  <svg className="size-5 text-correct shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                  </svg>
-                ) : (
-                  <svg className="size-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                  </svg>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground/60">
-                {copied ? "✓ Copied!" : "tap anywhere to copy"}
-              </p>
-            </button>
-
-            {sponsors.length > 0 && (
-              <div className="w-full pt-4">
-                <SponsorBar sponsors={sponsors} />
-              </div>
-            )}
-          </div>
-        )}
       </div>
-
-      {/* Sticky Resume Game — paused state */}
-      {gameState.phase === "lobby" && gameState.started_at && (
-        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border px-5 py-4 z-40">
-          <div className="max-w-2xl mx-auto">
-            <button
-              onClick={async () => {
-                await updateEventStatus("active");
-                if (currentQuestion) {
-                  await updateGameState({
-                    phase: "playing",
-                    question_started_at: new Date().toISOString(),
-                  });
-                }
-              }}
-              disabled={loading}
-              className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-50"
-            >
-              Resume Game
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Sticky Start Game — lobby pre-start only */}
       {gameState.phase === "lobby" && !gameState.started_at && (
@@ -879,7 +816,7 @@ export function ControlPanel({
               <div className="border border-border bg-surface px-4 py-3 flex items-start justify-between gap-4">
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">You need host access to go live</p>
-                  <p className="text-xs text-muted-foreground">Your event is saved as a draft — reach out and we&apos;ll activate you.</p>
+                  <p className="text-xs text-muted-foreground">Your event is saved as a draft - reach out and we&apos;ll activate you.</p>
                 </div>
                 <a
                   href="https://t.me/AdamElfarouq"
@@ -907,6 +844,43 @@ export function ControlPanel({
         </div>
       )}
 
+
+      {/* Sticky Sponsors — interstitial phase */}
+      {gameState.phase === "interstitial" && sponsors.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border py-2 px-4">
+          <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
+          <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
+            {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
+              <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sticky Sponsors + Next Question — leaderboard phase */}
+      {gameState.phase === "leaderboard" && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
+          {sponsors.length > 0 && (
+            <div className="py-2 px-4">
+              <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
+              <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
+                {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
+                  <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-3">
+            <button
+              onClick={resumeGame}
+              disabled={loading}
+              className="w-full h-12 bg-primary text-primary-foreground font-heading font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
+            >
+              Resume Game
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Share drawer — triggered by join code card */}
       {showShare && (

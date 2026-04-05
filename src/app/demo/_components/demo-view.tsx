@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 
@@ -12,7 +12,7 @@ const QUESTIONS = [
     body: "What does DeFi stand for?",
     options: ["Decentralized Finance", "Digital Finance", "Deferred Finance", "Distributed Fiat"],
     correctIndex: 0,
-    explanation: "DeFi — Decentralized Finance — refers to financial services built on public blockchains, removing traditional intermediaries.",
+    explanation: "DeFi - Decentralized Finance - refers to financial services built on public blockchains, removing traditional intermediaries.",
   },
   {
     id: "q2",
@@ -33,7 +33,7 @@ const QUESTIONS = [
     body: "What does TVL stand for in DeFi?",
     options: ["Total Value Locked", "Token Vault Ledger", "Transaction Volume Limit", "Total Verified Liquidity"],
     correctIndex: 0,
-    explanation: "TVL (Total Value Locked) measures the total value of crypto assets deposited in a DeFi protocol — a key health metric.",
+    explanation: "TVL (Total Value Locked) measures the total value of crypto assets deposited in a DeFi protocol - a key health metric.",
   },
   {
     id: "q5",
@@ -52,7 +52,7 @@ const QUESTIONS = [
     body: "What is an NFT?",
     options: ["Non-Fungible Token", "New Financial Technology", "Network Fee Transaction", "Native Fungible Token"],
     correctIndex: 0,
-    explanation: "NFT stands for Non-Fungible Token — a unique, indivisible digital asset whose ownership is verified on a blockchain.",
+    explanation: "NFT stands for Non-Fungible Token - a unique, indivisible digital asset whose ownership is verified on a blockchain.",
   },
   {
     id: "q7",
@@ -249,14 +249,8 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
   if (phase === "name") {
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <ThemeToggle />
-        </header>
-        <div className="flex-1 flex flex-col items-center justify-center px-5 max-w-lg mx-auto w-full space-y-8">
+        <PlayerHeader logoHref="/" />
+        <div className="flex-1 flex flex-col items-center justify-center px-5 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full space-y-8">
           <div className="text-center space-y-2">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Demo Game</p>
             <h1 className="font-heading text-2xl font-bold">Web3 Knowledge Check</h1>
@@ -308,14 +302,8 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
     ];
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <ThemeToggle />
-        </header>
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-6">
+        <PlayerHeader logoHref="/" />
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-6">
           <div className="text-center space-y-1">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Demo Game</p>
             <h2 className="font-heading text-2xl font-bold">Web3 Knowledge Check</h2>
@@ -343,23 +331,24 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
   if (phase === "question") {
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Q{questionIndex + 1} / {QUESTIONS.length}
-          </span>
-          <span
-            className="font-heading text-2xl font-bold tabular-nums"
-            style={{ color: timerColor, transition: "color 0.3s" }}
-          >
-            {timeLeft}
-          </span>
-          <ThemeToggle />
-        </header>
+        <div className="border-b border-border w-full shrink-0">
+          <header className="px-5 h-14 flex items-center justify-between max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Q{questionIndex + 1} / {QUESTIONS.length}
+            </span>
+            <span
+              className="font-heading text-2xl font-bold tabular-nums"
+              style={{ color: timerColor, transition: "color 0.3s" }}
+            >
+              {timeLeft}
+            </span>
+          </header>
+        </div>
 
         {/* Timer bar */}
         <div className="h-1 bg-border transition-all duration-200" style={{ width: `${timerPct}%`, backgroundColor: timerColor }} />
 
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 flex flex-col gap-6">
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-6 flex flex-col gap-6">
           <p className="font-heading text-xl font-semibold leading-snug">{question.body}</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {question.options.map((opt, i) => (
@@ -393,17 +382,16 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
 
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
+        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
             Q{questionIndex + 1} / {QUESTIONS.length}
           </span>
           <span className="text-xs text-muted-foreground">
             Next in <span className="font-bold text-foreground">{revealCountdown}s</span>
           </span>
-          <ThemeToggle />
         </header>
 
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 flex flex-col gap-5">
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-6 flex flex-col gap-5">
           {/* Result banner */}
           <div className={`border p-4 text-center space-y-1 ${
             !didAnswer ? "border-border bg-surface" :
@@ -474,14 +462,8 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
 
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <ThemeToggle />
-        </header>
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 space-y-5">
+        <PlayerHeader logoHref="/" />
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-6 space-y-5">
           <div className="text-center space-y-0.5">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
               After Q{questionIndex + 1}
@@ -533,14 +515,8 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
 
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <ThemeToggle />
-        </header>
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
+        <PlayerHeader logoHref="/" />
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
           <div className="text-center space-y-1">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Game Over</p>
             <h1 className="font-heading text-2xl font-bold">Final Results</h1>

@@ -69,11 +69,11 @@ export default async function SummaryPage({
     is_suspicious: row.is_suspicious ?? false,
   }));
 
-  // Total player count
-  const { count: playerCount } = await supabase
-    .from("event_players")
-    .select("*", { count: "exact", head: true })
-    .eq("event_id", event.id);
+  // Total player count + host profile in parallel
+  const [{ count: playerCount }, { data: profile }] = await Promise.all([
+    supabase.from("event_players").select("*", { count: "exact", head: true }).eq("event_id", event.id),
+    supabase.from("profiles").select("display_name, avatar_url, email").eq("id", user.id).single(),
+  ]);
 
   return (
     <SummaryView
@@ -87,6 +87,12 @@ export default async function SummaryPage({
       }}
       leaderboard={leaderboard}
       playerCount={playerCount ?? 0}
+      hostUser={{
+        id: user.id,
+        displayName: profile?.display_name ?? "Host",
+        email: profile?.email ?? user.email ?? "",
+        avatarUrl: profile?.avatar_url ?? null,
+      }}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "@/app/_components/share-drawer";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 
@@ -19,6 +19,7 @@ type Player = {
   id: string;
   player_id: string;
   display_name: string;
+  avatar_url: string | null;
   joined_at: string;
 };
 
@@ -28,8 +29,10 @@ type EventInfo = {
   joinCode: string;
   status: string;
   logoUrl?: string | null;
-  roundCount?: number;
+  logoDarkUrl?: string | null;
+  organizerName?: string | null;
   questionCount?: number;
+  estimatedMinutes?: number | null;
 };
 
 export function LobbyView({
@@ -38,14 +41,13 @@ export function LobbyView({
   sponsors,
 }: {
   event: EventInfo;
-  player: { id: string; displayName: string };
+  player: { id: string; displayName: string; avatarUrl?: string | null };
   sponsors: Sponsor[];
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [players, setPlayers] = useState<Player[]>([]);
   const [showShare, setShowShare] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // Redirect helper — shared by Realtime + polling
   function handlePhaseChange(phase: string) {
@@ -103,17 +105,19 @@ export function LobbyView({
     async function loadPlayers() {
       const { data } = await supabase
         .from("event_players")
-        .select(`id, player_id, joined_at, profiles!event_players_player_id_fkey ( display_name )`)
+        .select(`id, player_id, joined_at, profiles!event_players_player_id_fkey ( display_name, avatar_url )`)
         .eq("event_id", event.id)
         .order("joined_at", { ascending: true });
 
       if (data) {
         setPlayers(
-          data.map((row: Record<string, unknown>) => ({
-            id: row.id as string,
-            player_id: row.player_id as string,
-            display_name: (row.profiles as Record<string, unknown>)?.display_name as string || "Player",
-            joined_at: row.joined_at as string,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data.map((row: any) => ({
+            id: row.id,
+            player_id: row.player_id,
+            display_name: row.profiles?.display_name || "Player",
+            avatar_url: row.profiles?.avatar_url ?? null,
+            joined_at: row.joined_at,
           }))
         );
       }
@@ -129,7 +133,7 @@ export function LobbyView({
         async (payload) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("display_name")
+            .select("display_name, avatar_url")
             .eq("id", payload.new.player_id)
             .single();
 
@@ -137,6 +141,7 @@ export function LobbyView({
             id: payload.new.id,
             player_id: payload.new.player_id,
             display_name: profile?.display_name || "Player",
+            avatar_url: profile?.avatar_url ?? null,
             joined_at: payload.new.joined_at,
           };
 
@@ -151,159 +156,144 @@ export function LobbyView({
     return () => { supabase.removeChannel(channel); };
   }, [supabase, event.id]);
 
-  function copyCode() {
-    navigator.clipboard.writeText(event.joinCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }
-
-  function shareLink() {
-    const url = `${window.location.origin}/join/${event.joinCode}`;
-    if (navigator.share) {
-      navigator.share({ title: event.title, url });
-    } else {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
-    }
-  }
-
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <ThemeToggle />
-        </div>
-      </header>
+      <PlayerHeader user={{ id: player.id, displayName: player.displayName }} avatarUrl={player.avatarUrl} />
 
-      {/* Main content */}
-      <div className="flex-1 max-w-lg mx-auto w-full px-5">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full flex flex-col">
 
-        {/* Event info */}
-        <section className="pt-10 pb-6 text-center space-y-3">
-          <div className="inline-flex items-center gap-2 bg-accent-light px-4 py-1.5">
-            <span className="w-2 h-2 rounded-full bg-correct animate-pulse" />
-            <span className="text-xs font-bold text-accent-text uppercase tracking-wider">
+        {/* Event title + hosted by + status */}
+        <div className="text-center px-5 pt-5 pb-2 space-y-2">
+          <h1 className="font-heading text-2xl font-bold leading-tight">{event.title}</h1>
+
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "Inter, sans-serif" }}>
+              Hosted by
+            </p>
+            {event.logoUrl ? (
+              <img src={event.logoUrl} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
+            ) : (
+              <>
+                <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
+                <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain hidden dark:block" />
+              </>
+            )}
+          </div>
+
+          {/* Status badge */}
+          <div className="flex justify-center pt-1">
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: "#22c55e", background: "#22c55e18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+            >
+              <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#22c55e" }} />
               Lobby Open
             </span>
           </div>
-          <h1 className="font-heading text-[28px] font-bold leading-tight tracking-tight text-foreground">
-            {event.title}
-          </h1>
-          <p className="text-muted-foreground text-[15px]">
-            Waiting for the host to start the game...
-          </p>
-        </section>
+        </div>
 
-        {/* Join card */}
-        <div className="border border-border bg-surface p-5 mb-6 space-y-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Join This Game
-          </p>
+        {/* 4-col stats bar */}
+        <div className="mx-5 mt-3 mb-4 grid grid-cols-4 border border-border divide-x divide-border">
+          <div className="py-3 text-center">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Players</p>
+            <p className="font-heading text-lg font-bold tabular-nums">{players.length}</p>
+          </div>
+          <div className="py-3 text-center">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Questions</p>
+            <p className="font-heading text-lg font-bold tabular-nums">{event.questionCount ?? "—"}</p>
+          </div>
+          <div className="py-3 text-center">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Est. Time</p>
+            <p className="font-heading text-lg font-bold tabular-nums">{event.estimatedMinutes ? `${event.estimatedMinutes}m` : "—"}</p>
+          </div>
           <button
-            onClick={copyCode}
-            className="w-full text-left group space-y-1"
-            aria-label="Copy join code"
+            onClick={() => setShowShare(true)}
+            className="py-3 text-center hover:bg-border/40 transition-colors"
           >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-3xl font-bold tracking-[0.2em] text-primary">
-                {event.joinCode}
-              </span>
-              {copied ? (
-                <svg className="size-5 text-correct shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                </svg>
-              ) : (
-                <svg className="size-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                </svg>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground/60">
-              {copied ? "✓ Copied!" : "tap anywhere to copy"}
-            </p>
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Join Code</p>
+            <p className="font-heading text-lg font-bold text-primary tabular-nums tracking-widest">{event.joinCode}</p>
           </button>
-          <div className="flex gap-2 pt-1">
-            <button
-              onClick={() => setShowShare(true)}
-              className="flex-1 h-10 border border-border text-sm font-medium hover:bg-accent transition-colors flex items-center justify-center gap-1.5"
-            >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75V16.5ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
-              </svg>
-              Show QR
-            </button>
-            <button
-              onClick={shareLink}
-              className="flex-1 h-10 border border-border text-sm font-medium hover:bg-accent transition-colors flex items-center justify-center gap-1.5"
-            >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-              </svg>
-              Share
-            </button>
-          </div>
         </div>
 
-        {/* Player count */}
-        <div className="flex items-center justify-between py-4 border-b border-border">
-          <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-            Players
-          </span>
-          <span className="text-sm font-bold text-foreground tabular-nums">
-            {players.length}
-          </span>
-        </div>
-
-        {/* Player list */}
-        <ul className="divide-y divide-border">
-          {players.map((p, i) => (
-            <li key={p.id} className="flex items-center gap-3 py-3.5">
-              <PlayerAvatar seed={p.player_id} name={p.display_name} size={36} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
+        {/* Players section */}
+        <div className="flex-1 mx-5">
+          {players.map((p, i) => {
+            const isMe = p.player_id === player.id;
+            return (
+              <div
+                key={p.id}
+                className="flex items-center gap-3"
+                style={{
+                  padding: "12px 20px",
+                  borderBottom: "1px solid var(--color-border, #e8e5e0)",
+                  ...(isMe ? { background: "rgba(124,58,237,0.05)", borderLeft: "2px solid rgba(124,58,237,0.3)" } : {}),
+                }}
+              >
+                <span
+                  className="shrink-0 text-right tabular-nums"
+                  style={{ fontFamily: "Inter, sans-serif", fontSize: 15, fontWeight: 600, color: "#78756e", width: 20 }}
+                >
+                  {i + 1}
+                </span>
+                <PlayerAvatar seed={p.player_id} name={p.display_name} size={40} url={p.avatar_url} />
+                <span
+                  className="flex-1 truncate"
+                  style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500, color: isMe ? "#7c3aed" : undefined }}
+                >
                   {p.display_name}
-                  {p.player_id === player.id && (
-                    <span className="ml-1.5 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 font-medium">you</span>
+                  {isMe && (
+                    <span
+                      className="ml-1.5 text-[9px] font-semibold px-1.5 py-0.5"
+                      style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}
+                    >
+                      you
+                    </span>
                   )}
-                </p>
+                </span>
               </div>
-              <span className="text-xs text-muted-foreground tabular-nums">#{i + 1}</span>
-            </li>
-          ))}
-        </ul>
+            );
+          })}
 
-        {/* Empty / solo state */}
-        {players.length <= 1 && (
-          <div className="py-8 text-center">
-            <p className="text-sm text-muted-foreground">
+          {/* Ghost placeholder rows — blurred, fills up to 4 total rows */}
+          {players.length < 4 && (
+            <div className="blur-[2px] opacity-40 pointer-events-none select-none">
+              {Array.from({ length: 4 - players.length }).map((_, i) => (
+                <div
+                  key={`ghost-${i}`}
+                  className="flex items-center gap-3"
+                  style={{ padding: "12px 20px", borderBottom: "1px solid var(--color-border, #e8e5e0)" }}
+                >
+                  <span
+                    className="shrink-0 text-right tabular-nums"
+                    style={{ fontFamily: "Inter, sans-serif", fontSize: 15, fontWeight: 600, color: "#78756e", width: 20 }}
+                  >
+                    {players.length + i + 1}
+                  </span>
+                  <PlayerAvatar seed={`ghost-slot-${i}`} name="?" size={40} />
+                  <span className="flex-1" style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500 }}>
+                    Waiting...
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {players.length <= 1 && (
+            <p className="py-4 text-center text-sm text-muted-foreground">
               {players.length === 0
-                ? "No players yet — share the code above to invite others."
-                : "Just you so far — share the code above to bring in more players."}
+                ? "No one here yet - share the join code!"
+                : "Invite others - tap the join code above."}
             </p>
-          </div>
-        )}
+          )}
 
-        <div className="pb-8" />
+          <div className="pb-8" />
+        </div>
       </div>
 
-      {/* Sponsor bar */}
       <SponsorBar sponsors={sponsors} />
 
-      {/* Share drawer */}
       {showShare && (
-        <ShareDrawer
-          joinCode={event.joinCode}
-          onClose={() => setShowShare(false)}
-        />
+        <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
       )}
     </div>
   );

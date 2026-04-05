@@ -1,5 +1,6 @@
 "use client";
 
+import { PlayerHeader } from "@/app/_components/player-header";
 import { AnnounceResultsButton } from "./announce-results-button";
 
 type Entry = {
@@ -19,10 +20,12 @@ export function SummaryView({
   event,
   leaderboard,
   playerCount,
+  hostUser,
 }: {
   event: { id: string; title: string; joinCode: string; status: string; twitter_handle?: string | null; hashtags?: string[] | null };
   leaderboard: Entry[];
   playerCount: number;
+  hostUser?: { id: string; displayName: string; email: string; avatarUrl: string | null };
 }) {
   function downloadCSV() {
     const headers = ["Rank", "Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%"];
@@ -60,20 +63,13 @@ export function SummaryView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-5 h-14 max-w-3xl mx-auto">
-          <div className="flex items-center gap-3">
-            <a href="/host">
-              <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-              <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-            </a>
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">Post-Event Summary</span>
-          </div>
-        </div>
-      </header>
+      <PlayerHeader
+        logoHref="/host"
+        user={hostUser ?? null}
+        avatarUrl={hostUser?.avatarUrl}
+      />
 
-      <div className="flex-1 max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
         {/* Event title */}
         <div className="space-y-1">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Game Ended</p>
@@ -99,7 +95,7 @@ export function SummaryView({
         {/* Leaderboard table */}
         <div className="space-y-2">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-            Full Standings — {leaderboard.length} players
+            Full Standings - {leaderboard.length} players
           </p>
 
           {/* Desktop table */}

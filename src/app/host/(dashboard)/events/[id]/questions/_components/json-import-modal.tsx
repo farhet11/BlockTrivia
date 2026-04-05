@@ -130,7 +130,7 @@ export function JsonImportModal({
             "A DeFi yield protocol",
           ],
           correct_answer: 0,
-          explanation: "BlockTrivia is a live trivia game that helps Web3 projects find who actually understands their protocol — not just airdrop farmers.",
+          explanation: "BlockTrivia is a live trivia game that helps Web3 projects find who actually understands their protocol - not just airdrop farmers.",
         },
         {
           body: "What does a player's rank on the BlockTrivia leaderboard actually prove?",
@@ -141,7 +141,7 @@ export function JsonImportModal({
             "Their on-chain transaction history",
           ],
           correct_answer: 1,
-          explanation: "The leaderboard reflects knowledge + speed — a signal of genuine protocol understanding, not just token wealth.",
+          explanation: "The leaderboard reflects knowledge + speed - a signal of genuine protocol understanding, not just token wealth.",
         },
         {
           body: "Who is BlockTrivia primarily built for?",
@@ -152,7 +152,7 @@ export function JsonImportModal({
             "Crypto influencers running giveaways",
           ],
           correct_answer: 1,
-          explanation: "BlockTrivia is a tool for protocols and DAOs to run knowledge-based events — separating real community from airdrop hunters.",
+          explanation: "BlockTrivia is a tool for protocols and DAOs to run knowledge-based events - separating real community from airdrop hunters.",
         },
         {
           body: "Which of the following is NOT a feature of BlockTrivia?",
@@ -176,27 +176,27 @@ export function JsonImportModal({
         {
           body: "BlockTrivia requires players to connect a crypto wallet to join.",
           correct_answer: 1,
-          explanation: "False — players join with Google or email. No wallet needed to play.",
+          explanation: "False - players join with Google or email. No wallet needed to play.",
         },
         {
           body: "Hosts can pause a live BlockTrivia game at any time.",
           correct_answer: 0,
-          explanation: "True — the host control panel includes a pause button that freezes the timer for all players.",
+          explanation: "True - the host control panel includes a pause button that freezes the timer for all players.",
         },
         {
           body: "BlockTrivia automatically distributes token rewards to top-ranked players.",
           correct_answer: 1,
-          explanation: "False — BlockTrivia provides a CSV export with rankings. The project decides how to reward players.",
+          explanation: "False - BlockTrivia provides a CSV export with rankings. The project decides how to reward players.",
         },
         {
           body: "Faster correct answers earn more points in BlockTrivia.",
           correct_answer: 0,
-          explanation: "True — scoring includes a speed bonus, so answering quickly and correctly maximises your score.",
+          explanation: "True - scoring includes a speed bonus, so answering quickly and correctly maximises your score.",
         },
       ],
     },
     {
-      title: "WipeOut — Go All In",
+      title: "WipeOut - Go All In",
       round_type: "wipeout",
       time_limit_seconds: 20,
       base_points: 100,
@@ -206,7 +206,7 @@ export function JsonImportModal({
           options: [
             "Their wager is subtracted from their score",
             "They lose all their points and are eliminated",
-            "Nothing — wrong answers are ignored in WipeOut",
+            "Nothing - wrong answers are ignored in WipeOut",
             "They drop to the bottom of the leaderboard",
           ],
           correct_answer: 0,

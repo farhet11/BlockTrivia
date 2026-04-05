@@ -19,7 +19,7 @@ export default async function HostControlPage({
   // Load event + verify ownership
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, description, join_code, status, created_by")
+    .select("id, title, description, join_code, status, created_by, logo_url, logo_dark_url, organizer_name")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -87,7 +87,7 @@ export default async function HostControlPage({
   // Host role check — gates Start Game
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, display_name, avatar_url, email")
     .eq("id", user.id)
     .single();
   const isHost = profile?.role === "host" || profile?.role === "super_admin";
@@ -153,6 +153,9 @@ export default async function HostControlPage({
         description: event.description ?? null,
         joinCode: event.join_code,
         status: event.status,
+        logoUrl: event.logo_url ?? null,
+        logoDarkUrl: event.logo_dark_url ?? null,
+        organizerName: event.organizer_name ?? null,
       }}
       questions={questionList}
       rounds={roundsList}
@@ -160,6 +163,12 @@ export default async function HostControlPage({
       playerCount={playerCount ?? 0}
       sponsors={sponsors}
       isHost={isHost}
+      hostUser={{
+        id: user.id,
+        displayName: profile?.display_name ?? "Host",
+        email: profile?.email ?? user.email ?? "",
+        avatarUrl: profile?.avatar_url ?? null,
+      }}
     />
   );
 }

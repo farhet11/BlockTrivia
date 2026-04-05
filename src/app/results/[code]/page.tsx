@@ -21,16 +21,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ogUrl = `${siteUrl}/api/og/result?event_id=${event.id}`;
 
   return {
-    title: `${event.title} — Results | BlockTrivia`,
+    title: `${event.title} - Results | BlockTrivia`,
     description: `See the final leaderboard for ${event.title} on BlockTrivia.`,
     openGraph: {
-      title: `${event.title} — Final Results`,
+      title: `${event.title} - Final Results`,
       description: `See the final leaderboard for ${event.title} on BlockTrivia.`,
       images: [{ url: ogUrl, width: 1200, height: 630 }],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${event.title} — Final Results`,
+      title: `${event.title} - Final Results`,
       description: `See the final leaderboard for ${event.title} on BlockTrivia.`,
       images: [ogUrl],
     },

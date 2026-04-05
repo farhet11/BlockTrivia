@@ -1,8 +1,8 @@
 "use client";
 
 import { SponsorBar } from "@/app/_components/sponsor-bar";
-import { PlayerHeader } from "@/app/_components/player-header";
-import { PodiumLayout, RankingRow, PinnedRankSection } from "@/app/_components/lb-podium";
+import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PodiumLayout, RankingRow } from "@/app/_components/lb-podium";
 
 type Sponsor = {
   id: string;
@@ -27,8 +27,6 @@ export function ResultsView({
   leaderboard,
   sponsors,
   myPlayerId = null,
-  viewer = null,
-  hostName = null,
 }: {
   event: {
     id: string;
@@ -41,26 +39,28 @@ export function ResultsView({
   leaderboard: Entry[];
   sponsors: Sponsor[];
   myPlayerId?: string | null;
-  viewer?: { id: string; displayName: string } | null;
-  hostName?: string | null;
 }) {
   const podiumEntries = leaderboard.slice(0, 3);
   const rankingEntries = leaderboard.slice(3);
   const firstScore = leaderboard[0]?.total_score ?? 1;
 
-  // Determine if logged-in player needs a pinned rank view
-  const myEntry = myPlayerId ? leaderboard.find((e) => e.player_id === myPlayerId) : null;
-  const inVisibleList = myEntry ? myEntry.rank <= 10 : true;
-  const pinnedEntry = myPlayerId && myEntry && !inVisibleList ? myEntry : null;
-
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader user={viewer} />
+      <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
+        <a href="/join">
+          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
+          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
+        </a>
+        {event.logoUrl && (
+          <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+        )}
+        <ThemeToggle />
+      </header>
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-8 space-y-8">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
         {/* Title */}
         <div className="text-center space-y-1">
-          <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Final Results</p>
+          <p className="font-brand text-sm font-semibold text-primary italic tracking-wide">Final Results</p>
           <h1 className="font-heading text-2xl font-bold">{event.title}</h1>
           <p className="text-xs text-muted-foreground font-mono tracking-wider">{event.joinCode}</p>
         </div>
@@ -81,15 +81,7 @@ export function ResultsView({
         )}
 
         {/* Full standings — 4th+ with progress bars */}
-        {pinnedEntry ? (
-          <PinnedRankSection
-            entry={pinnedEntry}
-            firstScore={firstScore}
-            visibleCount={leaderboard.length}
-            topEntries={leaderboard.slice(0, 3)}
-            allEntries={leaderboard}
-          />
-        ) : rankingEntries.length > 0 ? (
+        {rankingEntries.length > 0 && (
           <div className="border-t border-border">
             {rankingEntries.map((entry, i) => (
               <RankingRow
@@ -102,7 +94,7 @@ export function ResultsView({
               />
             ))}
           </div>
-        ) : null}
+        )}
 
         {leaderboard.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-12">
@@ -114,16 +106,13 @@ export function ResultsView({
         <div className="border border-primary/20 bg-primary/5 p-6 text-center space-y-3">
           <p className="font-heading text-lg font-bold">Think you can beat them?</p>
           <p className="text-sm text-muted-foreground">
-            {hostName
-              ? <>Join the next trivia by <span className="font-semibold text-foreground">{hostName}</span> and prove it.</>
-              : <>Join the next <span className="font-semibold text-foreground">{event.title}</span> trivia and prove it.</>
-            }
+            Join the next <span className="font-semibold text-foreground">{event.title}</span> trivia and prove it.
           </p>
           <a
             href="/join"
             className="inline-flex items-center h-11 px-8 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors"
           >
-            Join a Game
+            Join a Game →
           </a>
         </div>
       </div>

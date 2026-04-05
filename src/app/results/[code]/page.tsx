@@ -43,7 +43,7 @@ export default async function ResultsPage({ params }: Props) {
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, twitter_handle, hashtags, logo_url, organizer_name, created_by, profiles!events_created_by_fkey ( display_name )")
+    .select("id, title, join_code, twitter_handle, hashtags, logo_url")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -51,21 +51,10 @@ export default async function ResultsPage({ params }: Props) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch profile for authenticated user (for header avatar)
-  let viewerProfile: { displayName: string } | null = null;
-  if (user) {
-    const { data: p } = await supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", user.id)
-      .single();
-    if (p) viewerProfile = { displayName: p.display_name ?? "Player" };
-  }
-
   const [{ data: entries }, { data: sponsors }] = await Promise.all([
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, correct_count, total_questions, accuracy, rank, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
+      .select(`player_id, total_score, correct_count, total_questions, accuracy, rank, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(50),
@@ -79,7 +68,7 @@ export default async function ResultsPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leaderboard = (entries ?? []).map((row: any) => ({
     player_id: row.player_id,
-    display_name: row.profiles?.username ? `@${row.profiles.username}` : (row.profiles?.display_name ?? "Player"),
+    display_name: row.profiles?.display_name ?? "Player",
     total_score: row.total_score,
     correct_count: row.correct_count,
     total_questions: row.total_questions,
@@ -90,7 +79,6 @@ export default async function ResultsPage({ params }: Props) {
 
   return (
     <ResultsView
-      hostName={(event as any).organizer_name ?? (event.profiles as any)?.display_name ?? null}
       event={{
         id: event.id,
         title: event.title,
@@ -102,7 +90,6 @@ export default async function ResultsPage({ params }: Props) {
       leaderboard={leaderboard}
       sponsors={sponsors ?? []}
       myPlayerId={user?.id ?? null}
-      viewer={user && viewerProfile ? { id: user.id, displayName: viewerProfile.displayName } : null}
     />
   );
 }

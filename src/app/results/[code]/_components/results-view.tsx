@@ -2,7 +2,7 @@
 
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerHeader } from "@/app/_components/player-header";
-import { PodiumLayout, RankingRow } from "@/app/_components/lb-podium";
+import { PodiumLayout, RankingRow, PinnedRankSection } from "@/app/_components/lb-podium";
 
 type Sponsor = {
   id: string;
@@ -48,6 +48,11 @@ export function ResultsView({
   const rankingEntries = leaderboard.slice(3);
   const firstScore = leaderboard[0]?.total_score ?? 1;
 
+  // Determine if logged-in player needs a pinned rank view
+  const myEntry = myPlayerId ? leaderboard.find((e) => e.player_id === myPlayerId) : null;
+  const inVisibleList = myEntry ? myEntry.rank <= 10 : true;
+  const pinnedEntry = myPlayerId && myEntry && !inVisibleList ? myEntry : null;
+
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       <PlayerHeader user={viewer} />
@@ -76,7 +81,15 @@ export function ResultsView({
         )}
 
         {/* Full standings — 4th+ with progress bars */}
-        {rankingEntries.length > 0 && (
+        {pinnedEntry ? (
+          <PinnedRankSection
+            entry={pinnedEntry}
+            firstScore={firstScore}
+            visibleCount={leaderboard.length}
+            topEntries={leaderboard.slice(0, 3)}
+            allEntries={leaderboard}
+          />
+        ) : rankingEntries.length > 0 ? (
           <div className="border-t border-border">
             {rankingEntries.map((entry, i) => (
               <RankingRow
@@ -89,7 +102,7 @@ export function ResultsView({
               />
             ))}
           </div>
-        )}
+        ) : null}
 
         {leaderboard.length === 0 && (
           <p className="text-sm text-muted-foreground text-center py-12">

@@ -510,6 +510,9 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
             <PinnedRankSection
               entry={lb.find((e) => e.player_id === playerId) ?? { player_id: playerId, display_name: displayName, total_score: playerScore, rank: myRank }}
               firstScore={firstScore}
+              visibleCount={lb.length}
+              topEntries={lb.slice(0, 3)}
+              allEntries={lb}
             />
           )}
         </div>

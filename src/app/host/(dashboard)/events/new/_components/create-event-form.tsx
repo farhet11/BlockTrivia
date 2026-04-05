@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -96,9 +96,15 @@ function detectEmailColumn(rows: string[][]): { columnIndex: number; columnName:
   return { columnIndex: bestCol, columnName: headerVal || `Column ${bestCol + 1}`, emails: bestEmails };
 }
 
+type OrganizerSuggestion = {
+  organizer_name: string;
+  logo_url: string | null;
+  logo_dark_url: string | null;
+};
+
 export function CreateEventForm() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [format, setFormat] = useState<EventFormat>("hybrid");
@@ -106,6 +112,8 @@ export function CreateEventForm() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoDarkFile, setLogoDarkFile] = useState<File | null>(null);
   const [logoDarkPreview, setLogoDarkPreview] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoDarkUrl, setLogoDarkUrl] = useState<string | null>(null);
   const [hasDarkLogo, setHasDarkLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const darkFileInputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +122,111 @@ export function CreateEventForm() {
   const [accessMode, setAccessMode] = useState<AccessMode>("open");
   const [accessEmails, setAccessEmails] = useState("");
   const [csvInfo, setCsvInfo] = useState<{ fileName: string; columnName: string; count: number } | null>(null);
+
+  // Organizer typeahead state
+  const [organizerName, setOrganizerName] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<OrganizerSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // Fetch authenticated user on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setUserId(user.id);
+    });
+  }, [supabase]);
+
+  // Debounced organizer name search
+  const searchOrganizers = useCallback(
+    (query: string) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      if (!query.trim() || !userId) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
+
+      debounceRef.current = setTimeout(async () => {
+        const { data } = await supabase
+          .from("events")
+          .select("organizer_name, logo_url, logo_dark_url")
+          .eq("created_by", userId)
+          .not("organizer_name", "is", null)
+          .ilike("organizer_name", `%${query}%`)
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        if (!data || data.length === 0) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+          return;
+        }
+
+        // Deduplicate by organizer_name (keep first = most recent)
+        const seen = new Set<string>();
+        const unique: OrganizerSuggestion[] = [];
+        for (const row of data) {
+          const name = row.organizer_name as string;
+          if (!seen.has(name)) {
+            seen.add(name);
+            unique.push({
+              organizer_name: name,
+              logo_url: row.logo_url,
+              logo_dark_url: row.logo_dark_url,
+            });
+          }
+        }
+
+        setSuggestions(unique);
+        setShowSuggestions(unique.length > 0);
+      }, 300);
+    },
+    [userId, supabase],
+  );
+
+  function handleOrganizerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setOrganizerName(value);
+    searchOrganizers(value);
+  }
+
+  function handleSelectSuggestion(suggestion: OrganizerSuggestion) {
+    setOrganizerName(suggestion.organizer_name);
+
+    if (suggestion.logo_url) {
+      setLogoPreview(suggestion.logo_url);
+      setLogoUrl(suggestion.logo_url);
+      setLogoFile(null);
+    }
+
+    if (suggestion.logo_dark_url) {
+      setLogoDarkPreview(suggestion.logo_dark_url);
+      setLogoDarkUrl(suggestion.logo_dark_url);
+      setLogoDarkFile(null);
+      setHasDarkLogo(true);
+    }
+
+    if (suggestion.logo_url || suggestion.logo_dark_url) {
+      setShowMore(true);
+    }
+
+    setShowSuggestions(false);
+    setSuggestions([]);
+  }
+
+  function handleOrganizerBlur() {
+    blurTimeoutRef.current = setTimeout(() => {
+      setShowSuggestions(false);
+    }, 200);
+  }
+
+  function handleOrganizerFocus() {
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    if (suggestions.length > 0) setShowSuggestions(true);
+  }
 
   function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -131,6 +244,7 @@ export function CreateEventForm() {
 
     setError(null);
     setLogoFile(file);
+    setLogoUrl(null);
     setLogoPreview(URL.createObjectURL(file));
   }
 
@@ -150,12 +264,14 @@ export function CreateEventForm() {
 
     setError(null);
     setLogoDarkFile(file);
+    setLogoDarkUrl(null);
     setLogoDarkPreview(URL.createObjectURL(file));
   }
 
   function clearLogo() {
     setLogoFile(null);
-    if (logoPreview) URL.revokeObjectURL(logoPreview);
+    setLogoUrl(null);
+    if (logoPreview && !logoUrl) URL.revokeObjectURL(logoPreview);
     setLogoPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     clearDarkLogo();
@@ -164,7 +280,8 @@ export function CreateEventForm() {
 
   function clearDarkLogo() {
     setLogoDarkFile(null);
-    if (logoDarkPreview) URL.revokeObjectURL(logoDarkPreview);
+    setLogoDarkUrl(null);
+    if (logoDarkPreview && !logoDarkUrl) URL.revokeObjectURL(logoDarkPreview);
     setLogoDarkPreview(null);
     if (darkFileInputRef.current) darkFileInputRef.current.value = "";
   }
@@ -213,13 +330,9 @@ export function CreateEventForm() {
     const title = form.get("title") as string;
     const description = form.get("description") as string;
     const prizes = (form.get("prizes") as string)?.trim() || null;
-    const organizerName = (form.get("organizer_name") as string)?.trim() || null;
+    const submittedOrganizerName = organizerName.trim() || null;
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
+    if (!userId) {
       setError("Not authenticated");
       setLoading(false);
       return;
@@ -238,10 +351,10 @@ export function CreateEventForm() {
         title,
         description: description || null,
         prizes,
-        organizer_name: organizerName,
+        organizer_name: submittedOrganizerName,
         format,
         access_mode: accessMode,
-        created_by: user.id,
+        created_by: userId,
       })
       .select("id")
       .single();
@@ -283,6 +396,14 @@ export function CreateEventForm() {
           .from("events")
           .update(logoUpdate)
           .eq("id", data.id);
+      }
+    } else if (data) {
+      // Handle URL-based logos (from organizer suggestion, no file upload)
+      const logoUpdate: Record<string, string> = {};
+      if (logoUrl) logoUpdate.logo_url = logoUrl;
+      if (logoDarkUrl) logoUpdate.logo_dark_url = logoDarkUrl;
+      if (Object.keys(logoUpdate).length > 0) {
+        await supabase.from("events").update(logoUpdate).eq("id", data.id);
       }
     }
 
@@ -332,16 +453,52 @@ export function CreateEventForm() {
         />
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-1.5 relative">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Organizer Name <span className="text-muted-foreground/50">(optional)</span>
         </label>
         <input
           name="organizer_name"
+          value={organizerName}
+          onChange={handleOrganizerChange}
+          onBlur={handleOrganizerBlur}
+          onFocus={handleOrganizerFocus}
           maxLength={60}
+          autoComplete="off"
           className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
           placeholder="e.g. Uniswap, Aave, your project name"
         />
+
+        {/* Organizer suggestions dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute z-10 left-0 right-0 top-full mt-1 border border-border bg-surface max-h-48 overflow-y-auto shadow-sm">
+            {suggestions.map((s) => (
+              <button
+                key={s.organizer_name}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelectSuggestion(s)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors text-left"
+              >
+                {s.logo_url ? (
+                  <img
+                    src={s.logo_url}
+                    alt=""
+                    className="size-5 object-contain shrink-0"
+                  />
+                ) : (
+                  <div className="size-5 bg-muted/30 shrink-0 flex items-center justify-center">
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      {s.organizer_name.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                <span className="truncate">{s.organizer_name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <p className="text-[11px] text-muted-foreground">
           Shown on the public results page. Defaults to your profile name if left blank.
         </p>
@@ -467,7 +624,7 @@ export function CreateEventForm() {
 
             {/* File info + actions */}
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground truncate">{logoFile?.name}</span>
+              <span className="text-sm text-muted-foreground truncate">{logoFile?.name ?? (logoUrl ? "From previous event" : "")}</span>
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   type="button"
@@ -505,7 +662,7 @@ export function CreateEventForm() {
               <div className="pl-5">
                 {logoDarkPreview ? (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground truncate">{logoDarkFile?.name}</span>
+                    <span className="text-sm text-muted-foreground truncate">{logoDarkFile?.name ?? (logoDarkUrl ? "From previous event" : "")}</span>
                     <div className="flex items-center gap-3 shrink-0">
                       <button
                         type="button"

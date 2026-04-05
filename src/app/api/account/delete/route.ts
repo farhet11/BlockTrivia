@@ -1,5 +1,4 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 export async function POST() {
@@ -12,17 +11,17 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Use service role client to delete user (requires admin privileges)
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const { error } = await adminClient.auth.admin.deleteUser(user.id);
+  // Schedule deletion: 30-day grace period.
+  // If the user logs in again within 30 days, the request is cancelled.
+  // After 30 days, a cleanup job will hard-delete the account.
+  const { error } = await supabase
+    .from("profiles")
+    .update({ deletion_requested_at: new Date().toISOString() })
+    .eq("id", user.id);
 
   if (error) {
     return NextResponse.json(
-      { error: "Failed to delete account" },
+      { error: "Failed to schedule account deletion" },
       { status: 500 }
     );
   }

@@ -34,6 +34,8 @@ export function CreateEventForm() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [accessMode, setAccessMode] = useState<"open" | "whitelist">("open");
+  const [whitelistEmails, setWhitelistEmails] = useState("");
 
   function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -90,6 +92,7 @@ export function CreateEventForm() {
         prizes,
         organizer_name: organizerName,
         format,
+        access_mode: accessMode,
         created_by: user.id,
       })
       .select("id")
@@ -116,6 +119,22 @@ export function CreateEventForm() {
           .from("events")
           .update({ logo_url: urlData.publicUrl })
           .eq("id", data.id);
+      }
+    }
+
+    // Insert whitelist emails if access mode is whitelist
+    if (accessMode === "whitelist" && whitelistEmails.trim() && data) {
+      const emails = whitelistEmails
+        .split(/[\n,;]+/)
+        .map((e) => e.trim().toLowerCase())
+        .filter((e) => e && e.includes("@"));
+
+      if (emails.length > 0) {
+        const rows = emails.map((email) => ({
+          event_id: data.id,
+          email,
+        }));
+        await supabase.from("event_access_list").insert(rows);
       }
     }
 
@@ -258,6 +277,66 @@ export function CreateEventForm() {
         <p className="text-[11px] text-muted-foreground">
           Your project logo — shown to players in the game header.
         </p>
+      </div>
+
+      {/* Access control */}
+      <div className="space-y-3">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Access Control
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setAccessMode("open")}
+            className={`flex flex-col items-center gap-1 py-3.5 px-2 border text-center transition-colors focus:outline-none focus:ring-1 focus:ring-primary ${
+              accessMode === "open"
+                ? "border-primary bg-primary/5 text-foreground"
+                : "border-border bg-surface text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            }`}
+          >
+            <span className={`font-heading font-bold text-sm ${accessMode === "open" ? "text-primary" : ""}`}>
+              Open
+            </span>
+            <span className="text-[11px] leading-tight">Anyone can join</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccessMode("whitelist")}
+            className={`flex flex-col items-center gap-1 py-3.5 px-2 border text-center transition-colors focus:outline-none focus:ring-1 focus:ring-primary ${
+              accessMode === "whitelist"
+                ? "border-primary bg-primary/5 text-foreground"
+                : "border-border bg-surface text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            }`}
+          >
+            <span className={`font-heading font-bold text-sm ${accessMode === "whitelist" ? "text-primary" : ""}`}>
+              Invite Only
+            </span>
+            <span className="text-[11px] leading-tight">Approved emails only</span>
+          </button>
+        </div>
+
+        {accessMode === "whitelist" && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Approved Emails
+            </label>
+            <textarea
+              value={whitelistEmails}
+              onChange={(e) => setWhitelistEmails(e.target.value)}
+              rows={5}
+              className="w-full bg-surface border border-border px-4 py-3 text-foreground text-sm font-mono placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors resize-none"
+              placeholder={"alice@company.com\nbob@company.com\ncharlie@company.com"}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              One email per line, or comma/semicolon-separated. Only these players can join.
+              {whitelistEmails.trim() && (
+                <span className="text-foreground font-medium">
+                  {" "}({whitelistEmails.split(/[\n,;]+/).map(e => e.trim()).filter(e => e && e.includes("@")).length} emails)
+                </span>
+              )}
+            </p>
+          </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}

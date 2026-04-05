@@ -17,6 +17,7 @@ type VerifiedEvent = {
   prizes: string | null;
   estimated_minutes: number | null;
   host_name: string | null;
+  access_mode: "open" | "whitelist";
 };
 
 export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
@@ -64,7 +65,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   async function verifyCode(code: string): Promise<boolean> {
     const { data: event } = await supabase
       .from("events")
-      .select("id, title, join_code, prizes, organizer_name, profiles!events_created_by_fkey(display_name)")
+      .select("id, title, join_code, prizes, access_mode, organizer_name, profiles!events_created_by_fkey(display_name)")
       .eq("join_code", code.toUpperCase())
       .single();
 
@@ -107,6 +108,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
       prizes: event.prizes ?? null,
       estimated_minutes,
       host_name: (event as any).organizer_name ?? hostProfile,
+      access_mode: ((event as any).access_mode as "open" | "whitelist") ?? "open",
     });
     setStep("identity");
     return true;

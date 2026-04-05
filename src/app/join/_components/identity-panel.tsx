@@ -25,6 +25,7 @@ type VerifiedEvent = {
   prizes: string | null;
   estimated_minutes: number | null;
   host_name: string | null;
+  access_mode: "open" | "whitelist";
 };
 
 function GameFoundCard({
@@ -55,6 +56,11 @@ function GameFoundCard({
       {event.host_name && (
         <p className="text-sm text-stone-500 dark:text-zinc-400 mt-0.5">
           Hosted by <span className="font-medium text-foreground">{event.host_name}</span>
+          {event.access_mode === "whitelist" && (
+            <span className="ml-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5">
+              Invite Only
+            </span>
+          )}
         </p>
       )}
       {subtitle && (
@@ -289,6 +295,28 @@ export function IdentityPanel({
 
     setJoining(true);
     setError(null);
+
+    // Whitelist check: if event is invite-only, verify email is on the list
+    if (event.access_mode === "whitelist") {
+      const userEmail = user.email?.toLowerCase();
+      if (!userEmail) {
+        setError("This event is invite-only. We couldn't verify your email.");
+        setJoining(false);
+        return;
+      }
+      const { data: allowed } = await supabase
+        .from("event_access_list")
+        .select("id")
+        .eq("event_id", event.id)
+        .ilike("email", userEmail)
+        .maybeSingle();
+
+      if (!allowed) {
+        setError("This event is invite-only. Your email is not on the guest list.");
+        setJoining(false);
+        return;
+      }
+    }
 
     // Save username to profile if first-time or editing
     if (isFirstTime || editing) {

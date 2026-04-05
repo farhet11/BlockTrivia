@@ -10,6 +10,17 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // Cancel any pending account deletion on login
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ deletion_requested_at: null })
+          .eq("id", user.id)
+          .not("deletion_requested_at", "is", null);
+      }
       return NextResponse.redirect(new URL(next, origin));
     }
   }

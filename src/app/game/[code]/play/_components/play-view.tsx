@@ -9,6 +9,7 @@ import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 import { Check, X, LogOut } from "lucide-react";
+import { HeatEdge } from "./heat-edge";
 
 type Sponsor = {
   id: string;
@@ -60,7 +61,7 @@ export function PlayView({
   sponsors,
   roundsInfo,
 }: {
-  event: { id: string; title: string; joinCode: string; logoUrl: string | null };
+  event: { id: string; title: string; joinCode: string; logoUrl: string | null; logoDarkUrl: string | null; organizerName: string | null };
   player: { id: string; displayName: string };
   questions: QuestionData[];
   initialGameState: GameState;
@@ -91,6 +92,7 @@ export function PlayView({
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
+  const myRankRef = useRef<HTMLDivElement>(null);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
 
@@ -299,6 +301,7 @@ export function PlayView({
       });
 
     // Also fetch current player's own entry (for pinned rank when outside top 10)
+    // If no leaderboard entry exists (player hasn't answered yet), synthesize a 0-score entry
     supabase
       .from("leaderboard_entries")
       .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
@@ -313,6 +316,14 @@ export function PlayView({
             display_name: resolveName(data.player_id, (data as any).profiles),
             total_score: data.total_score,
             rank: data.rank,
+          });
+        } else {
+          // Player hasn't answered yet — show them with 0 score
+          setMyLbEntry({
+            player_id: player.id,
+            display_name: resolveName(player.id, { display_name: player.displayName }),
+            total_score: 0,
+            rank: 0, // unranked
           });
         }
       });
@@ -423,6 +434,15 @@ export function PlayView({
     );
   }
 
+  // Auto-scroll to player's rank after leaderboard animations settle
+  useEffect(() => {
+    if (phase !== "leaderboard") return;
+    const timer = setTimeout(() => {
+      myRankRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 800); // wait for podium + fade animations
+    return () => clearTimeout(timer);
+  }, [phase, gameState.current_question_id]);
+
   // ── Leaderboard phase ──────────────────────────────────────────────────────
   if (phase === "leaderboard") {
     const lbQuestionIdx = questions.findIndex((q) => q.id === gameState.current_question_id);
@@ -437,24 +457,34 @@ export function PlayView({
       <div className="min-h-dvh bg-background flex flex-col">
         <PlayerHeader user={player} />
 
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-6 space-y-5 pb-8">
+        <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-16 pb-8 space-y-3">
           {/* Heading + event info */}
           <div
-            className="text-center space-y-0.5"
+            className="text-center space-y-1.5"
             style={{ animation: "lb-fade-up 280ms ease-out both" }}
           >
-            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Standings</p>
-            <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-            <p className="text-sm text-muted-foreground font-medium">{event.title}</p>
+            <h2 className="font-heading text-xl font-semibold text-foreground">{event.title}</h2>
+            {event.logoUrl && (
+              <>
+                <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Hosted by</p>
+                <div className="flex justify-center">
+                  <img src={event.logoUrl} alt="" className="h-5 object-contain dark:hidden" />
+                  <img src={event.logoDarkUrl ?? event.logoUrl} alt="" className="h-5 object-contain hidden dark:block" />
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Waiting indicator — top */}
-          <p
-            className="text-center text-xs text-muted-foreground animate-pulse"
+          {/* Waiting indicator — orange pill with pulse dot */}
+          <div
+            className="flex justify-center"
             style={{ animation: "lb-fade-up 280ms ease-out 40ms both" }}
           >
-            Waiting for host to continue...
-          </p>
+            <div className="inline-flex items-center gap-1.5 bg-timer-warn/10 px-3 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-timer-warn animate-pulse" />
+              <span className="text-[10px] font-medium text-timer-warn uppercase tracking-wider">Waiting for host</span>
+            </div>
+          </div>
 
           {/* Stats bar — 3 cols */}
           <div
@@ -486,26 +516,37 @@ export function PlayView({
             </div>
           )}
 
-          {/* RANKINGS — 4th+ */}
-          {rankingEntries.length > 0 && (
-            <div className="border-t border-border">
-              {rankingEntries.map((entry, i) => (
-                <RankingRow
-                  key={entry.player_id}
-                  entry={entry}
-                  firstScore={firstScore}
-                  delta={lbDeltas.get(entry.player_id) ?? null}
-                  isMe={entry.player_id === player.id}
-                  animIndex={i + 3}
-                />
-              ))}
+          {pinnedEntry ? (
+            /* YOUR RANK — blurred top 3 context + highlighted you */
+            <div ref={myRankRef}>
+              <PinnedRankSection
+                entry={pinnedEntry}
+                firstScore={firstScore}
+                visibleCount={leaderboard.length}
+                topEntries={leaderboard.slice(0, 3)}
+                allEntries={leaderboard}
+                deltas={lbDeltas}
+              />
             </div>
-          )}
-
-          {/* YOUR RANK — pinned (only when player not in visible top 10) */}
-          {pinnedEntry && (
-            <PinnedRankSection entry={pinnedEntry} firstScore={firstScore} />
-          )}
+          ) : rankingEntries.length > 0 ? (
+            /* RANKINGS — 4th+ (only when player IS in visible list) */
+            <div className="border-t border-border">
+              {rankingEntries.map((entry, i) => {
+                const isMe = entry.player_id === player.id;
+                return (
+                  <div key={entry.player_id} ref={isMe ? myRankRef : undefined}>
+                    <RankingRow
+                      entry={entry}
+                      firstScore={firstScore}
+                      delta={lbDeltas.get(entry.player_id) ?? null}
+                      isMe={isMe}
+                      animIndex={i + 3}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
 
         </div>
 
@@ -556,6 +597,15 @@ export function PlayView({
   // ── Question screen ────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {/* Heat Edge — urgency aura overlay (only while playing, kills on answer or timeout) */}
+      {phase === "playing" && currentQuestion && (
+        <HeatEdge
+          timeLeft={timeLeft}
+          totalTime={currentQuestion.time_limit_seconds}
+          isAnswered={hasAnswered}
+        />
+      )}
+
       {/* Header */}
       <PlayerHeader user={player}>
         {timeLeft !== null && !hasAnswered && (
@@ -634,8 +684,14 @@ export function PlayView({
       )}
 
       {phase === "revealing" && !lastResult && (
-        <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
-          <span className="text-sm text-muted-foreground">Time&apos;s up — you didn&apos;t answer in time.</span>
+        <div className="px-5 py-3 bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30 flex items-center justify-center gap-2">
+          <svg className="size-4 text-wrong shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+            <line x1="9" y1="9" x2="9.01" y2="9" />
+            <line x1="15" y1="9" x2="15.01" y2="9" />
+          </svg>
+          <span className="text-sm font-bold text-wrong">Time&apos;s up — you didn&apos;t answer in time</span>
         </div>
       )}
 
@@ -677,7 +733,7 @@ export function PlayView({
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
 
-            let cls = "p-4 min-h-14 border text-left transition-colors ";
+            let cls = "relative min-h-14 border text-left transition-colors overflow-hidden ";
             if (isRevealing) {
               if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
               else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
@@ -690,6 +746,13 @@ export function PlayView({
               cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
             }
 
+            // Letter badge color
+            let badgeCls = "absolute top-0 left-0 w-7 h-7 flex items-center justify-center text-xs font-bold ";
+            if (isRevealing && isCorrectOption) badgeCls += "bg-correct/20 text-correct";
+            else if (isRevealing && isSelected) badgeCls += "bg-wrong/20 text-wrong";
+            else if (isSelected && !isRevealing) badgeCls += "bg-primary/15 text-primary";
+            else badgeCls += "bg-muted/50 text-muted-foreground";
+
             return (
               <button
                 key={i}
@@ -697,8 +760,8 @@ export function PlayView({
                 onClick={() => submitAnswer(i)}
                 className={cls}
               >
-                <span className="block text-xs font-bold mb-1 opacity-60">{label}</span>
-                <span className="text-sm font-medium leading-snug break-words">
+                <span className={badgeCls}>{label}</span>
+                <span className="block pt-8 px-4 pb-4 text-sm font-medium leading-snug break-words">
                   {isSubmitting && isSelected ? (
                     <span className="inline-flex items-center gap-1.5">
                       <BlockSpinner variant="wave" size={16} />

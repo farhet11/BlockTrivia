@@ -25,7 +25,7 @@ type VerifiedEvent = {
   prizes: string | null;
   estimated_minutes: number | null;
   host_name: string | null;
-  access_mode: "open" | "whitelist";
+  access_mode: "open" | "whitelist" | "blacklist";
 };
 
 function GameFoundCard({
@@ -296,23 +296,33 @@ export function IdentityPanel({
     setJoining(true);
     setError(null);
 
-    // Whitelist check: if event is invite-only, verify email is on the list
-    if (event.access_mode === "whitelist") {
+    // Access control check (whitelist or blacklist)
+    if (event.access_mode !== "open") {
       const userEmail = user.email?.toLowerCase();
       if (!userEmail) {
-        setError("This event is invite-only. We couldn't verify your email.");
+        setError(
+          event.access_mode === "whitelist"
+            ? "This event is invite-only and requires an email to verify access. Please sign in with Google or email."
+            : "We couldn't verify your identity for this event. Please sign in with Google or email."
+        );
         setJoining(false);
         return;
       }
-      const { data: allowed } = await supabase
+
+      const { data: match } = await supabase
         .from("event_access_list")
         .select("id")
         .eq("event_id", event.id)
         .ilike("email", userEmail)
         .maybeSingle();
 
-      if (!allowed) {
+      if (event.access_mode === "whitelist" && !match) {
         setError("This event is invite-only. Your email is not on the guest list.");
+        setJoining(false);
+        return;
+      }
+      if (event.access_mode === "blacklist" && match) {
+        setError("You're unable to join this event.");
         setJoining(false);
         return;
       }

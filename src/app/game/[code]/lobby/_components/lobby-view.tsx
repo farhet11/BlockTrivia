@@ -191,7 +191,7 @@ export function LobbyView({
       <PlayerHeader user={player} />
 
       {/* Main content */}
-      <div className="flex-1 max-w-lg mx-auto w-full px-5">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14">
 
         {/* Context label + event title */}
         <section className="pt-10 pb-6 text-center space-y-3">

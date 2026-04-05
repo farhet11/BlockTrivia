@@ -34,9 +34,9 @@ export function DashboardShell({
       {/* Full-width header — always on top */}
       <DashboardHeader user={user} />
 
-      {/* Below header: sidebar + content */}
+      {/* Below header: sidebar + content (pt-14 offsets the fixed header) */}
       <div
-        className={`flex flex-1 overflow-hidden transition-[padding] duration-300 ease-out pl-11 ${
+        className={`flex flex-1 overflow-hidden pt-14 transition-[padding] duration-300 ease-out pl-11 ${
           collapsed ? "md:pl-14" : "md:pl-60"
         }`}
       >

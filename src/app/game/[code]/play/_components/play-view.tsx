@@ -382,7 +382,7 @@ export function PlayView({
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <PlayerHeader user={player} />
-        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+        <div className="flex-1 flex flex-col items-center justify-center px-5 pt-14 gap-6">
           <div className="text-center space-y-3 max-w-sm">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
               Next Round
@@ -437,7 +437,7 @@ export function PlayView({
       <div className="min-h-dvh bg-background flex flex-col">
         <PlayerHeader user={player} />
 
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 space-y-5 pb-8">
+        <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-6 space-y-5 pb-8">
           {/* Heading + event info */}
           <div
             className="text-center space-y-0.5"
@@ -568,6 +568,9 @@ export function PlayView({
           </span>
         )}
       </PlayerHeader>
+
+      {/* Spacer for fixed header */}
+      <div className="pt-14" />
 
       {/* Timer bar — 4px shrinking bar per DESIGN.md */}
       {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {

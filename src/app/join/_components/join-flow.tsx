@@ -17,7 +17,7 @@ type VerifiedEvent = {
   prizes: string | null;
   estimated_minutes: number | null;
   host_name: string | null;
-  access_mode: "open" | "whitelist";
+  access_mode: "open" | "whitelist" | "blacklist";
 };
 
 export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {

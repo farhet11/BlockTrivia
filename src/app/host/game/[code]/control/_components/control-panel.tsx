@@ -411,7 +411,7 @@ export function ControlPanel({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-2xl mx-auto">
           <a href="/host">
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
@@ -434,7 +434,7 @@ export function ControlPanel({
         </div>
       </header>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-5">
+      <div className="flex-1 max-w-2xl mx-auto w-full px-5 pt-14">
         {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
         {gameState.phase === "lobby" && !gameState.started_at && (

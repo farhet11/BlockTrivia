@@ -6,18 +6,15 @@ import { AvatarDropdown } from "./avatar-dropdown";
 export function PlayerHeader({
   user,
   children,
-  fixed = false,
 }: {
   user?: { id: string; displayName: string; email?: string } | null;
   children?: React.ReactNode;
+  /** @deprecated — header is always fixed now */
   fixed?: boolean;
 }) {
   return (
-    <header
-      className={`border-b border-border bg-background/80 backdrop-blur-sm z-50 ${
-        fixed ? "fixed top-0 left-0 right-0" : ""
-      }`}
-    >
+    <header className="fixed top-0 left-0 right-0 border-b border-border bg-background/80 backdrop-blur-sm z-50">
+
       <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
         <a href="/join">
           <img

@@ -134,7 +134,7 @@ export function ProfileView({
     <div className="min-h-dvh bg-background flex flex-col">
       <PlayerHeader user={user} />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-8 space-y-8">
         {/* Identity card */}
         <section className="flex items-start gap-4">
           <PlayerAvatar seed={user.id} name={user.displayName} size={72} />

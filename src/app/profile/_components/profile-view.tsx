@@ -1,23 +1,15 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
 import { PlayerHeader } from "@/app/_components/player-header";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { ConfirmModal } from "@/app/_components/confirm-modal";
+import { GlobalFooter } from "@/app/_components/global-footer";
 import { TelegramLoginButton, type TelegramAuthResult } from "@/app/_components/telegram-login-button";
-import {
-  Gamepad2,
-  Target,
-  Trophy,
-  CalendarDays,
-  Pencil,
-  Check,
-  X,
-  LogOut,
-} from "lucide-react";
+import { Pencil, Check, X, LogOut, Camera, ChevronRight, Trash2 } from "lucide-react";
 
 type GameEntry = {
   title: string;
@@ -54,30 +46,31 @@ export function ProfileView({
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  // Edit name state
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(user.displayName);
   const [saving, setSaving] = useState(false);
 
-  // Edit username state
   const [editingUsername, setEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState(user.username ?? "");
   const [savingUsername, setSavingUsername] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
 
-  // Danger zone
   const [showSignOut, setShowSignOut] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [linkingProvider, setLinkingProvider] = useState<string | null>(null);
+  const [showTelegramLink, setShowTelegramLink] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
 
   async function saveName() {
     const trimmed = name.trim();
     if (trimmed.length < 2 || trimmed.length > 30) return;
     setSaving(true);
-    await supabase
-      .from("profiles")
-      .update({ display_name: trimmed })
-      .eq("id", user.id);
+    await supabase.from("profiles").update({ display_name: trimmed }).eq("id", user.id);
     setSaving(false);
     setEditing(false);
     router.refresh();
@@ -95,10 +88,7 @@ export function ProfileView({
     }
     setSavingUsername(true);
     setUsernameError(null);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ username: trimmed })
-      .eq("id", user.id);
+    const { error } = await supabase.from("profiles").update({ username: trimmed }).eq("id", user.id);
     if (error) {
       if (error.code === "23505") {
         setUsernameError("That username is taken.");
@@ -113,6 +103,30 @@ export function ProfileView({
     setSavingUsername(false);
     setEditingUsername(false);
     router.refresh();
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) return;
+
+    setUploadingAvatar(true);
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${user.id}/avatar.${ext}`;
+
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
+      upsert: true,
+      contentType: file.type,
+    });
+
+    if (!uploadError) {
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const publicUrl = data.publicUrl;
+      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+      setAvatarUrl(publicUrl + `?v=${Date.now()}`);
+    }
+    setUploadingAvatar(false);
+    e.target.value = "";
   }
 
   async function handleSignOut() {
@@ -130,10 +144,6 @@ export function ProfileView({
     setDeleting(false);
   }
 
-  // ── Account linking ──────────────────────────────────────────────────────
-  const [linkingProvider, setLinkingProvider] = useState<string | null>(null);
-  const [showTelegramLink, setShowTelegramLink] = useState(false);
-
   async function handleLinkGoogle() {
     setLinkingProvider("google");
     await supabase.auth.linkIdentity({
@@ -145,17 +155,19 @@ export function ProfileView({
     });
   }
 
-  const handleTelegramAuth = useCallback(async (result: TelegramAuthResult) => {
-    // Telegram bot flow returns a token_hash — sign in with it to link
-    const { error } = await supabase.auth.signInWithIdToken({
-      provider: "telegram" as never,
-      token: result.token_hash,
-    });
-    if (!error) {
-      setShowTelegramLink(false);
-      router.refresh();
-    }
-  }, [supabase, router]);
+  const handleTelegramAuth = useCallback(
+    async (result: TelegramAuthResult) => {
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: "telegram" as never,
+        token: result.token_hash,
+      });
+      if (!error) {
+        setShowTelegramLink(false);
+        router.refresh();
+      }
+    },
+    [supabase, router]
+  );
 
   const isHost = user.role === "host" || user.role === "super_admin";
 
@@ -163,19 +175,43 @@ export function ProfileView({
     <div className="min-h-dvh bg-background flex flex-col">
       <PlayerHeader user={user} />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-8 space-y-8">
-        {/* Identity card */}
-        <section className="flex items-start gap-4">
-          <PlayerAvatar seed={user.id} name={user.displayName} size={72} />
-          <div className="flex-1 min-w-0 pt-1">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-20 pb-12 space-y-6">
+        {/* Identity Hero */}
+        <section className="flex flex-col items-center text-center pt-4">
+          <div
+            className="relative group cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+            title="Change photo"
+          >
+            <PlayerAvatar seed={user.id} name={user.displayName} size={80} url={avatarUrl} />
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ borderRadius: 8 }}
+            >
+              {uploadingAvatar ? (
+                <div className="size-4 border-2 border-white/60 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Camera size={16} className="text-white" />
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
+          </div>
+
+          <div className="mt-3">
             {editing ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 justify-center">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   maxLength={30}
                   autoFocus
-                  className="flex-1 min-w-0 text-lg font-heading font-bold bg-transparent border-b-2 border-primary outline-none text-foreground"
+                  className="text-xl font-heading font-bold bg-transparent border-b-2 border-primary outline-none text-foreground text-center"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") saveName();
                     if (e.key === "Escape") {
@@ -189,7 +225,7 @@ export function ProfileView({
                   disabled={saving || name.trim().length < 2}
                   className="p-1 text-primary hover:text-primary/80 transition-colors"
                 >
-                  <Check size={18} strokeWidth={2} />
+                  <Check size={16} strokeWidth={2} />
                 </button>
                 <button
                   onClick={() => {
@@ -198,192 +234,149 @@ export function ProfileView({
                   }}
                   className="p-1 text-stone-400 hover:text-foreground transition-colors"
                 >
-                  <X size={18} strokeWidth={2} />
+                  <X size={16} strokeWidth={2} />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <h1 className="font-heading text-xl font-bold text-foreground truncate">
-                  {user.displayName}
-                </h1>
+              <div className="flex items-center gap-1.5 justify-center">
+                <h1 className="font-heading text-xl font-bold text-foreground">{user.displayName}</h1>
                 <button
                   onClick={() => setEditing(true)}
                   className="p-1 text-stone-400 dark:text-zinc-500 hover:text-primary transition-colors shrink-0"
                   title="Edit display name"
                 >
-                  <Pencil size={14} strokeWidth={2} />
+                  <Pencil size={13} strokeWidth={2} />
                 </button>
               </div>
             )}
-            {/* Username */}
-            {editingUsername ? (
-              <div className="mt-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">@</span>
-                  <input
-                    value={usernameInput}
-                    onChange={(e) => {
-                      setUsernameInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 16));
-                      setUsernameError(null);
-                    }}
-                    maxLength={16}
-                    autoFocus
-                    className="flex-1 min-w-0 text-sm bg-transparent border-b-2 border-primary outline-none text-foreground"
-                    placeholder="your_handle"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveUsername();
-                      if (e.key === "Escape") {
-                        setUsernameInput(user.username ?? "");
-                        setEditingUsername(false);
-                        setUsernameError(null);
-                      }
-                    }}
-                  />
-                  <button
-                    onClick={saveUsername}
-                    disabled={savingUsername || usernameInput.trim().length < 5}
-                    className="p-1 text-primary hover:text-primary/80 transition-colors"
-                  >
-                    <Check size={16} strokeWidth={2} />
-                  </button>
-                  <button
-                    onClick={() => {
+          </div>
+
+          {editingUsername ? (
+            <div className="mt-1 space-y-1">
+              <div className="flex items-center gap-1.5 justify-center">
+                <span className="text-sm text-muted-foreground">@</span>
+                <input
+                  value={usernameInput}
+                  onChange={(e) => {
+                    setUsernameInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 16));
+                    setUsernameError(null);
+                  }}
+                  maxLength={16}
+                  autoFocus
+                  className="text-sm bg-transparent border-b-2 border-primary outline-none text-foreground text-center"
+                  placeholder="your_handle"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveUsername();
+                    if (e.key === "Escape") {
                       setUsernameInput(user.username ?? "");
                       setEditingUsername(false);
                       setUsernameError(null);
-                    }}
-                    className="p-1 text-stone-400 hover:text-foreground transition-colors"
-                  >
-                    <X size={16} strokeWidth={2} />
-                  </button>
-                </div>
-                {usernameError && <p className="text-xs text-destructive">{usernameError}</p>}
-                <p className="text-[11px] text-muted-foreground">5-16 chars. Letters, numbers, underscores. Changes allowed once every 14 days.</p>
-              </div>
-            ) : user.username ? (
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-sm text-stone-500 dark:text-zinc-400">
-                  @{user.username}
-                </p>
+                    }
+                  }}
+                />
                 <button
-                  onClick={() => setEditingUsername(true)}
-                  className="p-0.5 text-stone-400 dark:text-zinc-500 hover:text-primary transition-colors shrink-0"
-                  title="Edit username"
+                  onClick={saveUsername}
+                  disabled={savingUsername || usernameInput.trim().length < 5}
+                  className="p-1 text-primary hover:text-primary/80 transition-colors"
                 >
-                  <Pencil size={12} strokeWidth={2} />
+                  <Check size={14} strokeWidth={2} />
+                </button>
+                <button
+                  onClick={() => {
+                    setUsernameInput(user.username ?? "");
+                    setEditingUsername(false);
+                    setUsernameError(null);
+                  }}
+                  className="p-1 text-stone-400 hover:text-foreground transition-colors"
+                >
+                  <X size={14} strokeWidth={2} />
                 </button>
               </div>
-            ) : (
+              {usernameError && <p className="text-xs text-destructive">{usernameError}</p>}
+              <p className="text-[10px] text-muted-foreground">5-16 chars · letters, numbers, underscores · changes every 14 days</p>
+            </div>
+          ) : user.username ? (
+            <div className="flex items-center gap-1 justify-center mt-0.5">
+              <p className="text-sm text-muted-foreground">@{user.username}</p>
               <button
                 onClick={() => setEditingUsername(true)}
-                className="mt-0.5 text-xs text-primary hover:text-primary/80 transition-colors"
+                className="p-0.5 text-stone-400 dark:text-zinc-500 hover:text-primary transition-colors shrink-0"
+                title="Edit username"
               >
-                Set a username
+                <Pencil size={11} strokeWidth={2} />
               </button>
-            )}
-            <p className="text-sm text-stone-500 dark:text-zinc-400 truncate mt-0.5">
-              {user.email}
-            </p>
-            <p className="text-xs text-stone-400 dark:text-zinc-500 mt-1 capitalize">
-              {user.role === "super_admin" ? "Admin" : user.role}
-            </p>
-          </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditingUsername(true)}
+              className="mt-0.5 text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              Set a username
+            </button>
+          )}
+
+          <p className="text-[11px] text-muted-foreground/60 mt-1 tabular-nums">{user.email}</p>
         </section>
 
-        {/* Role-conditional section */}
+        {/* Stats Strip */}
+        <section className="grid grid-cols-3 divide-x divide-border border border-border">
+          <StatTile value={String(stats.totalGames)} label="Games" />
+          <StatTile value={stats.totalGames > 0 ? `${stats.avgAccuracy}%` : "—"} label="Accuracy" />
+          <StatTile value={stats.bestRank ? `#${stats.bestRank}` : "—"} label="Best Finish" />
+        </section>
+
+        {/* Role CTA */}
         {isHost ? (
           <Link
             href="/host"
-            className="flex items-center gap-3 border border-border bg-surface p-4 hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors"
+            className="flex items-center justify-between px-4 py-3.5 bg-accent-light border border-primary/20 hover:border-primary/40 transition-colors"
           >
-            <CalendarDays
-              size={20}
-              strokeWidth={1.5}
-              className="text-primary shrink-0"
-            />
-            <div className="flex-1 min-w-0">
+            <div>
               <p className="text-sm font-medium text-foreground">My Events</p>
-              <p className="text-xs text-muted-foreground">
-                Manage your trivia events
-              </p>
+              <p className="text-xs text-muted-foreground">Manage your trivia events</p>
             </div>
-            <span className="text-xs text-muted-foreground">&rarr;</span>
+            <ChevronRight size={16} className="text-muted-foreground" />
           </Link>
         ) : (
-          <div className="border border-dashed border-primary/30 bg-primary/5 p-4 text-center space-y-2">
-            <p className="text-sm font-medium text-foreground">
-              Host your own events
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Create and run live trivia for your community.
-            </p>
+          <div className="border border-dashed border-primary/30 bg-primary/5 px-4 py-3.5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Host your own events</p>
+              <p className="text-xs text-muted-foreground">Create and run live trivia for your community.</p>
+            </div>
             <a
               href="mailto:support@blocktrivia.xyz?subject=Host%20Access%20Request"
-              className="inline-block text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+              className="text-xs font-medium text-primary hover:text-primary/80 transition-colors shrink-0 ml-3"
             >
-              Request Access &rarr;
+              Request →
             </a>
           </div>
         )}
 
-        {/* Stats */}
-        <section>
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-500 mb-3">
-            Stats
-          </h2>
-          <div className="grid grid-cols-3 gap-3">
-            <StatCard
-              icon={Gamepad2}
-              value={String(stats.totalGames)}
-              label="Games"
-            />
-            <StatCard
-              icon={Target}
-              value={stats.totalGames > 0 ? `${stats.avgAccuracy}%` : "—"}
-              label="Accuracy"
-            />
-            <StatCard
-              icon={Trophy}
-              value={stats.bestRank ? `#${stats.bestRank}` : "—"}
-              label="Best Finish"
-            />
-          </div>
-        </section>
-
         {/* Game history */}
         {gameHistory.length > 0 && (
           <section>
-            <h2 className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-500 mb-3">
+            <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
               Recent Games
             </h2>
-            <div className="border border-border divide-y divide-border">
+            <div className="space-y-2">
               {gameHistory.map((game, i) => (
                 <Link
                   key={`${game.joinCode}-${i}`}
                   href={`/results/${game.joinCode}`}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors"
+                  className="flex items-center gap-3.5 px-4 py-3 border border-border hover:bg-warm-hover transition-colors"
                 >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {game.title}
-                    </p>
+                  <div className="w-10 h-10 flex items-center justify-center bg-muted shrink-0">
+                    <span className="font-heading text-sm font-bold tabular-nums">#{game.rank}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{game.title}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {game.date
-                        ? new Date(game.date).toLocaleDateString()
-                        : ""}
-                      {" · "}#{game.rank}
-                      {" · "}{game.accuracy}%
+                      {formatGameDate(game.date)} · {game.accuracy}% accuracy
                     </p>
                   </div>
-                  <div className="text-right shrink-0 ml-3">
-                    <p className="text-sm font-bold tabular-nums text-foreground">
-                      {game.score}
-                    </p>
-                    {game.isTop10Pct && (
-                      <p className="text-[10px] font-bold text-primary">
-                        Top 10%
-                      </p>
-                    )}
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold tabular-nums text-foreground">{game.score.toLocaleString()}</p>
+                    {game.isTop10Pct && <p className="text-[9px] font-bold text-primary uppercase tracking-wider">Top 10%</p>}
                   </div>
                 </Link>
               ))}
@@ -391,26 +384,35 @@ export function ProfileView({
           </section>
         )}
 
-        {/* Linked accounts */}
+        {gameHistory.length === 0 && (
+          <section className="border border-dashed border-border py-8 text-center">
+            <p className="text-sm text-muted-foreground">No games played yet</p>
+            <Link href="/join" className="mt-2 inline-block text-xs text-primary hover:text-primary/80 transition-colors">
+              Join a game →
+            </Link>
+          </section>
+        )}
+
+        {/* Connected Accounts */}
         <section>
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-500 mb-3">
-            Linked Accounts
+          <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+            Connected Accounts
           </h2>
-          <div className="border border-border divide-y divide-border">
-            <AccountRow
+          <div className="flex flex-wrap gap-2">
+            <AccountBadge
               name="Google"
               connected={providers.includes("google")}
               onLink={handleLinkGoogle}
               linking={linkingProvider === "google"}
             />
             <div>
-              <AccountRow
+              <AccountBadge
                 name="Telegram"
                 connected={providers.includes("telegram")}
                 onLink={() => setShowTelegramLink(!showTelegramLink)}
               />
               {showTelegramLink && !providers.includes("telegram") && (
-                <div className="px-4 pb-3">
+                <div className="mt-2">
                   <TelegramLoginButton
                     onAuth={handleTelegramAuth}
                     returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/profile`}
@@ -418,44 +420,27 @@ export function ProfileView({
                 </div>
               )}
             </div>
-            <AccountRow name="Wallet" connected={false} comingSoon />
+            <AccountBadge name="Wallet" connected={false} comingSoon />
           </div>
         </section>
 
-        {/* Sign out — normal action, not danger zone */}
-        <button
-          onClick={() => setShowSignOut(true)}
-          className="w-full flex items-center gap-2 text-sm text-stone-500 dark:text-zinc-400 hover:text-foreground transition-colors py-2"
-        >
-          <LogOut size={16} strokeWidth={1.5} />
-          Sign out
-        </button>
-
-        {/* Danger zone — tucked under accordion */}
-        <details className="group">
-          <summary className="flex items-center gap-2 cursor-pointer list-none text-[11px] font-medium uppercase tracking-[0.5px] text-stone-400 dark:text-zinc-600 hover:text-stone-500 dark:hover:text-zinc-500 transition-colors select-none">
-            <svg
-              className="size-3 transition-transform duration-200 group-open:rotate-90"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-            Danger Zone
-          </summary>
-          <div className="mt-3 pl-5">
-            <button
-              onClick={() => setShowDelete(true)}
-              className="w-full text-left text-sm text-[#ef4444] hover:text-[#dc2626] transition-colors py-2"
-            >
-              Delete account
-            </button>
-          </div>
-        </details>
-
-        <div className="pb-8" />
+        {/* Footer actions */}
+        <div className="pt-2 flex flex-col gap-1">
+          <button
+            onClick={() => setShowSignOut(true)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+          >
+            <LogOut size={15} strokeWidth={1.5} />
+            Sign out
+          </button>
+          <button
+            onClick={() => setShowDelete(true)}
+            className="flex items-center gap-2 text-xs text-stone-400 dark:text-zinc-600 hover:text-destructive transition-colors py-1"
+          >
+            <Trash2 size={14} strokeWidth={1.5} />
+            Delete account
+          </button>
+        </div>
       </div>
 
       {/* Modals */}
@@ -476,32 +461,31 @@ export function ProfileView({
           onCancel={() => setShowDelete(false)}
         />
       )}
+
+      <GlobalFooter />
     </div>
   );
 }
 
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
-  value: string;
-  label: string;
-}) {
+function StatTile({ value, label }: { value: string; label: string }) {
   return (
-    <div className="border border-border bg-surface p-4 text-center space-y-1">
-      <Icon
-        size={20}
-        strokeWidth={2}
-        className="text-stone-500 dark:text-zinc-400 mx-auto"
-      />
+    <div className="py-4 text-center">
       <p className="font-heading text-xl font-bold tabular-nums">{value}</p>
-      <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">
-        {label}
-      </p>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mt-0.5">{label}</p>
     </div>
   );
+}
+
+function formatGameDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 const PROVIDER_ICONS: Record<string, React.ReactNode> = {
@@ -519,14 +503,22 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
   Wallet: (
-    <svg className="size-4 text-stone-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      className="size-4 text-stone-400 dark:text-zinc-500"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
       <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
     </svg>
   ),
 };
 
-function AccountRow({
+function AccountBadge({
   name,
   connected,
   comingSoon = false,
@@ -539,30 +531,30 @@ function AccountRow({
   onLink?: () => void;
   linking?: boolean;
 }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <div className="flex items-center gap-3">
-        {PROVIDER_ICONS[name]}
-        <span className="text-sm text-foreground">{name}</span>
+  if (comingSoon) {
+    return (
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-full bg-muted/30">
+        <div className="text-muted-foreground shrink-0">{PROVIDER_ICONS[name]}</div>
+        <span className="text-xs text-muted-foreground">{name}</span>
+        <span className="text-[9px] font-medium text-muted-foreground ml-0.5">Soon</span>
       </div>
-      {comingSoon ? (
-        <span className="text-[10px] font-medium bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.15)] text-violet-700 dark:text-violet-400 px-1.5 py-0.5 rounded-full">
-          Soon
-        </span>
-      ) : connected ? (
-        <span className="text-xs font-medium text-correct">Connected</span>
-      ) : onLink ? (
-        <button
-          onClick={onLink}
-          disabled={linking}
-          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
-        >
-          {linking ? "Linking..." : "Link"}
-        </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={onLink}
+      disabled={linking || connected}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-full hover:bg-warm-hover transition-colors disabled:cursor-default"
+    >
+      <div className="text-muted-foreground shrink-0">{PROVIDER_ICONS[name]}</div>
+      <span className="text-xs text-foreground">{name}</span>
+      {connected ? (
+        <span className="text-[9px] font-medium text-correct ml-0.5">✓</span>
       ) : (
-        <span className="text-xs text-muted-foreground">Not linked</span>
+        <span className="text-[9px] text-muted-foreground ml-0.5">Link</span>
       )}
-    </div>
+    </button>
   );
 }
 
@@ -588,9 +580,7 @@ function DeleteConfirmModal({
             Your account will be <strong className="text-foreground">scheduled for deletion</strong>.
             After a 30-day grace period, all your data will be permanently removed.
           </p>
-          <p>
-            If you sign back in within 30 days, the deletion will be cancelled automatically.
-          </p>
+          <p>If you sign back in within 30 days, the deletion will be cancelled automatically.</p>
         </div>
         <div className="space-y-2">
           <label className="text-sm text-foreground">

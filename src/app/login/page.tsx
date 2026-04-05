@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { GlobalNav } from "@/app/_components/global-nav";
+import { GlobalFooter } from "@/app/_components/global-footer";
 import {
   TelegramLoginButton,
   type TelegramAuthResult,
@@ -195,6 +196,7 @@ export default function LoginPage() {
           )}
         </div>
       </main>
+      <GlobalFooter />
     </div>
   );
 }

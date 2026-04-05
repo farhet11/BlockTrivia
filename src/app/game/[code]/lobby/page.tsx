@@ -13,7 +13,7 @@ export default async function LobbyPage({
   // Verify the event exists
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, status, logo_url, prizes")
+    .select("id, title, join_code, status, logo_url, logo_dark_url, organizer_name")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -47,7 +47,7 @@ export default async function LobbyPage({
 
   // Get current player's display name, sponsors, and game stats
   const [{ data: profile }, { data: sponsors }, { data: rounds }] = await Promise.all([
-    supabase.from("profiles").select("display_name").eq("id", user.id).single(),
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single(),
     supabase.from("event_sponsors").select("id, name, logo_url, sort_order").eq("event_id", event.id).order("sort_order"),
     supabase.from("rounds").select("id, time_limit_seconds, questions(id)").eq("event_id", event.id),
   ]);
@@ -74,14 +74,15 @@ export default async function LobbyPage({
         joinCode: event.join_code,
         status: event.status,
         logoUrl: event.logo_url ?? null,
-        prizes: event.prizes ?? null,
-        roundCount,
+        logoDarkUrl: event.logo_dark_url ?? null,
+        organizerName: event.organizer_name ?? null,
         questionCount,
         estimatedMinutes,
       }}
       player={{
         id: user.id,
         displayName: profile?.display_name || "Player",
+        avatarUrl: profile?.avatar_url ?? null,
       }}
       sponsors={sponsors ?? []}
     />

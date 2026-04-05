@@ -4,7 +4,7 @@ import { DemoView } from "./_components/demo-view";
 
 export const metadata = {
   title: "Demo Game | BlockTrivia",
-  description: "Try a live Web3 trivia demo — no host needed.",
+  description: "Try a live Web3 trivia demo - no host needed.",
 };
 
 export default async function DemoPage() {

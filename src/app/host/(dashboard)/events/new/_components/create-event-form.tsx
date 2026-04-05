@@ -449,8 +449,11 @@ export function CreateEventForm() {
           required
           maxLength={100}
           className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
-          placeholder="e.g. ETH Denver 2026 — Main Stage Trivia"
+          placeholder="e.g. ETH Denver 2026 - Main Stage Trivia"
         />
+        <p className="text-[11px] text-muted-foreground">
+          Keep it under 60 characters for clean display on leaderboards and share cards.
+        </p>
       </div>
 
       <div className="space-y-1.5 relative">

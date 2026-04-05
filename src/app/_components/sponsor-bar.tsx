@@ -15,7 +15,7 @@ export function SponsorBar({ sponsors }: { sponsors: Sponsor[] }) {
       <p className="text-center text-xs text-muted-foreground uppercase tracking-wider mb-3">
         Sponsored by
       </p>
-      <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg mx-auto">
+      <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
         {sponsors
           .sort((a, b) => a.sort_order - b.sort_order)
           .map((s) => (

@@ -482,7 +482,7 @@ export function IdentityPanel({
   // ── Step 1: Not authenticated — show auth options ─────────────────────────
   if (!user) {
     return (
-      <div className="max-w-lg mx-auto px-5">
+      <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-5">
         <div className="pt-4 pb-2">
           <button
             onClick={onBack}
@@ -574,7 +574,7 @@ export function IdentityPanel({
                 <p className="text-sm font-medium text-foreground">Check your inbox</p>
                 <p className="text-sm text-muted-foreground">
                   We sent a sign-in link to <span className="text-foreground font-medium">{email}</span>.
-                  Click it to continue — it will bring you back here automatically.
+                  Click it to continue - it will bring you back here automatically.
                 </p>
               </div>
               <p className="text-xs text-muted-foreground text-center">Received a 6-digit code instead?</p>
@@ -616,7 +616,7 @@ export function IdentityPanel({
   const showSetup = isFirstTime || editing;
 
   return (
-    <div className="max-w-lg mx-auto px-5">
+    <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-5">
       <div className="pt-4 pb-2">
         <button
           onClick={onBack}

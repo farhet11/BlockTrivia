@@ -1,22 +1,22 @@
 "use client";
 
-import { ThemeToggle } from "./theme-toggle";
 import { AvatarDropdown } from "./avatar-dropdown";
 
 export function PlayerHeader({
   user,
-  children,
+  avatarUrl,
+  right,
+  logoHref = "/join",
 }: {
   user?: { id: string; displayName: string; email?: string } | null;
-  children?: React.ReactNode;
-  /** @deprecated — header is always fixed now */
-  fixed?: boolean;
+  avatarUrl?: string | null;
+  right?: React.ReactNode;
+  logoHref?: string;
 }) {
   return (
-    <header className="fixed top-0 left-0 right-0 border-b border-border bg-background/80 backdrop-blur-sm z-50">
-
-      <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-        <a href="/join">
+    <div className="border-b border-border w-full shrink-0">
+      <header className="px-5 h-14 flex items-center justify-between max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
+        <a href={logoHref}>
           <img
             src="/logo-light.svg"
             alt="BlockTrivia"
@@ -30,10 +30,10 @@ export function PlayerHeader({
         </a>
 
         <div className="flex items-center gap-2">
-          {children}
-          {user ? <AvatarDropdown user={user} /> : <ThemeToggle />}
+          {right}
+          {user ? <AvatarDropdown user={user} avatarUrl={avatarUrl} /> : null}
         </div>
-      </div>
-    </header>
+      </header>
+    </div>
   );
 }

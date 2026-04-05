@@ -7,10 +7,6 @@ import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
-import { Users, Layers, HelpCircle, Clock, Trophy, Copy, Check, QrCode, Share2 } from "lucide-react";
-
-const ICON_CLASS = "text-stone-500 dark:text-zinc-400";
-const ICON_PROPS = { size: 20, strokeWidth: 2.5 } as const;
 
 type Sponsor = {
   id: string;
@@ -22,9 +18,8 @@ type Sponsor = {
 type Player = {
   id: string;
   player_id: string;
-  username: string | null;
   display_name: string;
-  game_alias: string | null;
+  avatar_url: string | null;
   joined_at: string;
 };
 
@@ -34,8 +29,8 @@ type EventInfo = {
   joinCode: string;
   status: string;
   logoUrl?: string | null;
-  prizes?: string | null;
-  roundCount?: number;
+  logoDarkUrl?: string | null;
+  organizerName?: string | null;
   questionCount?: number;
   estimatedMinutes?: number | null;
 };
@@ -46,14 +41,13 @@ export function LobbyView({
   sponsors,
 }: {
   event: EventInfo;
-  player: { id: string; displayName: string };
+  player: { id: string; displayName: string; avatarUrl?: string | null };
   sponsors: Sponsor[];
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [players, setPlayers] = useState<Player[]>([]);
   const [showShare, setShowShare] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // Redirect helper — shared by Realtime + polling
   function handlePhaseChange(phase: string) {
@@ -111,23 +105,20 @@ export function LobbyView({
     async function loadPlayers() {
       const { data } = await supabase
         .from("event_players")
-        .select(`id, player_id, joined_at, game_alias, profiles!event_players_player_id_fkey ( display_name, username )`)
+        .select(`id, player_id, joined_at, profiles!event_players_player_id_fkey ( display_name, avatar_url )`)
         .eq("event_id", event.id)
         .order("joined_at", { ascending: true });
 
       if (data) {
         setPlayers(
-          data.map((row: Record<string, unknown>) => {
-            const prof = row.profiles as Record<string, unknown>;
-            return {
-              id: row.id as string,
-              player_id: row.player_id as string,
-              username: (prof?.username as string) || null,
-              display_name: prof?.display_name as string || "Player",
-              game_alias: (row.game_alias as string) || null,
-              joined_at: row.joined_at as string,
-            };
-          })
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data.map((row: any) => ({
+            id: row.id,
+            player_id: row.player_id,
+            display_name: row.profiles?.display_name || "Player",
+            avatar_url: row.profiles?.avatar_url ?? null,
+            joined_at: row.joined_at,
+          }))
         );
       }
     }
@@ -142,16 +133,15 @@ export function LobbyView({
         async (payload) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("display_name, username")
+            .select("display_name, avatar_url")
             .eq("id", payload.new.player_id)
             .single();
 
           const newPlayer: Player = {
             id: payload.new.id,
             player_id: payload.new.player_id,
-            username: profile?.username || null,
             display_name: profile?.display_name || "Player",
-            game_alias: payload.new.game_alias || null,
+            avatar_url: profile?.avatar_url ?? null,
             joined_at: payload.new.joined_at,
           };
 
@@ -166,176 +156,144 @@ export function LobbyView({
     return () => { supabase.removeChannel(channel); };
   }, [supabase, event.id]);
 
-  function copyCode() {
-    navigator.clipboard.writeText(event.joinCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }
-
-  function shareLink() {
-    const url = `${window.location.origin}/join/${event.joinCode}`;
-    if (navigator.share) {
-      navigator.share({ title: event.title, url });
-    } else {
-      navigator.clipboard.writeText(url).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
-    }
-  }
-
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      {/* Header */}
-      <PlayerHeader user={player} />
+      <PlayerHeader user={{ id: player.id, displayName: player.displayName }} avatarUrl={player.avatarUrl} />
 
-      {/* Main content */}
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full flex flex-col">
 
-        {/* Context label + event title */}
-        <section className="pt-10 pb-6 text-center space-y-3">
-          <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">
-            Lobby Open
-          </p>
-          <h1 className="font-heading text-[28px] font-bold leading-tight tracking-tight text-foreground">
-            {event.title}
-          </h1>
-          <p className="text-muted-foreground text-[15px]">
-            Waiting for the host to start the game...
-          </p>
-        </section>
+        {/* Event title + hosted by + status */}
+        <div className="text-center px-5 pt-5 pb-2 space-y-2">
+          <h1 className="font-heading text-2xl font-bold leading-tight">{event.title}</h1>
 
-        {/* Stat cards with icons */}
-        <div className="grid grid-cols-4 gap-2 mb-6">
-          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
-            <Users size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
-            <p className="font-heading text-lg font-bold tabular-nums">{players.length}</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">players</p>
-          </div>
-          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
-            <Layers size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
-            <p className="font-heading text-lg font-bold tabular-nums">{event.roundCount ?? "—"}</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">rounds</p>
-          </div>
-          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
-            <HelpCircle size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
-            <p className="font-heading text-lg font-bold tabular-nums">{event.questionCount ?? "—"}</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">questions</p>
-          </div>
-          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
-            <Clock size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
-            <p className="font-heading text-lg font-bold tabular-nums">{event.estimatedMinutes ? `~${event.estimatedMinutes}` : "—"}</p>
-            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">min</p>
-          </div>
-        </div>
-
-        {/* Prizes banner */}
-        {event.prizes && (
-          <div className="border border-primary/20 bg-primary/5 p-4 mb-6 flex items-start gap-3">
-            <Trophy size={20} strokeWidth={2} className="text-primary shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-0.5">Prizes</p>
-              <p className="text-sm text-foreground">{event.prizes}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Join card */}
-        <div className="border border-border bg-surface p-5 mb-6 space-y-4">
-          <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">
-            Join This Game
-          </p>
-          <button
-            onClick={copyCode}
-            className="w-full text-left group space-y-1"
-            aria-label="Copy join code"
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-3xl font-bold tracking-[0.2em] text-primary">
-                {event.joinCode}
-              </span>
-              {copied ? (
-                <Check {...ICON_PROPS} className="text-correct shrink-0" />
-              ) : (
-                <Copy {...ICON_PROPS} className="text-muted-foreground group-hover:text-foreground transition-colors duration-150 shrink-0" />
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground/60">
-              {copied ? "Copied!" : "tap anywhere to copy"}
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "Inter, sans-serif" }}>
+              Hosted by
             </p>
-          </button>
-          <div className="flex gap-2 pt-1">
-            <button
-              onClick={() => setShowShare(true)}
-              className="flex-1 h-10 border border-border text-sm font-heading font-medium hover:bg-accent transition-colors duration-150 flex items-center justify-center gap-1.5"
-            >
-              <QrCode size={16} strokeWidth={2.5} className={ICON_CLASS} />
-              Show QR
-            </button>
-            <button
-              onClick={shareLink}
-              className="flex-1 h-10 border border-border text-sm font-heading font-medium hover:bg-accent transition-colors duration-150 flex items-center justify-center gap-1.5"
-            >
-              <Share2 size={16} strokeWidth={2.5} className={ICON_CLASS} />
-              Share
-            </button>
+            {event.logoUrl ? (
+              <img src={event.logoUrl} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
+            ) : (
+              <>
+                <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
+                <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain hidden dark:block" />
+              </>
+            )}
           </div>
-        </div>
 
-        {/* Player count label */}
-        <div className="flex items-center justify-between py-4 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Users size={16} strokeWidth={2.5} className={ICON_CLASS} />
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-              Players
+          {/* Status badge */}
+          <div className="flex justify-center pt-1">
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+              style={{ color: "#22c55e", background: "#22c55e18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+            >
+              <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#22c55e" }} />
+              Lobby Open
             </span>
           </div>
-          <span className="text-sm font-bold text-foreground tabular-nums">
-            {players.length}
-          </span>
         </div>
 
-        {/* Player list — NO rank numbers (lobby ≠ leaderboard) */}
-        <ul className="divide-y divide-border">
-          {players.map((p) => (
-            <li key={p.id} className="flex items-center gap-3 py-3.5">
-              <PlayerAvatar seed={p.player_id} name={p.display_name} size={36} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {p.game_alias || (p.username ? `@${p.username}` : p.display_name)}
-                  {p.player_id === player.id && (
-                    <span className="ml-1.5 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 font-medium">you</span>
-                  )}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        {/* Empty / solo state */}
-        {players.length <= 1 && (
-          <div className="py-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              {players.length === 0
-                ? "No players yet — share the code above to invite others."
-                : "Just you so far — share the code above to bring in more players."}
-            </p>
+        {/* 4-col stats bar */}
+        <div className="mx-5 mt-3 mb-4 grid grid-cols-4 border border-border divide-x divide-border">
+          <div className="py-3 text-center">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Players</p>
+            <p className="font-heading text-lg font-bold tabular-nums">{players.length}</p>
           </div>
-        )}
+          <div className="py-3 text-center">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Questions</p>
+            <p className="font-heading text-lg font-bold tabular-nums">{event.questionCount ?? "—"}</p>
+          </div>
+          <div className="py-3 text-center">
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Est. Time</p>
+            <p className="font-heading text-lg font-bold tabular-nums">{event.estimatedMinutes ? `${event.estimatedMinutes}m` : "—"}</p>
+          </div>
+          <button
+            onClick={() => setShowShare(true)}
+            className="py-3 text-center hover:bg-border/40 transition-colors"
+          >
+            <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Join Code</p>
+            <p className="font-heading text-lg font-bold text-primary tabular-nums tracking-widest">{event.joinCode}</p>
+          </button>
+        </div>
 
-        <div className="pb-8" />
+        {/* Players section */}
+        <div className="flex-1 mx-5">
+          {players.map((p, i) => {
+            const isMe = p.player_id === player.id;
+            return (
+              <div
+                key={p.id}
+                className="flex items-center gap-3"
+                style={{
+                  padding: "12px 20px",
+                  borderBottom: "1px solid var(--color-border, #e8e5e0)",
+                  ...(isMe ? { background: "rgba(124,58,237,0.05)", borderLeft: "2px solid rgba(124,58,237,0.3)" } : {}),
+                }}
+              >
+                <span
+                  className="shrink-0 text-right tabular-nums"
+                  style={{ fontFamily: "Inter, sans-serif", fontSize: 15, fontWeight: 600, color: "#78756e", width: 20 }}
+                >
+                  {i + 1}
+                </span>
+                <PlayerAvatar seed={p.player_id} name={p.display_name} size={40} url={p.avatar_url} />
+                <span
+                  className="flex-1 truncate"
+                  style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500, color: isMe ? "#7c3aed" : undefined }}
+                >
+                  {p.display_name}
+                  {isMe && (
+                    <span
+                      className="ml-1.5 text-[9px] font-semibold px-1.5 py-0.5"
+                      style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}
+                    >
+                      you
+                    </span>
+                  )}
+                </span>
+              </div>
+            );
+          })}
+
+          {/* Ghost placeholder rows — blurred, fills up to 4 total rows */}
+          {players.length < 4 && (
+            <div className="blur-[2px] opacity-40 pointer-events-none select-none">
+              {Array.from({ length: 4 - players.length }).map((_, i) => (
+                <div
+                  key={`ghost-${i}`}
+                  className="flex items-center gap-3"
+                  style={{ padding: "12px 20px", borderBottom: "1px solid var(--color-border, #e8e5e0)" }}
+                >
+                  <span
+                    className="shrink-0 text-right tabular-nums"
+                    style={{ fontFamily: "Inter, sans-serif", fontSize: 15, fontWeight: 600, color: "#78756e", width: 20 }}
+                  >
+                    {players.length + i + 1}
+                  </span>
+                  <PlayerAvatar seed={`ghost-slot-${i}`} name="?" size={40} />
+                  <span className="flex-1" style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500 }}>
+                    Waiting...
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {players.length <= 1 && (
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              {players.length === 0
+                ? "No one here yet - share the join code!"
+                : "Invite others - tap the join code above."}
+            </p>
+          )}
+
+          <div className="pb-8" />
+        </div>
       </div>
 
-      {/* Sponsor bar */}
       <SponsorBar sponsors={sponsors} />
 
-      {/* Share drawer */}
       {showShare && (
-        <ShareDrawer
-          joinCode={event.joinCode}
-          onClose={() => setShowShare(false)}
-        />
+        <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
       )}
     </div>
   );

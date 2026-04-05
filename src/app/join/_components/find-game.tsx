@@ -85,7 +85,7 @@ export function FindGame({
   }
 
   return (
-    <div className="max-w-lg mx-auto px-5">
+    <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-5">
       {/* Hero */}
       <section className="pt-10 pb-8 space-y-2">
         <h1 className="font-heading text-[28px] font-bold leading-tight tracking-tight text-foreground">

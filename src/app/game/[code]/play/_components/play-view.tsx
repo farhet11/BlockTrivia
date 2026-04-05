@@ -7,9 +7,8 @@ import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
-import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
-import { Check, X, LogOut } from "lucide-react";
-import { HeatEdge } from "./heat-edge";
+import type { LbEntry } from "@/app/_components/lb-podium";
+import { Check, X } from "lucide-react";
 
 type Sponsor = {
   id: string;
@@ -61,8 +60,8 @@ export function PlayView({
   sponsors,
   roundsInfo,
 }: {
-  event: { id: string; title: string; joinCode: string; logoUrl: string | null; logoDarkUrl: string | null; organizerName: string | null };
-  player: { id: string; displayName: string };
+  event: { id: string; title: string; joinCode: string; logoUrl: string | null };
+  player: { id: string; displayName: string; avatarUrl?: string | null };
   questions: QuestionData[];
   initialGameState: GameState;
   sponsors: Sponsor[];
@@ -88,11 +87,9 @@ export function PlayView({
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const aliasMapRef = useRef<Map<string, string>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
-  const myRankRef = useRef<HTMLDivElement>(null);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
 
@@ -125,6 +122,13 @@ export function PlayView({
   // Keep ref in sync with state (for use in polling interval)
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
+  // If already in leaderboard or ended phase on mount, go to leaderboard page
+  useEffect(() => {
+    if (gameState.phase === "leaderboard" || gameState.phase === "ended") {
+      router.replace(`/game/${event.joinCode}/leaderboard`);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Shared handler for any game state update (Realtime or polling)
   function applyGameState(next: GameState) {
     const prev = gameStateRef.current;
@@ -136,8 +140,8 @@ export function PlayView({
       setLeverage(1.0);
       setLastResult(null);
       submitLockRef.current = false;
-    } else if (next.phase === "ended") {
-      router.push(`/game/${event.joinCode}/final`);
+    } else if (next.phase === "ended" || next.phase === "leaderboard") {
+      router.push(`/game/${event.joinCode}/leaderboard`);
     }
   }
 
@@ -247,64 +251,59 @@ export function PlayView({
     leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && leaderboard.length === 0;
 
-    // Refresh alias map (only once per leaderboard phase, aliases are stable)
-    if (aliasMapRef.current.size === 0) {
-      supabase
-        .from("event_players")
-        .select("player_id, game_alias")
-        .eq("event_id", event.id)
-        .not("game_alias", "is", null)
-        .then(({ data }) => {
-          if (data) {
-            const map = new Map<string, string>();
-            data.forEach((row) => { if (row.game_alias) map.set(row.player_id, row.game_alias); });
-            aliasMapRef.current = map;
-          }
-        });
-    }
-
-    // Helper: resolve display name with priority: game_alias > @username > display_name
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    function resolveName(playerId: string, profile: any): string {
-      const alias = aliasMapRef.current.get(playerId);
-      if (alias) return alias;
-      if (profile?.username) return `@${profile.username}`;
-      return profile?.display_name ?? "Player";
-    }
-
-    // Fetch top 10
+    // Fetch top 10 (with fallback to event_players at 0 pts if no scores yet)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data }) => {
-        if (data) {
-          const entries: LeaderboardEntry[] = data.map((row: any) => ({
-            player_id: row.player_id,
-            display_name: resolveName(row.player_id, row.profiles),
-            total_score: row.total_score,
-            rank: row.rank,
-          }));
-          // Compute rank deltas (positive = moved up)
-          const deltas = new Map<string, number | null>();
-          entries.forEach((e) => {
-            const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
-            deltas.set(e.player_id, prev != null ? prev - e.rank : null);
-          });
-          prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
-          setLeaderboard(entries);
-          setLbDeltas(deltas);
+      .then(async ({ data }) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
+          player_id: row.player_id,
+          display_name: row.profiles?.display_name ?? "Player",
+          total_score: row.total_score,
+          rank: row.rank,
+        }));
+
+        // Fallback: no scores yet — show all joined players at 0 pts
+        if (entries.length === 0) {
+          const { data: players } = await supabase
+            .from("event_players")
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .select(`player_id, profiles ( display_name )`)
+            .eq("event_id", event.id)
+            .limit(10);
+          if (players) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            entries = players.map((p: any, i: number) => ({
+              player_id: p.player_id,
+              display_name: p.profiles?.display_name ?? "Player",
+              total_score: 0,
+              rank: i + 1,
+            }));
+            // Also set the current player's entry from the fallback list
+            const myFallback = entries.find((e) => e.player_id === player.id);
+            if (myFallback) setMyLbEntry(myFallback);
+          }
         }
+
+        const deltas = new Map<string, number | null>();
+        entries.forEach((e) => {
+          const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
+          deltas.set(e.player_id, prev != null ? prev - e.rank : null);
+        });
+        prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+        setLeaderboard(entries);
+        setLbDeltas(deltas);
       });
 
     // Also fetch current player's own entry (for pinned rank when outside top 10)
-    // If no leaderboard entry exists (player hasn't answered yet), synthesize a 0-score entry
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
@@ -313,17 +312,9 @@ export function PlayView({
         if (data) {
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: resolveName(data.player_id, (data as any).profiles),
+            display_name: (data as any).profiles?.display_name ?? "Player",
             total_score: data.total_score,
             rank: data.rank,
-          });
-        } else {
-          // Player hasn't answered yet — show them with 0 score
-          setMyLbEntry({
-            player_id: player.id,
-            display_name: resolveName(player.id, { display_name: player.displayName }),
-            total_score: 0,
-            rank: 0, // unranked
           });
         }
       });
@@ -392,8 +383,14 @@ export function PlayView({
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader user={player} />
-        <div className="flex-1 flex flex-col items-center justify-center px-5 pt-14 gap-6">
+        <PlayerHeader
+          user={{ id: player.id, displayName: player.displayName }}
+          avatarUrl={player.avatarUrl}
+          right={event.logoUrl ? (
+            <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+          ) : null}
+        />
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
           <div className="text-center space-y-3 max-w-sm">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
               Next Round
@@ -434,126 +431,6 @@ export function PlayView({
     );
   }
 
-  // Auto-scroll to player's rank after leaderboard animations settle
-  useEffect(() => {
-    if (phase !== "leaderboard") return;
-    const timer = setTimeout(() => {
-      myRankRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 800); // wait for podium + fade animations
-    return () => clearTimeout(timer);
-  }, [phase, gameState.current_question_id]);
-
-  // ── Leaderboard phase ──────────────────────────────────────────────────────
-  if (phase === "leaderboard") {
-    const lbQuestionIdx = questions.findIndex((q) => q.id === gameState.current_question_id);
-    const lbRoundIdx = rounds.findIndex((r) => r.id === gameState.current_round_id);
-    const podiumEntries = leaderboard.slice(0, 3);
-    const rankingEntries = leaderboard.slice(3);
-    const firstScore = leaderboard[0]?.total_score ?? 1;
-    const inVisibleList = leaderboard.some((e) => e.player_id === player.id);
-    const pinnedEntry = !inVisibleList ? myLbEntry : null;
-
-    return (
-      <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader user={player} />
-
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-16 pb-8 space-y-3">
-          {/* Heading + event info */}
-          <div
-            className="text-center space-y-1.5"
-            style={{ animation: "lb-fade-up 280ms ease-out both" }}
-          >
-            <h2 className="font-heading text-xl font-semibold text-foreground">{event.title}</h2>
-            {event.logoUrl && (
-              <>
-                <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Hosted by</p>
-                <div className="flex justify-center">
-                  <img src={event.logoUrl} alt="" className="h-5 object-contain dark:hidden" />
-                  <img src={event.logoDarkUrl ?? event.logoUrl} alt="" className="h-5 object-contain hidden dark:block" />
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Waiting indicator — orange pill with pulse dot */}
-          <div
-            className="flex justify-center"
-            style={{ animation: "lb-fade-up 280ms ease-out 40ms both" }}
-          >
-            <div className="inline-flex items-center gap-1.5 bg-timer-warn/10 px-3 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-timer-warn animate-pulse" />
-              <span className="text-[10px] font-medium text-timer-warn uppercase tracking-wider">Waiting for host</span>
-            </div>
-          </div>
-
-          {/* Stats bar — 3 cols */}
-          <div
-            className="grid grid-cols-3 border border-border divide-x divide-border"
-            style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
-          >
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
-              <p className="font-heading text-lg font-bold tabular-nums">{playerCount ?? "—"}</p>
-            </div>
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
-              <p className="font-heading text-lg font-bold tabular-nums">
-                {lbQuestionIdx >= 0 ? `${lbQuestionIdx + 1}/${questions.length}` : "—"}
-              </p>
-            </div>
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
-              <p className="font-heading text-lg font-bold tabular-nums">
-                {lbRoundIdx >= 0 ? `${lbRoundIdx + 1}/${rounds.length}` : "—"}
-              </p>
-            </div>
-          </div>
-
-          {/* PODIUM — top 3 */}
-          {podiumEntries.length > 0 && (
-            <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
-              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
-            </div>
-          )}
-
-          {pinnedEntry ? (
-            /* YOUR RANK — blurred top 3 context + highlighted you */
-            <div ref={myRankRef}>
-              <PinnedRankSection
-                entry={pinnedEntry}
-                firstScore={firstScore}
-                visibleCount={leaderboard.length}
-                topEntries={leaderboard.slice(0, 3)}
-                allEntries={leaderboard}
-                deltas={lbDeltas}
-              />
-            </div>
-          ) : rankingEntries.length > 0 ? (
-            /* RANKINGS — 4th+ (only when player IS in visible list) */
-            <div className="border-t border-border">
-              {rankingEntries.map((entry, i) => {
-                const isMe = entry.player_id === player.id;
-                return (
-                  <div key={entry.player_id} ref={isMe ? myRankRef : undefined}>
-                    <RankingRow
-                      entry={entry}
-                      firstScore={firstScore}
-                      delta={lbDeltas.get(entry.player_id) ?? null}
-                      isMe={isMe}
-                      animIndex={i + 3}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
-        </div>
-
-        <SponsorBar sponsors={sponsors} />
-      </div>
-    );
-  }
 
   // ── Paused ─────────────────────────────────────────────────────────────────
   if (phase === "lobby" && gameState.started_at) {
@@ -597,18 +474,11 @@ export function PlayView({
   // ── Question screen ────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      {/* Heat Edge — urgency aura overlay (only while playing, kills on answer or timeout) */}
-      {phase === "playing" && currentQuestion && (
-        <HeatEdge
-          timeLeft={timeLeft}
-          totalTime={currentQuestion.time_limit_seconds}
-          isAnswered={hasAnswered}
-        />
-      )}
-
       {/* Header */}
-      <PlayerHeader user={player}>
-        {timeLeft !== null && !hasAnswered && (
+      <PlayerHeader
+        user={{ id: player.id, displayName: player.displayName }}
+        avatarUrl={player.avatarUrl}
+        right={timeLeft !== null && !hasAnswered ? (
           <span
             className={`font-heading text-lg font-bold tabular-nums ${
               timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
@@ -616,11 +486,8 @@ export function PlayView({
           >
             {timeLeft}s
           </span>
-        )}
-      </PlayerHeader>
-
-      {/* Spacer for fixed header */}
-      <div className="pt-14" />
+        ) : null}
+      />
 
       {/* Timer bar — 4px shrinking bar per DESIGN.md */}
       {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {
@@ -641,7 +508,7 @@ export function PlayView({
 
       {/* Progress bar */}
       {currentRoundData && questionsInRound.length > 0 && (
-        <div className="border-b border-border px-5 py-2.5 max-w-lg mx-auto w-full">
+        <div className="border-b border-border px-5 py-2.5 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
             <span className="font-medium truncate max-w-[60%]">
               {currentRoundData.title}
@@ -684,18 +551,12 @@ export function PlayView({
       )}
 
       {phase === "revealing" && !lastResult && (
-        <div className="px-5 py-3 bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30 flex items-center justify-center gap-2">
-          <svg className="size-4 text-wrong shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
-            <line x1="9" y1="9" x2="9.01" y2="9" />
-            <line x1="15" y1="9" x2="15.01" y2="9" />
-          </svg>
-          <span className="text-sm font-bold text-wrong">Time&apos;s up — you didn&apos;t answer in time</span>
+        <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
+          <span className="text-sm text-muted-foreground">Time&apos;s up - you didn&apos;t answer in time.</span>
         </div>
       )}
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 flex flex-col gap-5">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-6 flex flex-col gap-5">
         {/* Question body — scales down for long text */}
         <h1 className={`font-medium leading-snug break-words ${
           currentQuestion.body.length > 120 ? "text-base" : "text-xl"
@@ -733,7 +594,7 @@ export function PlayView({
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
 
-            let cls = "relative min-h-14 border text-left transition-colors overflow-hidden ";
+            let cls = "p-4 min-h-14 border text-left transition-colors ";
             if (isRevealing) {
               if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
               else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
@@ -746,13 +607,6 @@ export function PlayView({
               cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
             }
 
-            // Letter badge color
-            let badgeCls = "absolute top-0 left-0 w-7 h-7 flex items-center justify-center text-xs font-bold ";
-            if (isRevealing && isCorrectOption) badgeCls += "bg-correct/20 text-correct";
-            else if (isRevealing && isSelected) badgeCls += "bg-wrong/20 text-wrong";
-            else if (isSelected && !isRevealing) badgeCls += "bg-primary/15 text-primary";
-            else badgeCls += "bg-muted/50 text-muted-foreground";
-
             return (
               <button
                 key={i}
@@ -760,8 +614,8 @@ export function PlayView({
                 onClick={() => submitAnswer(i)}
                 className={cls}
               >
-                <span className={badgeCls}>{label}</span>
-                <span className="block pt-8 px-4 pb-4 text-sm font-medium leading-snug break-words">
+                <span className="block text-xs font-bold mb-1 opacity-60">{label}</span>
+                <span className="text-sm font-medium leading-snug break-words">
                   {isSubmitting && isSelected ? (
                     <span className="inline-flex items-center gap-1.5">
                       <BlockSpinner variant="wave" size={16} />
@@ -787,7 +641,7 @@ export function PlayView({
         {/* Submitted / waiting */}
         {hasAnswered && phase === "playing" && (
           <p className="text-center text-sm text-muted-foreground animate-pulse">
-            Answer locked in — waiting for host to reveal...
+            Answer locked in - waiting for host to reveal...
           </p>
         )}
 

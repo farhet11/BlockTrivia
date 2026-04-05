@@ -65,7 +65,7 @@ export default async function PlayPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name")
+    .select("display_name, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -100,7 +100,7 @@ export default async function PlayPage({
   return (
     <PlayView
       event={{ id: event.id, title: event.title, joinCode: event.join_code, logoUrl: event.logo_url ?? null, logoDarkUrl: event.logo_dark_url ?? null, organizerName: event.organizer_name ?? null }}
-      player={{ id: user.id, displayName: profile?.display_name ?? "Player" }}
+      player={{ id: user.id, displayName: profile?.display_name ?? "Player", avatarUrl: profile?.avatar_url ?? null }}
       questions={questionList}
       initialGameState={gameState}
       sponsors={sponsors ?? []}

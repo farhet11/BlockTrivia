@@ -133,8 +133,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
 
   return (
     <div className="min-h-dvh bg-background overflow-hidden" ref={containerRef}>
-      {/* Fixed header */}
-      <PlayerHeader user={sessionUser} fixed />
+      <PlayerHeader user={sessionUser} />
 
       {/* Sliding panels container */}
       <div className="relative pt-14">

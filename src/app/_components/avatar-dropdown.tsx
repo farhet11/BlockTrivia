@@ -13,9 +13,11 @@ const MENU_ICON = { size: 16, strokeWidth: 2 } as const;
 export function AvatarDropdown({
   user,
   isHost = false,
+  avatarUrl,
 }: {
   user: { id: string; displayName: string; email?: string };
   isHost?: boolean;
+  avatarUrl?: string | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -42,7 +44,7 @@ export function AvatarDropdown({
           className="p-1 shrink-0 hover:opacity-80 transition-opacity cursor-pointer outline-none"
           aria-label="Account menu"
         >
-          <PlayerAvatar seed={user.id} name={user.displayName} size={32} />
+          <PlayerAvatar seed={user.id} name={user.displayName} size={32} url={avatarUrl} />
         </button>
       </DropdownMenu.Trigger>
 

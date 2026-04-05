@@ -173,9 +173,9 @@ export function ProfileView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader user={user} />
+      <PlayerHeader user={user} avatarUrl={avatarUrl} />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-20 pb-12 space-y-6">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 pt-20 pb-12 space-y-6">
         {/* Identity Hero */}
         <section className="flex flex-col items-center text-center pt-4">
           <div

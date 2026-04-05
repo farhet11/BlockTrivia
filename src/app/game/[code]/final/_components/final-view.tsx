@@ -5,7 +5,7 @@ import confetti from "canvas-confetti";
 import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ShareResultButton } from "./share-result-button";
-import { PodiumLayout, RankingRow } from "@/app/_components/lb-podium";
+import { PodiumLayout, RankingRow, PinnedRankSection } from "@/app/_components/lb-podium";
 
 type Sponsor = {
   id: string;
@@ -35,7 +35,7 @@ export function FinalView({
   sponsors,
 }: {
   event: { id?: string; title: string; joinCode: string; twitter_handle?: string | null; hashtags?: string[] | null; logoUrl?: string | null };
-  player: { id: string; displayName: string };
+  player: { id: string };
   leaderboard: Entry[];
   myEntry: Entry | null;
   totalPlayers?: number;
@@ -44,6 +44,8 @@ export function FinalView({
   const podiumEntries = leaderboard.slice(0, 3);
   const rankingEntries = leaderboard.slice(3);
   const firstScore = leaderboard[0]?.total_score ?? 1;
+  const myRank = myEntry?.rank ?? null;
+  const inTop3 = myRank !== null && myRank <= 3;
 
   useEffect(() => {
     // Burst from both sides
@@ -81,12 +83,12 @@ export function FinalView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader user={player} />
+      <PlayerHeader />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-8 space-y-8">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
         {/* Title */}
         <div className="text-center space-y-1">
-          <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">Game Over</p>
+          <p className="font-brand text-sm font-semibold text-primary italic tracking-wide">Game Over</p>
           <h1 className="font-heading text-2xl font-bold">{event.title}</h1>
         </div>
 
@@ -122,6 +124,15 @@ export function FinalView({
           </div>
         )}
 
+        {/* Share result */}
+        {myEntry && event.id && (
+          <ShareResultButton
+            event={{ id: event.id, title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
+            myEntry={myEntry}
+            totalPlayers={totalPlayers ?? leaderboard.length}
+          />
+        )}
+
         {/* Podium — top 3 */}
         {podiumEntries.length > 0 && (
           <div className="space-y-2">
@@ -137,8 +148,15 @@ export function FinalView({
           </div>
         )}
 
-        {/* Full standings — 4th+ with progress bars */}
-        {rankingEntries.length > 0 && (
+        {/* Full standings — pinned design for player not in top 3, raw list otherwise */}
+        {!inTop3 && myEntry ? (
+          <PinnedRankSection
+            entry={myEntry}
+            firstScore={firstScore}
+            topEntries={podiumEntries}
+            allEntries={leaderboard}
+          />
+        ) : rankingEntries.length > 0 ? (
           <div className="border-t border-border">
             {rankingEntries.map((entry, i) => (
               <RankingRow
@@ -151,16 +169,7 @@ export function FinalView({
               />
             ))}
           </div>
-        )}
-
-        {/* Share result */}
-        {myEntry && event.id && (
-          <ShareResultButton
-            event={{ id: event.id, title: event.title, joinCode: event.joinCode, twitter_handle: event.twitter_handle ?? null, hashtags: event.hashtags ?? null }}
-            myEntry={myEntry}
-            totalPlayers={totalPlayers ?? leaderboard.length}
-          />
-        )}
+        ) : null}
 
       </div>
       <SponsorBar sponsors={sponsors} />

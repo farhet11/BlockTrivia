@@ -2,7 +2,7 @@ import { CreateEventForm } from "./_components/create-event-form";
 
 export default function CreateEventPage() {
   return (
-    <div className="max-w-lg space-y-8">
+    <div className="max-w-5xl space-y-8">
       <div>
         <h1 className="font-heading text-2xl font-semibold tracking-tight">
           Create Event

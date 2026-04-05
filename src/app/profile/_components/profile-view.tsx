@@ -9,7 +9,7 @@ import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { ConfirmModal } from "@/app/_components/confirm-modal";
 import { GlobalFooter } from "@/app/_components/global-footer";
 import { TelegramLoginButton, type TelegramAuthResult } from "@/app/_components/telegram-login-button";
-import { Pencil, Check, X, LogOut, Camera, ChevronRight } from "lucide-react";
+import { Pencil, Check, X, LogOut, Camera, ChevronRight, Trash2 } from "lucide-react";
 
 type GameEntry = {
   title: string;
@@ -435,8 +435,9 @@ export function ProfileView({
           </button>
           <button
             onClick={() => setShowDelete(true)}
-            className="text-left text-xs text-stone-400 dark:text-zinc-600 hover:text-destructive transition-colors py-1"
+            className="flex items-center gap-2 text-xs text-stone-400 dark:text-zinc-600 hover:text-destructive transition-colors py-1"
           >
+            <Trash2 size={14} strokeWidth={1.5} />
             Delete account
           </button>
         </div>

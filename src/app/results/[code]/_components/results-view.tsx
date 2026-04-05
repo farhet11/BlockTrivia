@@ -26,6 +26,7 @@ export function ResultsView({
   event,
   leaderboard,
   sponsors,
+  stats,
   myPlayerId = null,
   viewer = null,
   hostName = null,
@@ -40,6 +41,14 @@ export function ResultsView({
   };
   leaderboard: Entry[];
   sponsors: Sponsor[];
+  stats?: {
+    playerCount: number;
+    currentQuestion: number;
+    totalQuestions: number;
+    currentRound: number;
+    totalRounds: number;
+    status: string | null;
+  };
   myPlayerId?: string | null;
   viewer?: { id: string; displayName: string } | null;
   hostName?: string | null;
@@ -64,6 +73,61 @@ export function ResultsView({
           <h1 className="font-heading text-2xl font-bold">{event.title}</h1>
           <p className="text-xs text-muted-foreground font-mono tracking-wider">{event.joinCode}</p>
         </div>
+
+        {/* Hosted By + Status */}
+        {stats && (
+          <div className="text-center space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Hosted By</p>
+            {event.logoUrl ? (
+              <img src={event.logoUrl} alt="Host logo" className="h-8 max-w-[140px] object-contain mx-auto" />
+            ) : (
+              <>
+                <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 mx-auto dark:hidden" />
+                <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 mx-auto hidden dark:block" />
+              </>
+            )}
+            {stats.status && (
+              <div className="flex justify-center">
+                <span
+                  className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 uppercase tracking-wider"
+                  style={{
+                    background: "rgba(245,158,11,0.15)",
+                    color: "#d97706",
+                    border: "1px solid rgba(245,158,11,0.3)",
+                  }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: "#f59e0b" }}
+                  />
+                  {stats.status === "ended"
+                    ? "Final Results"
+                    : stats.status === "active"
+                    ? "In Progress"
+                    : "Waiting for Host"}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Stats Row */}
+        {stats && (
+          <div className="grid grid-cols-3 border border-border divide-x divide-border">
+            <div className="p-4 text-center space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
+              <p className="font-heading text-2xl font-bold">{stats.playerCount}</p>
+            </div>
+            <div className="p-4 text-center space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
+              <p className="font-heading text-2xl font-bold">{stats.currentQuestion}/{stats.totalQuestions}</p>
+            </div>
+            <div className="p-4 text-center space-y-1">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
+              <p className="font-heading text-2xl font-bold">{stats.currentRound}/{stats.totalRounds}</p>
+            </div>
+          </div>
+        )}
 
         {/* Podium — top 3 */}
         {podiumEntries.length > 0 && (

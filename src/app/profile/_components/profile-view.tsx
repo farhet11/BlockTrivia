@@ -36,6 +36,7 @@ export function ProfileView({
   user: {
     id: string;
     displayName: string;
+    username: string | null;
     email: string;
     role: "super_admin" | "host" | "player";
     avatarUrl: string | null;
@@ -56,6 +57,12 @@ export function ProfileView({
   const [name, setName] = useState(user.displayName);
   const [saving, setSaving] = useState(false);
 
+  // Edit username state
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState(user.username ?? "");
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+
   // Danger zone
   const [showSignOut, setShowSignOut] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -71,6 +78,38 @@ export function ProfileView({
       .eq("id", user.id);
     setSaving(false);
     setEditing(false);
+    router.refresh();
+  }
+
+  async function saveUsername() {
+    const trimmed = usernameInput.trim();
+    if (trimmed.length < 5 || trimmed.length > 16) {
+      setUsernameError("5-16 characters required.");
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+      setUsernameError("Letters, numbers, and underscores only.");
+      return;
+    }
+    setSavingUsername(true);
+    setUsernameError(null);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ username: trimmed })
+      .eq("id", user.id);
+    if (error) {
+      if (error.code === "23505") {
+        setUsernameError("That username is taken.");
+      } else if (error.message.includes("14 days")) {
+        setUsernameError("You can only change your username once every 14 days.");
+      } else {
+        setUsernameError(error.message);
+      }
+      setSavingUsername(false);
+      return;
+    }
+    setSavingUsername(false);
+    setEditingUsername(false);
     router.refresh();
   }
 
@@ -95,7 +134,7 @@ export function ProfileView({
     <div className="min-h-dvh bg-background flex flex-col">
       <PlayerHeader user={user} />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-8 space-y-8">
         {/* Identity card */}
         <section className="flex items-start gap-4">
           <PlayerAvatar seed={user.id} name={user.displayName} size={72} />
@@ -146,6 +185,72 @@ export function ProfileView({
                   <Pencil size={14} strokeWidth={2} />
                 </button>
               </div>
+            )}
+            {/* Username */}
+            {editingUsername ? (
+              <div className="mt-1 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">@</span>
+                  <input
+                    value={usernameInput}
+                    onChange={(e) => {
+                      setUsernameInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").slice(0, 16));
+                      setUsernameError(null);
+                    }}
+                    maxLength={16}
+                    autoFocus
+                    className="flex-1 min-w-0 text-sm bg-transparent border-b-2 border-primary outline-none text-foreground"
+                    placeholder="your_handle"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveUsername();
+                      if (e.key === "Escape") {
+                        setUsernameInput(user.username ?? "");
+                        setEditingUsername(false);
+                        setUsernameError(null);
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={saveUsername}
+                    disabled={savingUsername || usernameInput.trim().length < 5}
+                    className="p-1 text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <Check size={16} strokeWidth={2} />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUsernameInput(user.username ?? "");
+                      setEditingUsername(false);
+                      setUsernameError(null);
+                    }}
+                    className="p-1 text-stone-400 hover:text-foreground transition-colors"
+                  >
+                    <X size={16} strokeWidth={2} />
+                  </button>
+                </div>
+                {usernameError && <p className="text-xs text-destructive">{usernameError}</p>}
+                <p className="text-[11px] text-muted-foreground">5-16 chars. Letters, numbers, underscores. Changes allowed once every 14 days.</p>
+              </div>
+            ) : user.username ? (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-sm text-stone-500 dark:text-zinc-400">
+                  @{user.username}
+                </p>
+                <button
+                  onClick={() => setEditingUsername(true)}
+                  className="p-0.5 text-stone-400 dark:text-zinc-500 hover:text-primary transition-colors shrink-0"
+                  title="Edit username"
+                >
+                  <Pencil size={12} strokeWidth={2} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditingUsername(true)}
+                className="mt-0.5 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                Set a username
+              </button>
             )}
             <p className="text-sm text-stone-500 dark:text-zinc-400 truncate mt-0.5">
               {user.email}

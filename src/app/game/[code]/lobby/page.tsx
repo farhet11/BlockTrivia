@@ -13,7 +13,7 @@ export default async function LobbyPage({
   // Verify the event exists
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, join_code, status, logo_url")
+    .select("id, title, join_code, status, logo_url, prizes")
     .eq("join_code", code.toUpperCase())
     .single();
 
@@ -49,11 +49,22 @@ export default async function LobbyPage({
   const [{ data: profile }, { data: sponsors }, { data: rounds }] = await Promise.all([
     supabase.from("profiles").select("display_name").eq("id", user.id).single(),
     supabase.from("event_sponsors").select("id, name, logo_url, sort_order").eq("event_id", event.id).order("sort_order"),
-    supabase.from("rounds").select("id, questions(id)").eq("event_id", event.id),
+    supabase.from("rounds").select("id, time_limit_seconds, questions(id)").eq("event_id", event.id),
   ]);
 
   const roundCount = rounds?.length ?? 0;
   const questionCount = rounds?.reduce((sum, r) => sum + ((r.questions as unknown[])?.length ?? 0), 0) ?? 0;
+
+  // Estimate game duration: sum of (questions × timer) per round + ~8s interstitial per round
+  let estimatedMinutes: number | null = null;
+  if (rounds && rounds.length > 0) {
+    const totalSeconds = rounds.reduce((sum, r) => {
+      const qCount = ((r.questions as unknown[])?.length ?? 0);
+      const timer = (r.time_limit_seconds as number) ?? 15;
+      return sum + qCount * timer + 8;
+    }, 0);
+    estimatedMinutes = Math.max(1, Math.round(totalSeconds / 60));
+  }
 
   return (
     <LobbyView
@@ -63,8 +74,10 @@ export default async function LobbyPage({
         joinCode: event.join_code,
         status: event.status,
         logoUrl: event.logo_url ?? null,
+        prizes: event.prizes ?? null,
         roundCount,
         questionCount,
+        estimatedMinutes,
       }}
       player={{
         id: user.id,

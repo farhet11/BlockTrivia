@@ -261,10 +261,19 @@ export function PlayView({
         });
     }
 
+    // Helper: resolve display name with priority: game_alias > @username > display_name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function resolveName(playerId: string, profile: any): string {
+      const alias = aliasMapRef.current.get(playerId);
+      if (alias) return alias;
+      if (profile?.username) return `@${profile.username}`;
+      return profile?.display_name ?? "Player";
+    }
+
     // Fetch top 10
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
@@ -273,7 +282,7 @@ export function PlayView({
         if (data) {
           const entries: LeaderboardEntry[] = data.map((row: any) => ({
             player_id: row.player_id,
-            display_name: aliasMapRef.current.get(row.player_id) ?? row.profiles?.display_name ?? "Player",
+            display_name: resolveName(row.player_id, row.profiles),
             total_score: row.total_score,
             rank: row.rank,
           }));
@@ -292,7 +301,7 @@ export function PlayView({
     // Also fetch current player's own entry (for pinned rank when outside top 10)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
@@ -301,7 +310,7 @@ export function PlayView({
         if (data) {
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: aliasMapRef.current.get(data.player_id) ?? (data as any).profiles?.display_name ?? "Player",
+            display_name: resolveName(data.player_id, (data as any).profiles),
             total_score: data.total_score,
             rank: data.rank,
           });
@@ -373,7 +382,7 @@ export function PlayView({
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <PlayerHeader user={player} />
-        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+        <div className="flex-1 flex flex-col items-center justify-center px-5 pt-14 gap-6">
           <div className="text-center space-y-3 max-w-sm">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
               Next Round
@@ -428,7 +437,7 @@ export function PlayView({
       <div className="min-h-dvh bg-background flex flex-col">
         <PlayerHeader user={player} />
 
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-6 space-y-5 pb-8">
+        <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-6 space-y-5 pb-8">
           {/* Heading + event info */}
           <div
             className="text-center space-y-0.5"
@@ -559,6 +568,9 @@ export function PlayView({
           </span>
         )}
       </PlayerHeader>
+
+      {/* Spacer for fixed header */}
+      <div className="pt-14" />
 
       {/* Timer bar — 4px shrinking bar per DESIGN.md */}
       {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {

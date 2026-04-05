@@ -181,7 +181,7 @@ export function HostSidebar({
 
   return (
     <aside
-      className={`flex flex-col fixed top-0 bottom-0 left-0 z-40 pt-14 transition-[width] duration-300 ease-out overflow-hidden ${
+      className={`flex flex-col fixed top-0 bottom-0 left-0 z-40 pt-14 bg-surface border-r border-border transition-[width] duration-300 ease-out overflow-hidden ${
         collapsed ? "w-11 md:w-14" : "w-11 md:w-60"
       }`}
     >

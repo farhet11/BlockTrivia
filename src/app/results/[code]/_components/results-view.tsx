@@ -52,7 +52,7 @@ export function ResultsView({
     <div className="min-h-dvh bg-background flex flex-col">
       <PlayerHeader user={viewer} />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-8 space-y-8">
         {/* Title */}
         <div className="text-center space-y-1">
           <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Final Results</p>

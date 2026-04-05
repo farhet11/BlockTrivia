@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <div className="flex min-h-dvh flex-col">
       <GlobalNav />
-      <main className="flex-1 flex flex-col items-center justify-center px-4 text-center space-y-8">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 pt-14 text-center space-y-8">
         <div className="space-y-5">
           <h1 className="font-heading text-3xl sm:text-4xl font-semibold leading-snug" style={{ letterSpacing: "-0.02em" }}>
             Community Intelligence,{" "}

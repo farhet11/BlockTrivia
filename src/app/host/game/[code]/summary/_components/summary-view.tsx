@@ -10,6 +10,8 @@ const ICON_PROPS = { size: 20, strokeWidth: 2.5 } as const;
 type Entry = {
   player_id: string;
   display_name: string;
+  username: string;
+  full_name: string;
   email: string;
   total_score: number;
   correct_count: number;
@@ -31,10 +33,12 @@ export function SummaryView({
 }) {
   // ── CSV Export ───────────────────────────────────────────────────────────────
   function downloadCSV() {
-    const headers = ["Rank", "Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%"];
+    const headers = ["Rank", "Username", "Name", "Full Name", "Email", "Score", "Correct", "Total", "Accuracy %", "Avg Speed (s)", "Top 10%"];
     const rows = leaderboard.map((e) => [
       e.rank,
+      `"${(e.username || "").replace(/"/g, '""')}"`,
       `"${e.display_name.replace(/"/g, '""')}"`,
+      `"${(e.full_name || "").replace(/"/g, '""')}"`,
       `"${e.email.replace(/"/g, '""')}"`,
       e.total_score,
       e.correct_count,
@@ -96,7 +100,7 @@ export function SummaryView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* ── Header: logo left, utility right (sacred — nothing else) ──────── */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-3xl mx-auto">
           <a href="/host">
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
@@ -115,7 +119,7 @@ export function SummaryView({
         </div>
       </header>
 
-      <div className="flex-1 max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
+      <div className="flex-1 max-w-3xl mx-auto w-full px-5 pt-14 py-8 space-y-8">
         {/* ── Context label + title + metadata ────────────────────────────── */}
         <div className="space-y-1">
           <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">
@@ -173,7 +177,12 @@ export function SummaryView({
                       }`}>{entry.rank}</span>
                     </td>
                     <td className="py-3 px-3">
-                      <p className="font-medium text-foreground">{entry.display_name}</p>
+                      <p className="font-medium text-foreground">
+                        {entry.username ? `@${entry.username}` : entry.display_name}
+                      </p>
+                      {entry.full_name && (
+                        <p className="text-xs text-muted-foreground">{entry.full_name}</p>
+                      )}
                       {entry.email && !entry.email.startsWith("tg_") && (
                         <p className="text-xs text-muted-foreground">{entry.email}</p>
                       )}

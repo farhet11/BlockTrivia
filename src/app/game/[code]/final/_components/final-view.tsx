@@ -83,7 +83,7 @@ export function FinalView({
     <div className="min-h-dvh bg-background flex flex-col">
       <PlayerHeader user={player} />
 
-      <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-8">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14 py-8 space-y-8">
         {/* Title */}
         <div className="text-center space-y-1">
           <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">Game Over</p>

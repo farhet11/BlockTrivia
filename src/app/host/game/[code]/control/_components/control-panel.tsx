@@ -197,7 +197,7 @@ export function ControlPanel({
 
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(20)
@@ -205,11 +205,13 @@ export function ControlPanel({
       .then(({ data }) => {
         if (data) {
           const entries: LeaderboardEntry[] = data.map((row: any) => {
+            // Host sees: display_name + alias annotation if different
             const realName = row.profiles?.display_name ?? "Player";
+            const handle = row.profiles?.username ? `@${row.profiles.username}` : realName;
             const alias = aliasMapRef.current.get(row.player_id);
             return {
               player_id: row.player_id,
-              display_name: alias && alias !== realName ? `${realName} (${alias})` : realName,
+              display_name: alias ? `${handle} (${alias})` : handle,
               total_score: row.total_score,
               rank: row.rank,
               correct_count: row.correct_count,
@@ -409,7 +411,7 @@ export function ControlPanel({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-2xl mx-auto">
           <a href="/host">
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
@@ -432,7 +434,7 @@ export function ControlPanel({
         </div>
       </header>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-5">
+      <div className="flex-1 max-w-2xl mx-auto w-full px-5 pt-14">
         {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
         {gameState.phase === "lobby" && !gameState.started_at && (

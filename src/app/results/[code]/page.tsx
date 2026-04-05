@@ -65,7 +65,7 @@ export default async function ResultsPage({ params }: Props) {
   const [{ data: entries }, { data: sponsors }] = await Promise.all([
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, correct_count, total_questions, accuracy, rank, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, correct_count, total_questions, accuracy, rank, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(50),
@@ -79,7 +79,7 @@ export default async function ResultsPage({ params }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const leaderboard = (entries ?? []).map((row: any) => ({
     player_id: row.player_id,
-    display_name: row.profiles?.display_name ?? "Player",
+    display_name: row.profiles?.username ? `@${row.profiles.username}` : (row.profiles?.display_name ?? "Player"),
     total_score: row.total_score,
     correct_count: row.correct_count,
     total_questions: row.total_questions,

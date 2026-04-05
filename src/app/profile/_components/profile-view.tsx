@@ -395,24 +395,24 @@ export function ProfileView({
 
         {/* Connected Accounts */}
         <section>
-          <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
+          <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
             Connected Accounts
           </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <AccountCard
+          <div className="flex flex-wrap gap-2">
+            <AccountBadge
               name="Google"
               connected={providers.includes("google")}
               onLink={handleLinkGoogle}
               linking={linkingProvider === "google"}
             />
             <div>
-              <AccountCard
+              <AccountBadge
                 name="Telegram"
                 connected={providers.includes("telegram")}
                 onLink={() => setShowTelegramLink(!showTelegramLink)}
               />
               {showTelegramLink && !providers.includes("telegram") && (
-                <div className="mt-3">
+                <div className="mt-2">
                   <TelegramLoginButton
                     onAuth={handleTelegramAuth}
                     returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/profile`}
@@ -420,7 +420,7 @@ export function ProfileView({
                 </div>
               )}
             </div>
-            <AccountCard name="Wallet" connected={false} comingSoon />
+            <AccountBadge name="Wallet" connected={false} comingSoon />
           </div>
         </section>
 
@@ -518,7 +518,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-function AccountCard({
+function AccountBadge({
   name,
   connected,
   comingSoon = false,
@@ -531,33 +531,30 @@ function AccountCard({
   onLink?: () => void;
   linking?: boolean;
 }) {
-  return (
-    <div className="border border-border p-4 flex flex-col items-center text-center gap-3 hover:bg-warm-hover transition-colors">
-      <div className="text-muted-foreground">{PROVIDER_ICONS[name]}</div>
-      <div>
-        <p className="text-sm font-medium text-foreground">{name}</p>
-        {comingSoon ? (
-          <span className="text-[10px] font-medium text-violet-700 dark:text-violet-400 mt-1 inline-block">
-            Coming soon
-          </span>
-        ) : connected ? (
-          <span className="text-[10px] font-medium text-correct mt-1 inline-block">Connected</span>
-        ) : (
-          <span className="text-[10px] text-muted-foreground mt-1 inline-block">Not linked</span>
-        )}
+  if (comingSoon) {
+    return (
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-full bg-muted/30">
+        <div className="text-muted-foreground shrink-0">{PROVIDER_ICONS[name]}</div>
+        <span className="text-xs text-muted-foreground">{name}</span>
+        <span className="text-[9px] font-medium text-muted-foreground ml-0.5">Soon</span>
       </div>
-      {!comingSoon && (
-        onLink ? (
-          <button
-            onClick={onLink}
-            disabled={linking}
-            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50 mt-1"
-          >
-            {linking ? "Linking..." : connected ? "Connected" : "Link"}
-          </button>
-        ) : null
+    );
+  }
+
+  return (
+    <button
+      onClick={onLink}
+      disabled={linking || connected}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 border border-border rounded-full hover:bg-warm-hover transition-colors disabled:cursor-default"
+    >
+      <div className="text-muted-foreground shrink-0">{PROVIDER_ICONS[name]}</div>
+      <span className="text-xs text-foreground">{name}</span>
+      {connected ? (
+        <span className="text-[9px] font-medium text-correct ml-0.5">✓</span>
+      ) : (
+        <span className="text-[9px] text-muted-foreground ml-0.5">Link</span>
       )}
-    </div>
+    </button>
   );
 }
 

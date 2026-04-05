@@ -13,7 +13,7 @@ export function SponsorBar({ sponsors }: { sponsors: Sponsor[] }) {
   return (
     <div className="w-full border-t border-border/50 bg-background/80 py-5 px-4">
       <p className="text-center text-xs text-muted-foreground uppercase tracking-wider mb-3">
-        Today&apos;s sponsors
+        Sponsored by
       </p>
       <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg mx-auto">
         {sponsors

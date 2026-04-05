@@ -1,20 +1,95 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import {
   TelegramLoginButton,
   type TelegramAuthResult,
 } from "@/app/_components/telegram-login-button";
+
+// ── Validation constants ────────────────────────────────────────────────────
+const USERNAME_MIN = 5;
+const USERNAME_MAX = 16;
+const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
+const ALIAS_MIN = 2;
+const ALIAS_MAX = 20;
 
 type VerifiedEvent = {
   id: string;
   title: string;
   join_code: string;
   player_count: number;
+  question_count: number;
+  prizes: string | null;
+  estimated_minutes: number | null;
+  host_name: string | null;
+  access_mode: "open" | "whitelist" | "blacklist";
 };
+
+function GameFoundCard({
+  event,
+  subtitle,
+}: {
+  event: VerifiedEvent;
+  subtitle?: React.ReactNode;
+}) {
+  return (
+    <div className="border-l-[3px] border-l-primary bg-primary/5 border border-border p-4 mb-8">
+      <div className="flex items-center gap-2 mb-1">
+        <span className="w-2 h-2 rounded-full bg-correct animate-pulse" />
+        <span className="text-xs font-bold text-primary uppercase tracking-wider">
+          Game Found
+        </span>
+      </div>
+      <p className="font-heading text-lg font-semibold text-foreground">
+        {event.title}
+      </p>
+      <p className="text-sm text-stone-500 dark:text-zinc-400 mt-1">
+        {event.question_count > 0 && <>{event.question_count} questions</>}
+        {event.question_count > 0 && event.estimated_minutes && <> · </>}
+        {event.estimated_minutes && <>~{event.estimated_minutes} min</>}
+        {(event.question_count > 0 || event.estimated_minutes) && event.player_count > 0 && <> · </>}
+        {event.player_count > 0 && <>{event.player_count} player{event.player_count !== 1 ? "s" : ""} waiting</>}
+      </p>
+      {event.host_name && (
+        <p className="text-sm text-stone-500 dark:text-zinc-400 mt-0.5">
+          Hosted by <span className="font-medium text-foreground">{event.host_name}</span>
+          {event.access_mode === "whitelist" && (
+            <span className="ml-2 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5">
+              Invite Only
+            </span>
+          )}
+        </p>
+      )}
+      {subtitle && (
+        <p className="text-sm text-stone-500 dark:text-zinc-400 mt-1">{subtitle}</p>
+      )}
+      {event.prizes && (
+        <div className="mt-2 pt-2 border-t border-border">
+          <p className="text-xs font-bold text-primary uppercase tracking-wider">Prizes</p>
+          <p className="text-sm text-foreground mt-0.5">{event.prizes}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function validateUsername(value: string): string | null {
+  if (!value.trim()) return "Username is required.";
+  if (value.length < USERNAME_MIN) return `At least ${USERNAME_MIN} characters.`;
+  if (value.length > USERNAME_MAX) return `Max ${USERNAME_MAX} characters.`;
+  if (!USERNAME_REGEX.test(value)) return "Letters, numbers, and underscores only.";
+  return null;
+}
+
+function validateAlias(value: string): string | null {
+  if (!value.trim()) return "Alias can't be empty.";
+  if (value.trim().length < ALIAS_MIN) return `At least ${ALIAS_MIN} characters.`;
+  if (value.trim().length > ALIAS_MAX) return `Max ${ALIAS_MAX} characters.`;
+  return null;
+}
 
 export function IdentityPanel({
   event,
@@ -25,32 +100,108 @@ export function IdentityPanel({
   onBack: () => void;
   onIdentityConfirmed?: (playerId: string) => void;
 }) {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [user, setUser] = useState<{ id: string; email?: string; name?: string } | null>(null);
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [alias, setAlias] = useState("");
   const [loading, setLoading] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [usingAlias, setUsingAlias] = useState(false);
+  const [isFirstTime, setIsFirstTime] = useState(true);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
   const [otpStep, setOtpStep] = useState<"email" | "otp">("email");
   const [otp, setOtp] = useState("");
 
+  // Inline email-linking state (for access-controlled events when user has no email)
+  const [emailLinkStep, setEmailLinkStep] = useState<null | "prompt" | "email-input" | "otp-verify">(null);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkOtp, setLinkOtp] = useState("");
+  const [linkLoading, setLinkLoading] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Username availability check
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const checkTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  function checkUsernameAvailability(value: string) {
+    if (checkTimerRef.current) clearTimeout(checkTimerRef.current);
+    setUsernameStatus("idle");
+
+    const validation = validateUsername(value);
+    if (validation) return; // Don't check invalid usernames
+
+    setUsernameStatus("checking");
+    checkTimerRef.current = setTimeout(async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id")
+        .ilike("username", value)
+        .maybeSingle();
+
+      // If it's the current user's own username, it's fine
+      if (data && data.id !== user?.id) {
+        setUsernameStatus("taken");
+      } else {
+        setUsernameStatus("available");
+      }
+    }, 400);
+  }
+
+  // Helper: load profile and determine first-time vs returning
+  async function loadProfile(userId: string, fallbackName: string) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, full_name, username")
+      .eq("id", userId)
+      .single();
+
+    if (profile?.username) {
+      setUsername(profile.username);
+      setIsFirstTime(false);
+    } else {
+      // Suggest a username from the fallback name
+      const suggested = fallbackName
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "")
+        .slice(0, USERNAME_MAX);
+      const finalSuggested = suggested.length >= USERNAME_MIN ? suggested : "";
+      setUsername(finalSuggested);
+      if (finalSuggested) checkUsernameAvailability(finalSuggested);
+      setIsFirstTime(true);
+    }
+
+    // Backfill full_name if missing
+    return profile;
+  }
+
   // Check if user is already authenticated (e.g. returning from OAuth)
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
+    supabase.auth.getUser().then(async ({ data: { user: authUser } }) => {
+      if (authUser) {
         const name =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split("@")[0] ||
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          authUser.email?.split("@")[0] ||
           "";
-        setUser({ id: user.id, email: user.email ?? undefined, name });
-        setDisplayName(name);
+        setUser({ id: authUser.id, email: authUser.email ?? undefined, name });
+
+        const profile = await loadProfile(authUser.id, name);
+
+        // Backfill full_name if missing
+        const fullName =
+          authUser.user_metadata?.full_name ||
+          [authUser.user_metadata?.first_name, authUser.user_metadata?.last_name].filter(Boolean).join(" ") ||
+          authUser.user_metadata?.name ||
+          null;
+        if (fullName && !profile?.full_name) {
+          supabase.from("profiles").update({ full_name: fullName }).eq("id", authUser.id).then(() => {});
+        }
       }
     });
-  }, [supabase]);
+  }, [supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTelegramAuth = useCallback(
     async ({ token_hash, user: tgUser }: TelegramAuthResult) => {
@@ -65,15 +216,19 @@ export function IdentityPanel({
         setLoading(false);
         return;
       }
+
       setUser({ id: tgUser.id, name: tgUser.name });
-      setDisplayName(tgUser.name);
+      const profile = await loadProfile(tgUser.id, tgUser.name);
+
+      if (tgUser.name && !profile?.full_name) {
+        supabase.from("profiles").update({ full_name: tgUser.name }).eq("id", tgUser.id).then(() => {});
+      }
       setLoading(false);
     },
-    [supabase]
+    [supabase] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   async function handleGoogle() {
-    // Store event info so we can resume after OAuth redirect
     localStorage.setItem("bt_join_event_id", event.id);
     localStorage.setItem("bt_join_code", event.join_code);
 
@@ -119,26 +274,161 @@ export function IdentityPanel({
     } else if (data.user) {
       const name = data.user.user_metadata?.full_name || email.split("@")[0];
       setUser({ id: data.user.id, email: data.user.email ?? undefined, name });
-      setDisplayName(name);
+      await loadProfile(data.user.id, name);
     }
     setLoading(false);
   }
 
+  // Handle return from Google OAuth email-link flow
+  useEffect(() => {
+    const linkFlow = localStorage.getItem("bt_link_email_flow");
+    if (!linkFlow || !user) return;
+
+    localStorage.removeItem("bt_link_email_flow");
+
+    // Refresh user data and update profile email if now available
+    supabase.auth.getUser().then(async ({ data: { user: freshUser } }) => {
+      if (freshUser?.email) {
+        setUser((prev) => prev ? { ...prev, email: freshUser.email ?? undefined } : prev);
+        await supabase
+          .from("profiles")
+          .update({ email: freshUser.email.toLowerCase() })
+          .eq("id", freshUser.id);
+      }
+    });
+  }, [user, supabase]);
+
+  async function handleLinkGoogle() {
+    localStorage.setItem("bt_join_code", event.join_code);
+    localStorage.setItem("bt_link_email_flow", "true");
+
+    await supabase.auth.linkIdentity({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/join/${event.join_code}`,
+      },
+    });
+  }
+
+  async function handleLinkSendOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setLinkError(null);
+    setLinkLoading(true);
+    const { error: updateError } = await supabase.auth.updateUser({
+      email: linkEmail,
+    });
+    if (updateError) {
+      setLinkError(updateError.message);
+    } else {
+      setEmailLinkStep("otp-verify");
+    }
+    setLinkLoading(false);
+  }
+
+  async function handleLinkVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setLinkError(null);
+    setLinkLoading(true);
+    const { data, error: verifyError } = await supabase.auth.verifyOtp({
+      email: linkEmail,
+      token: linkOtp.trim(),
+      type: "email_change",
+    });
+    if (verifyError) {
+      setLinkError(verifyError.message);
+      setLinkLoading(false);
+      return;
+    }
+    // Update profile email
+    if (data.user) {
+      const newEmail = data.user.email ?? linkEmail;
+      setUser((prev) => prev ? { ...prev, email: newEmail } : prev);
+      await supabase
+        .from("profiles")
+        .update({ email: newEmail.toLowerCase() })
+        .eq("id", data.user.id);
+    }
+    // Clear link UI and auto-retry join
+    setEmailLinkStep(null);
+    setLinkEmail("");
+    setLinkOtp("");
+    setLinkLoading(false);
+    // Small delay to let state settle, then auto-retry
+    setTimeout(() => handleJoinGame(), 100);
+  }
+
   async function handleJoinGame() {
     if (!user) return;
-    if (!displayName.trim()) {
-      setError("Pick a display name.");
-      return;
+
+    // Validate username for first-time users
+    if (isFirstTime || editing) {
+      const usernameError = validateUsername(username);
+      if (usernameError) {
+        setError(usernameError);
+        return;
+      }
+    }
+
+    // Validate alias if using one
+    if (usingAlias) {
+      const aliasError = validateAlias(alias);
+      if (aliasError) {
+        setError(aliasError);
+        return;
+      }
     }
 
     setJoining(true);
     setError(null);
 
-    // Update display name on profile
-    await supabase
-      .from("profiles")
-      .update({ display_name: displayName.trim() })
-      .eq("id", user.id);
+    // Access control check (whitelist or blacklist)
+    if (event.access_mode !== "open") {
+      const userEmail = user.email?.toLowerCase();
+      if (!userEmail) {
+        setEmailLinkStep("prompt");
+        setJoining(false);
+        return;
+      }
+
+      const { data: match } = await supabase
+        .from("event_access_list")
+        .select("id")
+        .eq("event_id", event.id)
+        .ilike("email", userEmail)
+        .maybeSingle();
+
+      if (event.access_mode === "whitelist" && !match) {
+        setError("This event is invite-only. Your email is not on the guest list.");
+        setJoining(false);
+        return;
+      }
+      if (event.access_mode === "blacklist" && match) {
+        setError("You're unable to join this event.");
+        setJoining(false);
+        return;
+      }
+    }
+
+    // Save username to profile if first-time or editing
+    if (isFirstTime || editing) {
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ username: username.trim() })
+        .eq("id", user.id);
+
+      if (updateError) {
+        // Unique constraint violation = username taken
+        if (updateError.code === "23505") {
+          setError("That username is taken. Try another.");
+        } else if (updateError.message.includes("username_format")) {
+          setError("Letters, numbers, and underscores only (5–16 chars).");
+        } else {
+          setError(updateError.message);
+        }
+        setJoining(false);
+        return;
+      }
+    }
 
     // Join the event
     const { error: joinError } = await supabase.from("event_players").insert({
@@ -146,10 +436,23 @@ export function IdentityPanel({
       player_id: user.id,
     });
 
+    const gameAlias = usingAlias ? alias.trim() : null;
+
     if (joinError) {
-      // Might already be joined
       if (joinError.code === "23505") {
-        // Duplicate — already joined, proceed to liveness challenge
+        // Already joined — update alias if set
+        if (gameAlias) {
+          const { error: aliasError } = await supabase
+            .from("event_players")
+            .update({ game_alias: gameAlias })
+            .eq("event_id", event.id)
+            .eq("player_id", user.id);
+          if (aliasError?.code === "23505") {
+            setError("That alias is already taken in this game.");
+            setJoining(false);
+            return;
+          }
+        }
         onIdentityConfirmed?.(user.id);
         setJoining(false);
         return;
@@ -159,11 +462,24 @@ export function IdentityPanel({
       return;
     }
 
-    // Proceed to liveness challenge instead of directly to lobby
+    // Set alias if provided
+    if (gameAlias) {
+      const { error: aliasError } = await supabase
+        .from("event_players")
+        .update({ game_alias: gameAlias })
+        .eq("event_id", event.id)
+        .eq("player_id", user.id);
+      if (aliasError?.code === "23505") {
+        setError("That alias is already taken in this game.");
+        setJoining(false);
+        return;
+      }
+    }
+
     onIdentityConfirmed?.(user.id);
   }
 
-  // Step 1: Not authenticated — show auth options
+  // ── Step 1: Not authenticated — show auth options ─────────────────────────
   if (!user) {
     return (
       <div className="max-w-lg mx-auto px-5">
@@ -179,21 +495,7 @@ export function IdentityPanel({
           </button>
         </div>
 
-        {/* Event confirmation */}
-        <div className="bg-accent-light border border-primary/20 p-4 mb-8">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-correct animate-pulse" />
-            <span className="text-xs font-bold text-accent-text uppercase tracking-wider">
-              Game Found
-            </span>
-          </div>
-          <p className="font-heading text-lg font-semibold text-foreground">
-            {event.title}
-          </p>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {event.player_count} player{event.player_count !== 1 ? "s" : ""} waiting
-          </p>
-        </div>
+        <GameFoundCard event={event} />
 
         <section className="space-y-6">
           <div>
@@ -310,7 +612,9 @@ export function IdentityPanel({
     );
   }
 
-  // Step 2: Authenticated — choose display name + join
+  // ── Step 2: Authenticated ─────────────────────────────────────────────────
+  const showSetup = isFirstTime || editing;
+
   return (
     <div className="max-w-lg mx-auto px-5">
       <div className="pt-4 pb-2">
@@ -318,70 +622,417 @@ export function IdentityPanel({
           onClick={onBack}
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+          <ArrowLeft size={20} strokeWidth={2.5} className="text-stone-500 dark:text-zinc-400" />
           Back
         </button>
       </div>
 
-      {/* Event confirmation */}
-      <div className="bg-accent-light border border-primary/20 p-4 mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-2 h-2 rounded-full bg-correct animate-pulse" />
-          <span className="text-xs font-bold text-accent-text uppercase tracking-wider">
-            Game Found
-          </span>
-        </div>
-        <p className="font-heading text-lg font-semibold text-foreground">
-          {event.title}
-        </p>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          Signed in as {user.email ?? user.name}
-        </p>
-      </div>
+      <GameFoundCard
+        event={event}
+        subtitle={<>Signed in as <span className="font-medium text-foreground">{user.email ?? user.name}</span></>}
+      />
 
-      <section className="space-y-6">
-        <div>
-          <h2 className="font-heading text-2xl font-bold tracking-tight">
-            Choose your name
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            This is how you'll appear on the leaderboard.
-          </p>
-        </div>
+      {showSetup ? (
+        /* ── First-time: pick a username ──────────────────────────────────── */
+        <section className="space-y-6">
+          <div>
+            <h2 className="font-heading text-2xl font-bold tracking-tight">
+              Pick a username
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Your permanent handle across all games. Can only be changed once every 14 days.
+            </p>
+          </div>
 
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Display Name
-          </label>
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => {
-              setDisplayName(e.target.value);
-              setError(null);
-            }}
-            maxLength={20}
-            autoFocus
-            className="w-full h-12 bg-surface border border-border px-4 text-foreground text-lg placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
-            placeholder="Enter your alias"
-          />
-          <p className="text-xs text-muted-foreground">
-            Pre-filled from your account — change it if you'd like.
-          </p>
-        </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Username
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-lg">@</span>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(/[^a-zA-Z0-9_]/g, "");
+                  const value = cleaned.slice(0, USERNAME_MAX);
+                  setUsername(value);
+                  setError(null);
+                  checkUsernameAvailability(value);
+                }}
+                maxLength={USERNAME_MAX}
+                autoFocus
+                className={`w-full h-12 bg-surface border pl-9 pr-10 text-foreground text-lg placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors ${
+                  usernameStatus === "taken" ? "border-destructive" : "border-border"
+                }`}
+                placeholder="your_handle"
+              />
+              {/* Availability indicator */}
+              <span className="absolute right-4 top-1/2 -translate-y-1/2">
+                {usernameStatus === "checking" && (
+                  <span className="block w-4 h-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+                )}
+                {usernameStatus === "available" && (
+                  <svg className="w-5 h-5 text-correct" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                {usernameStatus === "taken" && (
+                  <svg className="w-5 h-5 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {USERNAME_MIN}–{USERNAME_MAX} characters. Letters, numbers, underscores.
+              </p>
+              {usernameStatus === "taken" && (
+                <p className="text-xs text-destructive font-medium">Taken</p>
+              )}
+              {usernameStatus === "available" && (
+                <p className="text-xs text-correct font-medium">Available</p>
+              )}
+            </div>
+          </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+          {/* Optional game alias */}
+          {!usingAlias ? (
+            <button
+              type="button"
+              onClick={() => setUsingAlias(true)}
+              className="text-sm text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors"
+            >
+              Use a game alias for this event
+            </button>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Game Alias
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { setUsingAlias(false); setAlias(""); }}
+                  className="text-xs text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors"
+                >
+                  remove
+                </button>
+              </div>
+              <input
+                type="text"
+                value={alias}
+                onChange={(e) => {
+                  setAlias(e.target.value.slice(0, ALIAS_MAX));
+                  setError(null);
+                }}
+                maxLength={ALIAS_MAX}
+                className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+                placeholder="Fun name for this game only..."
+              />
+              <p className="text-xs text-muted-foreground">
+                {ALIAS_MIN}–{ALIAS_MAX} characters. Shown instead of @{username || "username"} on this game&apos;s leaderboard.
+              </p>
+            </div>
+          )}
 
-        <Button
-          onClick={handleJoinGame}
-          disabled={joining || !displayName.trim()}
-          className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover font-medium text-base"
-        >
-          {joining ? "Joining..." : "Join Game"}
-        </Button>
-      </section>
+          {/* Inline email-linking for access-controlled events */}
+          {emailLinkStep && (
+            <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                    This event requires email verification
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Link an email to your account so we can verify your access.
+                  </p>
+                </div>
+              </div>
+
+              {emailLinkStep === "prompt" && (
+                <div className="space-y-2 pt-1">
+                  <button
+                    onClick={handleLinkGoogle}
+                    className="w-full h-10 flex items-center justify-center gap-2.5 border border-border bg-background hover:bg-surface text-sm font-medium text-foreground transition-colors"
+                  >
+                    <svg className="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Link Google Account
+                  </button>
+                  <button
+                    onClick={() => { setEmailLinkStep("email-input"); setLinkError(null); }}
+                    className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Enter email manually
+                  </button>
+                </div>
+              )}
+
+              {emailLinkStep === "email-input" && (
+                <form onSubmit={handleLinkSendOtp} className="space-y-2 pt-1">
+                  <input
+                    type="email"
+                    value={linkEmail}
+                    onChange={(e) => { setLinkEmail(e.target.value); setLinkError(null); }}
+                    required
+                    autoFocus
+                    className="w-full h-10 bg-background border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+                    placeholder="you@example.com"
+                  />
+                  {linkError && <p className="text-xs text-destructive">{linkError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setEmailLinkStep("prompt"); setLinkEmail(""); setLinkError(null); }}
+                      className="h-10 px-4 border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={linkLoading || !linkEmail.trim()}
+                      className="flex-1 h-10 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {linkLoading ? "Sending..." : "Send Code"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {emailLinkStep === "otp-verify" && (
+                <form onSubmit={handleLinkVerifyOtp} className="space-y-2 pt-1">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Enter the 6-digit code sent to <span className="font-medium text-foreground">{linkEmail}</span>
+                  </p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={linkOtp}
+                    onChange={(e) => { setLinkOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setLinkError(null); }}
+                    autoFocus
+                    className="w-full h-10 bg-background border border-border px-3 text-foreground text-center text-lg tracking-[0.4em] placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary outline-none transition-colors"
+                    placeholder="000000"
+                  />
+                  {linkError && <p className="text-xs text-destructive">{linkError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setEmailLinkStep("email-input"); setLinkOtp(""); setLinkError(null); }}
+                      className="h-10 px-4 border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={linkLoading || linkOtp.length < 6}
+                      className="flex-1 h-10 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {linkLoading ? "Verifying..." : "Verify"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <button
+            onClick={handleJoinGame}
+            disabled={joining || !username.trim() || usernameStatus === "taken" || usernameStatus === "checking" || !!emailLinkStep}
+            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover font-heading font-medium text-base disabled:opacity-50 transition-colors"
+          >
+            {joining ? "Joining..." : "Join Game"}
+          </button>
+        </section>
+      ) : (
+        /* ── Returning user: one-tap join ─────────────────────────────────── */
+        <section className="space-y-6">
+          <div className="border border-border bg-surface p-5 space-y-1">
+            <p className="text-sm text-stone-500 dark:text-zinc-400">
+              Joining as
+            </p>
+            <div className="flex items-center justify-between">
+              <p className="font-heading text-xl font-bold text-foreground">
+                @{username}
+              </p>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="text-sm text-primary hover:text-primary-hover font-medium transition-colors"
+              >
+                change
+              </button>
+            </div>
+          </div>
+
+          {/* Optional game alias */}
+          {!usingAlias ? (
+            <button
+              type="button"
+              onClick={() => setUsingAlias(true)}
+              className="text-sm text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors"
+            >
+              Use a game alias for this event
+            </button>
+          ) : (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Game Alias
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { setUsingAlias(false); setAlias(""); }}
+                  className="text-xs text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors"
+                >
+                  remove
+                </button>
+              </div>
+              <input
+                type="text"
+                value={alias}
+                onChange={(e) => {
+                  setAlias(e.target.value.slice(0, ALIAS_MAX));
+                  setError(null);
+                }}
+                maxLength={ALIAS_MAX}
+                className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+                placeholder="Fun name for this game only..."
+              />
+              <p className="text-xs text-muted-foreground">
+                {ALIAS_MIN}–{ALIAS_MAX} characters. Shown instead of @{username} on this game&apos;s leaderboard.
+              </p>
+            </div>
+          )}
+
+          {/* Inline email-linking for access-controlled events */}
+          {emailLinkStep && (
+            <div className="border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                    This event requires email verification
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                    Link an email to your account so we can verify your access.
+                  </p>
+                </div>
+              </div>
+
+              {emailLinkStep === "prompt" && (
+                <div className="space-y-2 pt-1">
+                  <button
+                    onClick={handleLinkGoogle}
+                    className="w-full h-10 flex items-center justify-center gap-2.5 border border-border bg-background hover:bg-surface text-sm font-medium text-foreground transition-colors"
+                  >
+                    <svg className="size-4 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Link Google Account
+                  </button>
+                  <button
+                    onClick={() => { setEmailLinkStep("email-input"); setLinkError(null); }}
+                    className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Enter email manually
+                  </button>
+                </div>
+              )}
+
+              {emailLinkStep === "email-input" && (
+                <form onSubmit={handleLinkSendOtp} className="space-y-2 pt-1">
+                  <input
+                    type="email"
+                    value={linkEmail}
+                    onChange={(e) => { setLinkEmail(e.target.value); setLinkError(null); }}
+                    required
+                    autoFocus
+                    className="w-full h-10 bg-background border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+                    placeholder="you@example.com"
+                  />
+                  {linkError && <p className="text-xs text-destructive">{linkError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setEmailLinkStep("prompt"); setLinkEmail(""); setLinkError(null); }}
+                      className="h-10 px-4 border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={linkLoading || !linkEmail.trim()}
+                      className="flex-1 h-10 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {linkLoading ? "Sending..." : "Send Code"}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {emailLinkStep === "otp-verify" && (
+                <form onSubmit={handleLinkVerifyOtp} className="space-y-2 pt-1">
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    Enter the 6-digit code sent to <span className="font-medium text-foreground">{linkEmail}</span>
+                  </p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={linkOtp}
+                    onChange={(e) => { setLinkOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setLinkError(null); }}
+                    autoFocus
+                    className="w-full h-10 bg-background border border-border px-3 text-foreground text-center text-lg tracking-[0.4em] placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary outline-none transition-colors"
+                    placeholder="000000"
+                  />
+                  {linkError && <p className="text-xs text-destructive">{linkError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setEmailLinkStep("email-input"); setLinkOtp(""); setLinkError(null); }}
+                      className="h-10 px-4 border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={linkLoading || linkOtp.length < 6}
+                      className="flex-1 h-10 bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium disabled:opacity-50 transition-colors"
+                    >
+                      {linkLoading ? "Verifying..." : "Verify"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <button
+            onClick={handleJoinGame}
+            disabled={joining || !!emailLinkStep}
+            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover font-heading font-medium text-base disabled:opacity-50 transition-colors"
+          >
+            {joining ? "Joining..." : "Join Game"}
+          </button>
+        </section>
+      )}
     </div>
   );
 }

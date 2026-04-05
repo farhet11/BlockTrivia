@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { BrandedQR } from "@/app/_components/branded-qr";
+import { ShareDrawer } from "@/app/_components/share-drawer";
+import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-podium";
 
 type Question = {
   id: string;
@@ -33,6 +35,11 @@ type Sponsor = {
   name: string | null;
   logo_url: string;
   sort_order: number;
+};
+
+type LeaderboardEntry = LbEntry & {
+  correct_count: number;
+  total_questions: number;
 };
 
 type GameState = {
@@ -81,6 +88,12 @@ export function ControlPanel({
   const [copied, setCopied] = useState(false);
   const [stageView, setStageView] = useState(false);
   const [playerPulse, setPlayerPulse] = useState(false);
+  const [lbEntries, setLbEntries] = useState<LeaderboardEntry[]>([]);
+  const [lbLoading, setLbLoading] = useState(false);
+  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const aliasMapRef = useRef<Map<string, string>>(new Map());
+  const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
   // Derive ordered unique rounds from questions
@@ -155,6 +168,68 @@ export function ControlPanel({
       supabase.removeChannel(channel);
     };
   }, [supabase, event.id]);
+
+  // Fetch leaderboard when phase is "leaderboard"
+  useEffect(() => {
+    if (gameState.phase !== "leaderboard") return;
+    setLbLoading(true);
+
+    // Snapshot current ranks for delta computation
+    const snapshot = new Map<string, number>();
+    lbEntries.forEach((e) => snapshot.set(e.player_id, e.rank));
+    const isFirstLoad = prevRanksRef.current.size === 0 && lbEntries.length === 0;
+
+    // Fetch aliases for annotation
+    if (aliasMapRef.current.size === 0) {
+      supabase
+        .from("event_players")
+        .select("player_id, game_alias")
+        .eq("event_id", event.id)
+        .not("game_alias", "is", null)
+        .then(({ data }) => {
+          if (data) {
+            const map = new Map<string, string>();
+            data.forEach((row) => { if (row.game_alias) map.set(row.player_id, row.game_alias); });
+            aliasMapRef.current = map;
+          }
+        });
+    }
+
+    supabase
+      .from("leaderboard_entries")
+      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
+      .eq("event_id", event.id)
+      .order("rank", { ascending: true })
+      .limit(20)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }) => {
+        if (data) {
+          const entries: LeaderboardEntry[] = data.map((row: any) => {
+            // Host sees: display_name + alias annotation if different
+            const realName = row.profiles?.display_name ?? "Player";
+            const handle = row.profiles?.username ? `@${row.profiles.username}` : realName;
+            const alias = aliasMapRef.current.get(row.player_id);
+            return {
+              player_id: row.player_id,
+              display_name: alias ? `${handle} (${alias})` : handle,
+              total_score: row.total_score,
+              rank: row.rank,
+              correct_count: row.correct_count,
+              total_questions: row.total_questions,
+            };
+          });
+          const deltas = new Map<string, number | null>();
+          entries.forEach((e) => {
+            const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
+            deltas.set(e.player_id, prev != null ? prev - e.rank : null);
+          });
+          prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+          setLbEntries(entries);
+          setLbDeltas(deltas);
+        }
+        setLbLoading(false);
+      });
+  }, [gameState.phase, event.id, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown timer (question)
   useEffect(() => {
@@ -336,7 +411,7 @@ export function ControlPanel({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-2xl mx-auto">
           <a href="/host">
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
@@ -354,17 +429,12 @@ export function ControlPanel({
                 Stage View
               </button>
             )}
-            {gameState.phase !== "lobby" && (
-              <span className="font-mono font-bold tracking-[0.1em] text-sm text-primary">
-                {event.joinCode}
-              </span>
-            )}
             <ThemeToggle />
           </div>
         </div>
       </header>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-5">
+      <div className="flex-1 max-w-2xl mx-auto w-full px-5 pt-14">
         {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
         {gameState.phase === "lobby" && !gameState.started_at && (
@@ -589,19 +659,86 @@ export function ControlPanel({
 
         {/* Phase: Leaderboard */}
         {gameState.phase === "leaderboard" && (
-          <div className="py-8 space-y-6">
-            <div className="text-center space-y-2">
+          <div className="py-6 pb-8 space-y-5">
+            {/* Event name + heading */}
+            <div
+              className="text-center space-y-0.5"
+              style={{ animation: "lb-fade-up 280ms ease-out both" }}
+            >
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Standings</p>
               <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-              <p className="text-sm text-muted-foreground">
-                Players see the live standings now
-              </p>
+              <p className="text-sm text-muted-foreground font-medium">{event.title}</p>
+              {event.description && (
+                <p className="text-xs text-muted-foreground max-w-sm mx-auto">{event.description}</p>
+              )}
             </div>
 
-            <div className="flex gap-3">
+            {/* Stats bar — 3 data cols + clickable join code */}
+            <div
+              className="grid grid-cols-4 border border-border divide-x divide-border"
+              style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
+            >
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{playerCount}</p>
+              </div>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentIndex >= 0 ? `${currentIndex + 1}/${totalQuestions}` : "—"}</p>
+              </div>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentRoundIndex >= 0 ? `${currentRoundIndex + 1}/${rounds.length}` : "—"}</p>
+              </div>
+              <button
+                onClick={() => setShowShare(true)}
+                className="px-3 py-2.5 text-center hover:bg-accent transition-colors"
+              >
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
+                <p className="font-heading text-lg font-bold text-primary font-mono tracking-wider">{event.joinCode}</p>
+              </button>
+            </div>
+
+            {/* PODIUM — top 3 */}
+            {lbLoading ? (
+              <div className="space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="h-14 bg-surface border border-border animate-pulse" />
+                ))}
+              </div>
+            ) : lbEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">No scores yet</p>
+            ) : (
+              <>
+                <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+                  <PodiumLayout entries={lbEntries.slice(0, 3)} />
+                </div>
+
+                {/* RANKINGS — 4th+ */}
+                {lbEntries.slice(3).length > 0 && (
+                  <div className="border-t border-border">
+                    {lbEntries.slice(3).map((entry, i) => (
+                      <RankingRow
+                        key={entry.player_id}
+                        entry={entry}
+                        firstScore={lbEntries[0]?.total_score ?? 1}
+                        delta={lbDeltas.get(entry.player_id) ?? null}
+                        isMe={false}
+                        animIndex={i + 3}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Sponsors + Next button — inline, no sticky overlap */}
+            {sponsors.length > 0 && <SponsorBar sponsors={sponsors} />}
+            <div className="pt-2 pb-4">
               <button
                 onClick={isLastQuestion ? endGame : nextQuestion}
                 disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                className="w-full h-12 bg-primary text-primary-foreground font-heading font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
               >
                 {nextLabel}
               </button>
@@ -791,6 +928,12 @@ export function ControlPanel({
             </button>
           </div>
         </div>
+      )}
+
+
+      {/* Share drawer — triggered by join code card */}
+      {showShare && (
+        <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
       )}
 
       {/* Stage View overlay — full-screen projector layout */}

@@ -3,11 +3,13 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
-import { Check, X } from "lucide-react";
+import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
+import { Check, X, LogOut } from "lucide-react";
+import { HeatEdge } from "./heat-edge";
 
 type Sponsor = {
   id: string;
@@ -49,12 +51,7 @@ type GameState = {
   ended_at: string | null;
 };
 
-type LeaderboardEntry = {
-  player_id: string;
-  display_name: string;
-  total_score: number;
-  rank: number;
-};
+type LeaderboardEntry = LbEntry;
 
 export function PlayView({
   event,
@@ -64,7 +61,7 @@ export function PlayView({
   sponsors,
   roundsInfo,
 }: {
-  event: { id: string; title: string; joinCode: string; logoUrl: string | null };
+  event: { id: string; title: string; joinCode: string; logoUrl: string | null; logoDarkUrl: string | null; organizerName: string | null };
   player: { id: string; displayName: string };
   questions: QuestionData[];
   initialGameState: GameState;
@@ -88,9 +85,14 @@ export function PlayView({
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
+  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const aliasMapRef = useRef<Map<string, string>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
+  const myRankRef = useRef<HTMLDivElement>(null);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
 
@@ -239,31 +241,99 @@ export function PlayView({
   // Load leaderboard when phase is "leaderboard"
   useEffect(() => {
     if (gameState.phase !== "leaderboard") return;
+
+    // Snapshot current ranks for delta computation
+    const snapshot = new Map<string, number>();
+    leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
+    const isFirstLoad = prevRanksRef.current.size === 0 && leaderboard.length === 0;
+
+    // Refresh alias map (only once per leaderboard phase, aliases are stable)
+    if (aliasMapRef.current.size === 0) {
+      supabase
+        .from("event_players")
+        .select("player_id, game_alias")
+        .eq("event_id", event.id)
+        .not("game_alias", "is", null)
+        .then(({ data }) => {
+          if (data) {
+            const map = new Map<string, string>();
+            data.forEach((row) => { if (row.game_alias) map.set(row.player_id, row.game_alias); });
+            aliasMapRef.current = map;
+          }
+        });
+    }
+
+    // Helper: resolve display name with priority: game_alias > @username > display_name
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function resolveName(playerId: string, profile: any): string {
+      const alias = aliasMapRef.current.get(playerId);
+      if (alias) return alias;
+      if (profile?.username) return `@${profile.username}`;
+      return profile?.display_name ?? "Player";
+    }
+
+    // Fetch top 10
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
-      .order("total_score", { ascending: false })
+      .order("rank", { ascending: true })
       .limit(10)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data }) => {
         if (data) {
-          setLeaderboard(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            data.map((row: any) => ({
-              player_id: row.player_id,
-              display_name: row.profiles?.display_name ?? "Player",
-              total_score: row.total_score,
-              rank: row.rank,
-            }))
-          );
+          const entries: LeaderboardEntry[] = data.map((row: any) => ({
+            player_id: row.player_id,
+            display_name: resolveName(row.player_id, row.profiles),
+            total_score: row.total_score,
+            rank: row.rank,
+          }));
+          // Compute rank deltas (positive = moved up)
+          const deltas = new Map<string, number | null>();
+          entries.forEach((e) => {
+            const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
+            deltas.set(e.player_id, prev != null ? prev - e.rank : null);
+          });
+          prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+          setLeaderboard(entries);
+          setLbDeltas(deltas);
         }
       });
+
+    // Also fetch current player's own entry (for pinned rank when outside top 10)
+    // If no leaderboard entry exists (player hasn't answered yet), synthesize a 0-score entry
+    supabase
+      .from("leaderboard_entries")
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
+      .eq("event_id", event.id)
+      .eq("player_id", player.id)
+      .maybeSingle()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data }) => {
+        if (data) {
+          setMyLbEntry({
+            player_id: data.player_id,
+            display_name: resolveName(data.player_id, (data as any).profiles),
+            total_score: data.total_score,
+            rank: data.rank,
+          });
+        } else {
+          // Player hasn't answered yet — show them with 0 score
+          setMyLbEntry({
+            player_id: player.id,
+            display_name: resolveName(player.id, { display_name: player.displayName }),
+            total_score: 0,
+            rank: 0, // unranked
+          });
+        }
+      });
+
     supabase
       .from("event_players")
       .select("player_id", { count: "exact", head: true })
       .eq("event_id", event.id)
       .then(({ count }) => { if (count !== null) setPlayerCount(count); });
-  }, [gameState.phase, supabase, event.id]);
+  }, [gameState.phase, supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submitAnswer(answerIndex: number) {
     if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
@@ -322,28 +392,8 @@ export function PlayView({
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-3">
-            {event.logoUrl && (
-              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </header>
-        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+        <PlayerHeader user={player} />
+        <div className="flex-1 flex flex-col items-center justify-center px-5 pt-14 gap-6">
           <div className="text-center space-y-3 max-w-sm">
             <p className="text-xs font-bold text-primary uppercase tracking-widest">
               Next Round
@@ -384,49 +434,62 @@ export function PlayView({
     );
   }
 
+  // Auto-scroll to player's rank after leaderboard animations settle
+  useEffect(() => {
+    if (phase !== "leaderboard") return;
+    const timer = setTimeout(() => {
+      myRankRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 800); // wait for podium + fade animations
+    return () => clearTimeout(timer);
+  }, [phase, gameState.current_question_id]);
+
   // ── Leaderboard phase ──────────────────────────────────────────────────────
   if (phase === "leaderboard") {
-    const myEntry = leaderboard.find((e) => e.player_id === player.id);
     const lbQuestionIdx = questions.findIndex((q) => q.id === gameState.current_question_id);
     const lbRoundIdx = rounds.findIndex((r) => r.id === gameState.current_round_id);
+    const podiumEntries = leaderboard.slice(0, 3);
+    const rankingEntries = leaderboard.slice(3);
+    const firstScore = leaderboard[0]?.total_score ?? 1;
+    const inVisibleList = leaderboard.some((e) => e.player_id === player.id);
+    const pinnedEntry = !inVisibleList ? myLbEntry : null;
+
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <div className="flex items-center gap-3">
+        <PlayerHeader user={player} />
+
+        <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-16 pb-8 space-y-3">
+          {/* Heading + event info */}
+          <div
+            className="text-center space-y-1.5"
+            style={{ animation: "lb-fade-up 280ms ease-out both" }}
+          >
+            <h2 className="font-heading text-xl font-semibold text-foreground">{event.title}</h2>
             {event.logoUrl && (
-              <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </header>
-        <div className="flex-1 max-w-lg mx-auto w-full px-5 py-8 space-y-6">
-          <div className="text-center space-y-1">
-            <p className="text-xs font-bold text-primary uppercase tracking-widest">Standings</p>
-            <h2 className="font-heading text-2xl font-bold">Leaderboard</h2>
-            {myEntry && (
-              <p className="text-sm text-muted-foreground">
-                You're ranked <span className="font-bold text-foreground">#{myEntry.rank}</span> with{" "}
-                <span className="font-bold text-foreground">{myEntry.total_score}</span> pts
-              </p>
+              <>
+                <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Hosted by</p>
+                <div className="flex justify-center">
+                  <img src={event.logoUrl} alt="" className="h-5 object-contain dark:hidden" />
+                  <img src={event.logoDarkUrl ?? event.logoUrl} alt="" className="h-5 object-contain hidden dark:block" />
+                </div>
+              </>
             )}
           </div>
 
-          {/* Stats bar */}
-          <div className="grid grid-cols-4 border border-border divide-x divide-border"
-            style={{ animation: 'lb-fade-up 280ms ease-out both', animationDelay: '80ms' }}
+          {/* Waiting indicator — orange pill with pulse dot */}
+          <div
+            className="flex justify-center"
+            style={{ animation: "lb-fade-up 280ms ease-out 40ms both" }}
+          >
+            <div className="inline-flex items-center gap-1.5 bg-timer-warn/10 px-3 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-timer-warn animate-pulse" />
+              <span className="text-[10px] font-medium text-timer-warn uppercase tracking-wider">Waiting for host</span>
+            </div>
+          </div>
+
+          {/* Stats bar — 3 cols */}
+          <div
+            className="grid grid-cols-3 border border-border divide-x divide-border"
+            style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
           >
             <div className="px-3 py-2.5 text-center">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
@@ -444,44 +507,49 @@ export function PlayView({
                 {lbRoundIdx >= 0 ? `${lbRoundIdx + 1}/${rounds.length}` : "—"}
               </p>
             </div>
-            <div className="px-3 py-2.5 text-center">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
-              <p className="font-heading text-lg font-bold tabular-nums font-mono tracking-wider">{event.joinCode}</p>
-            </div>
           </div>
-          <ul className="space-y-2">
-            {leaderboard.map((entry, i) => {
-              const isMe = entry.player_id === player.id;
-              return (
-                <li
-                  key={entry.player_id}
-                  className={`flex items-center gap-3 p-3 border ${
-                    isMe ? "border-primary bg-primary/5" : "border-border"
-                  }`}
-                  style={{
-                    animation: 'lb-slide-in 320ms cubic-bezier(0.22, 1, 0.36, 1) both',
-                    animationDelay: `${i * 55}ms`,
-                    willChange: 'transform, opacity',
-                  } as React.CSSProperties}
-                >
-                  <span className={`w-7 text-center text-sm font-bold tabular-nums ${
-                    i === 0 ? "text-yellow-500" : i === 1 ? "text-zinc-400" : i === 2 ? "text-amber-700" : "text-muted-foreground"
-                  }`}>
-                    #{entry.rank ?? i + 1}
-                  </span>
-                  <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={32} />
-                  <span className={`flex-1 text-sm font-medium ${isMe ? "text-primary" : "text-foreground"}`}>
-                    {entry.display_name} {isMe && <span className="ml-1 text-[10px] font-semibold bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">you</span>}
-                  </span>
-                  <span className="text-sm font-bold tabular-nums">{entry.total_score}</span>
-                </li>
-              );
-            })}
-          </ul>
-          <p className="text-center text-xs text-muted-foreground animate-pulse">
-            Waiting for host to continue...
-          </p>
+
+          {/* PODIUM — top 3 */}
+          {podiumEntries.length > 0 && (
+            <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+            </div>
+          )}
+
+          {pinnedEntry ? (
+            /* YOUR RANK — blurred top 3 context + highlighted you */
+            <div ref={myRankRef}>
+              <PinnedRankSection
+                entry={pinnedEntry}
+                firstScore={firstScore}
+                visibleCount={leaderboard.length}
+                topEntries={leaderboard.slice(0, 3)}
+                allEntries={leaderboard}
+                deltas={lbDeltas}
+              />
+            </div>
+          ) : rankingEntries.length > 0 ? (
+            /* RANKINGS — 4th+ (only when player IS in visible list) */
+            <div className="border-t border-border">
+              {rankingEntries.map((entry, i) => {
+                const isMe = entry.player_id === player.id;
+                return (
+                  <div key={entry.player_id} ref={isMe ? myRankRef : undefined}>
+                    <RankingRow
+                      entry={entry}
+                      firstScore={firstScore}
+                      delta={lbDeltas.get(entry.player_id) ?? null}
+                      isMe={isMe}
+                      animIndex={i + 3}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+
         </div>
+
         <SponsorBar sponsors={sponsors} />
       </div>
     );
@@ -529,34 +597,30 @@ export function PlayView({
   // ── Question screen ────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {/* Heat Edge — urgency aura overlay (only while playing, kills on answer or timeout) */}
+      {phase === "playing" && currentQuestion && (
+        <HeatEdge
+          timeLeft={timeLeft}
+          totalTime={currentQuestion.time_limit_seconds}
+          isAnswered={hasAnswered}
+        />
+      )}
+
       {/* Header */}
-      <header className="border-b border-border">
-        <div className="px-5 h-14 flex items-center justify-between max-w-lg mx-auto">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          <div className="flex items-center gap-3">
-            {timeLeft !== null && !hasAnswered && (
-              <span
-                className={`font-heading text-lg font-bold tabular-nums ${
-                  timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
-                }`}
-              >
-                {timeLeft}s
-              </span>
-            )}
-            <ThemeToggle />
-            <button
-              onClick={async () => { await supabase.auth.signOut(); router.push("/join"); }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
+      <PlayerHeader user={player}>
+        {timeLeft !== null && !hasAnswered && (
+          <span
+            className={`font-heading text-lg font-bold tabular-nums ${
+              timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
+            }`}
+          >
+            {timeLeft}s
+          </span>
+        )}
+      </PlayerHeader>
+
+      {/* Spacer for fixed header */}
+      <div className="pt-14" />
 
       {/* Timer bar — 4px shrinking bar per DESIGN.md */}
       {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {
@@ -620,8 +684,14 @@ export function PlayView({
       )}
 
       {phase === "revealing" && !lastResult && (
-        <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
-          <span className="text-sm text-muted-foreground">Time&apos;s up — you didn&apos;t answer in time.</span>
+        <div className="px-5 py-3 bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30 flex items-center justify-center gap-2">
+          <svg className="size-4 text-wrong shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+            <line x1="9" y1="9" x2="9.01" y2="9" />
+            <line x1="15" y1="9" x2="15.01" y2="9" />
+          </svg>
+          <span className="text-sm font-bold text-wrong">Time&apos;s up — you didn&apos;t answer in time</span>
         </div>
       )}
 
@@ -663,7 +733,7 @@ export function PlayView({
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
 
-            let cls = "p-4 min-h-14 border text-left transition-colors ";
+            let cls = "relative min-h-14 border text-left transition-colors overflow-hidden ";
             if (isRevealing) {
               if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
               else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
@@ -676,6 +746,13 @@ export function PlayView({
               cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
             }
 
+            // Letter badge color
+            let badgeCls = "absolute top-0 left-0 w-7 h-7 flex items-center justify-center text-xs font-bold ";
+            if (isRevealing && isCorrectOption) badgeCls += "bg-correct/20 text-correct";
+            else if (isRevealing && isSelected) badgeCls += "bg-wrong/20 text-wrong";
+            else if (isSelected && !isRevealing) badgeCls += "bg-primary/15 text-primary";
+            else badgeCls += "bg-muted/50 text-muted-foreground";
+
             return (
               <button
                 key={i}
@@ -683,8 +760,8 @@ export function PlayView({
                 onClick={() => submitAnswer(i)}
                 className={cls}
               >
-                <span className="block text-xs font-bold mb-1 opacity-60">{label}</span>
-                <span className="text-sm font-medium leading-snug break-words">
+                <span className={badgeCls}>{label}</span>
+                <span className="block pt-8 px-4 pb-4 text-sm font-medium leading-snug break-words">
                   {isSubmitting && isSelected ? (
                     <span className="inline-flex items-center gap-1.5">
                       <BlockSpinner variant="wave" size={16} />

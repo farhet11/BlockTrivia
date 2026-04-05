@@ -38,18 +38,27 @@ export default async function HostDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">
-            Welcome back, <span className="text-primary">{displayName}</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Create and manage trivia events for your community.
-          </p>
+      <div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight">
+              Welcome back, <span className="text-primary">{displayName}</span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Create and manage trivia events for your community.
+            </p>
+          </div>
+          {/* Desktop: inline button */}
+          <Link href="/host/events/new" className="hidden md:block">
+            <Button className="h-11 px-5 bg-primary text-primary-foreground hover:bg-primary-hover font-medium">
+              Create Event
+            </Button>
+          </Link>
         </div>
-        <Link href="/host/events/new">
-          <Button className="h-11 px-5 bg-primary text-primary-foreground hover:bg-primary-hover font-medium">
-            Create Event
+        {/* Mobile: full-width CTA below welcome text */}
+        <Link href="/host/events/new" className="md:hidden block mt-4">
+          <Button className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary-hover font-medium">
+            + Create Event
           </Button>
         </Link>
       </div>

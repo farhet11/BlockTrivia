@@ -83,7 +83,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-dvh flex-col">
       <GlobalNav />
-      <main className="flex flex-1 items-center justify-center px-4">
+      <main className="flex flex-1 items-center justify-center px-4 pt-14">
         <div className="w-full max-w-sm space-y-8">
           {/* Header */}
           <div className="space-y-2">

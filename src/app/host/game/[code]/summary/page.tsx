@@ -36,7 +36,7 @@ export default async function SummaryPage({
       rank,
       is_top_10_pct,
       is_suspicious,
-      profiles!leaderboard_entries_player_id_fkey ( display_name, email )
+      profiles!leaderboard_entries_player_id_fkey ( display_name, username, full_name, email )
     `)
     .eq("event_id", event.id)
     .order("rank", { ascending: true });
@@ -56,6 +56,8 @@ export default async function SummaryPage({
   const leaderboard = (entries ?? []).map((row: any) => ({
     player_id: row.player_id,
     display_name: row.profiles?.display_name ?? "Player",
+    username: row.profiles?.username ?? "",
+    full_name: row.profiles?.full_name ?? "",
     email: row.profiles?.email ?? "",
     total_score: row.total_score,
     correct_count: row.correct_count,

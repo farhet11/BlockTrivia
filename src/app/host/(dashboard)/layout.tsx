@@ -1,9 +1,8 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { HostNav } from "../_components/host-nav";
-import { GlobalFooter } from "@/app/_components/global-footer";
+import { DashboardShell } from "../_components/dashboard-shell";
 
-export default async function HostLayout({
+export default async function HostDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -15,12 +14,30 @@ export default async function HostLayout({
 
   if (!user) redirect("/login");
 
-  return (
-    <div className="min-h-dvh bg-background flex flex-col">
-      <HostNav user={user} />
+  // Fetch profile for sidebar display
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, email")
+    .eq("id", user.id)
+    .single();
 
-      <main className="mx-auto w-full max-w-[1600px] px-8 py-8 flex-1">{children}</main>
-      <GlobalFooter />
-    </div>
+  const displayName =
+    profile?.display_name ||
+    user.user_metadata?.name ||
+    user.email?.split("@")[0] ||
+    "Host";
+
+  const email = profile?.email || user.email || "";
+
+  return (
+    <DashboardShell
+      user={{
+        id: user.id,
+        displayName,
+        email,
+      }}
+    >
+      {children}
+    </DashboardShell>
   );
 }

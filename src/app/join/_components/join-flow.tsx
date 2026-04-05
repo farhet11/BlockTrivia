@@ -6,13 +6,18 @@ import { createClient } from "@/lib/supabase";
 import { FindGame } from "./find-game";
 import { IdentityPanel } from "./identity-panel";
 import { LivenessChallenge } from "@/app/_components/liveness-challenge";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 
 type VerifiedEvent = {
   id: string;
   title: string;
   join_code: string;
   player_count: number;
+  question_count: number;
+  prizes: string | null;
+  estimated_minutes: number | null;
+  host_name: string | null;
+  access_mode: "open" | "whitelist" | "blacklist";
 };
 
 export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
@@ -21,7 +26,33 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   const [step, setStep] = useState<"find" | "identity" | "liveness">("find");
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [verifiedEvent, setVerifiedEvent] = useState<VerifiedEvent | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Prevent browser auto-scroll from fighting translateX positioning
+  // (autoFocus on inputs in off-screen panels causes unwanted scrollLeft)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const reset = () => { el.scrollLeft = 0; };
+    reset();
+    el.addEventListener("scroll", reset, { passive: false });
+    return () => el.removeEventListener("scroll", reset);
+  }, [step]);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split("@")[0] ||
+          "Player";
+        setSessionUser({ id: user.id, displayName: name });
+      }
+    });
+  }, [supabase]);
 
   // Auto-verify if code is provided via URL
   useEffect(() => {
@@ -34,21 +65,50 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   async function verifyCode(code: string): Promise<boolean> {
     const { data: event } = await supabase
       .from("events")
-      .select("id, title, join_code")
+      .select("id, title, join_code, prizes, access_mode, organizer_name, profiles!events_created_by_fkey(display_name)")
       .eq("join_code", code.toUpperCase())
       .single();
 
     if (!event) return false;
 
-    // Get player count
-    const { count } = await supabase
-      .from("event_players")
-      .select("*", { count: "exact", head: true })
-      .eq("event_id", event.id);
+    // Get player count + round data for time estimate in parallel
+    const [{ count }, { data: rounds }] = await Promise.all([
+      supabase
+        .from("event_players")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", event.id),
+      supabase
+        .from("rounds")
+        .select("time_limit_seconds, questions(id)")
+        .eq("event_id", event.id),
+    ]);
+
+    // Estimate: sum of (questions × timer) per round + ~8s interstitial per round
+    let estimated_minutes: number | null = null;
+    let question_count = 0;
+    if (rounds && rounds.length > 0) {
+      const totalSeconds = rounds.reduce((sum, r) => {
+        const qCount = (r.questions as unknown[])?.length ?? 0;
+        question_count += qCount;
+        const timer = r.time_limit_seconds ?? 15;
+        return sum + qCount * timer + 8;
+      }, 0);
+      estimated_minutes = Math.max(1, Math.round(totalSeconds / 60));
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const hostProfile = (event as any).profiles?.display_name ?? null;
 
     setVerifiedEvent({
-      ...event,
+      id: event.id,
+      title: event.title,
+      join_code: event.join_code,
       player_count: count ?? 0,
+      question_count,
+      prizes: event.prizes ?? null,
+      estimated_minutes,
+      host_name: (event as any).organizer_name ?? hostProfile,
+      access_mode: ((event as any).access_mode as "open" | "whitelist") ?? "open",
     });
     setStep("identity");
     return true;
@@ -74,36 +134,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   return (
     <div className="min-h-dvh bg-background overflow-hidden" ref={containerRef}>
       {/* Fixed header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <img
-            src="/logo-light.svg"
-            alt="BlockTrivia"
-            className="h-6 dark:hidden"
-          />
-          <img
-            src="/logo-dark.svg"
-            alt="BlockTrivia"
-            className="h-6 hidden dark:block"
-          />
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            <button
-              onClick={async () => {
-                await supabase.auth.signOut();
-                setStep("find");
-                setVerifiedEvent(null);
-              }}
-              aria-label="Sign out"
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </header>
+      <PlayerHeader user={sessionUser} fixed />
 
       {/* Sliding panels container */}
       <div className="relative pt-14">
@@ -115,7 +146,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
           }}
         >
           {/* Panel 1: Find Game */}
-          <div className="w-1/3">
+          <div className="w-1/3 overflow-hidden">
             <FindGame
               initialCode={initialCode}
               onVerified={verifyCode}
@@ -123,7 +154,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
           </div>
 
           {/* Panel 2: Identity */}
-          <div className="w-1/3">
+          <div className="w-1/3 overflow-hidden">
             {verifiedEvent && (
               <IdentityPanel
                 event={verifiedEvent}
@@ -134,7 +165,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
           </div>
 
           {/* Panel 3: Liveness Check */}
-          <div className="w-1/3">
+          <div className="w-1/3 overflow-hidden">
             {verifiedEvent && currentPlayerId && (
               <LivenessChallenge
                 eventId={verifiedEvent.id}

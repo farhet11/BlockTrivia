@@ -398,21 +398,21 @@ export function ProfileView({
           <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
             Connected Accounts
           </h2>
-          <div className="border border-border divide-y divide-border">
-            <AccountRow
+          <div className="grid grid-cols-2 gap-3">
+            <AccountCard
               name="Google"
               connected={providers.includes("google")}
               onLink={handleLinkGoogle}
               linking={linkingProvider === "google"}
             />
             <div>
-              <AccountRow
+              <AccountCard
                 name="Telegram"
                 connected={providers.includes("telegram")}
                 onLink={() => setShowTelegramLink(!showTelegramLink)}
               />
               {showTelegramLink && !providers.includes("telegram") && (
-                <div className="px-4 pb-3">
+                <div className="mt-3">
                   <TelegramLoginButton
                     onAuth={handleTelegramAuth}
                     returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/profile`}
@@ -420,7 +420,7 @@ export function ProfileView({
                 </div>
               )}
             </div>
-            <AccountRow name="Wallet" connected={false} comingSoon />
+            <AccountCard name="Wallet" connected={false} comingSoon />
           </div>
         </section>
 
@@ -517,7 +517,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-function AccountRow({
+function AccountCard({
   name,
   connected,
   comingSoon = false,
@@ -531,27 +531,30 @@ function AccountRow({
   linking?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <div className="flex items-center gap-3">
-        {PROVIDER_ICONS[name]}
-        <span className="text-sm text-foreground">{name}</span>
+    <div className="border border-border p-4 flex flex-col items-center text-center gap-3 hover:bg-warm-hover transition-colors">
+      <div className="text-muted-foreground">{PROVIDER_ICONS[name]}</div>
+      <div>
+        <p className="text-sm font-medium text-foreground">{name}</p>
+        {comingSoon ? (
+          <span className="text-[10px] font-medium text-violet-700 dark:text-violet-400 mt-1 inline-block">
+            Coming soon
+          </span>
+        ) : connected ? (
+          <span className="text-[10px] font-medium text-correct mt-1 inline-block">Connected</span>
+        ) : (
+          <span className="text-[10px] text-muted-foreground mt-1 inline-block">Not linked</span>
+        )}
       </div>
-      {comingSoon ? (
-        <span className="text-[10px] font-medium bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.15)] text-violet-700 dark:text-violet-400 px-1.5 py-0.5 rounded-full">
-          Soon
-        </span>
-      ) : connected ? (
-        <span className="text-xs font-medium text-correct">Connected</span>
-      ) : onLink ? (
-        <button
-          onClick={onLink}
-          disabled={linking}
-          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50"
-        >
-          {linking ? "Linking..." : "Link"}
-        </button>
-      ) : (
-        <span className="text-xs text-muted-foreground">Not linked</span>
+      {!comingSoon && (
+        onLink ? (
+          <button
+            onClick={onLink}
+            disabled={linking}
+            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-50 mt-1"
+          >
+            {linking ? "Linking..." : connected ? "Connected" : "Link"}
+          </button>
+        ) : null
       )}
     </div>
   );

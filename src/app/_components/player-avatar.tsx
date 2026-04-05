@@ -8,15 +8,12 @@ export function PlayerAvatar({
   seed,
   name,
   size = 40,
-  url,
 }: {
   seed: string;
   name?: string;
   size?: number;
-  /** When provided, renders the uploaded image instead of the generated avatar. */
-  url?: string | null;
 }) {
-  const fallback = useMemo(
+  const svg = useMemo(
     () =>
       createAvatar(thumbs, {
         seed,
@@ -30,11 +27,11 @@ export function PlayerAvatar({
 
   return (
     <img
-      src={url || fallback}
+      src={svg}
       alt={name ? `${name}'s avatar` : "Player avatar"}
       width={size}
       height={size}
-      style={{ borderRadius: 8, flexShrink: 0, objectFit: "cover" }}
+      style={{ borderRadius: 8, flexShrink: 0 }}
     />
   );
 }

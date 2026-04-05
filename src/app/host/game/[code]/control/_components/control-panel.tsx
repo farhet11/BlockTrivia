@@ -92,6 +92,7 @@ export function ControlPanel({
   const [lbLoading, setLbLoading] = useState(false);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
+  const aliasMapRef = useRef<Map<string, string>>(new Map());
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
@@ -178,23 +179,45 @@ export function ControlPanel({
     lbEntries.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && lbEntries.length === 0;
 
+    // Fetch aliases for annotation
+    if (aliasMapRef.current.size === 0) {
+      supabase
+        .from("event_players")
+        .select("player_id, game_alias")
+        .eq("event_id", event.id)
+        .not("game_alias", "is", null)
+        .then(({ data }) => {
+          if (data) {
+            const map = new Map<string, string>();
+            data.forEach((row) => { if (row.game_alias) map.set(row.player_id, row.game_alias); });
+            aliasMapRef.current = map;
+          }
+        });
+    }
+
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, username )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(20)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data }) => {
         if (data) {
-          const entries: LeaderboardEntry[] = data.map((row: any) => ({
-            player_id: row.player_id,
-            display_name: row.profiles?.display_name ?? "Player",
-            total_score: row.total_score,
-            rank: row.rank,
-            correct_count: row.correct_count,
-            total_questions: row.total_questions,
-          }));
+          const entries: LeaderboardEntry[] = data.map((row: any) => {
+            // Host sees: display_name + alias annotation if different
+            const realName = row.profiles?.display_name ?? "Player";
+            const handle = row.profiles?.username ? `@${row.profiles.username}` : realName;
+            const alias = aliasMapRef.current.get(row.player_id);
+            return {
+              player_id: row.player_id,
+              display_name: alias ? `${handle} (${alias})` : handle,
+              total_score: row.total_score,
+              rank: row.rank,
+              correct_count: row.correct_count,
+              total_questions: row.total_questions,
+            };
+          });
           const deltas = new Map<string, number | null>();
           entries.forEach((e) => {
             const prev = isFirstLoad ? undefined : (prevRanksRef.current.get(e.player_id) ?? snapshot.get(e.player_id));
@@ -388,7 +411,7 @@ export function ControlPanel({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm">
         <div className="flex items-center justify-between px-5 h-14 max-w-2xl mx-auto">
           <a href="/host">
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
@@ -411,7 +434,7 @@ export function ControlPanel({
         </div>
       </header>
 
-      <div className="flex-1 max-w-2xl mx-auto w-full px-5">
+      <div className="flex-1 max-w-2xl mx-auto w-full px-5 pt-14">
         {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
         {gameState.phase === "lobby" && !gameState.started_at && (

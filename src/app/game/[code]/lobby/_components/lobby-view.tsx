@@ -4,9 +4,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { ShareDrawer } from "@/app/_components/share-drawer";
-import { ThemeToggle } from "@/app/_components/theme-toggle";
+import { PlayerHeader } from "@/app/_components/player-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
+import { Users, Layers, HelpCircle, Clock, Trophy, Copy, Check, QrCode, Share2 } from "lucide-react";
+
+const ICON_CLASS = "text-stone-500 dark:text-zinc-400";
+const ICON_PROPS = { size: 20, strokeWidth: 2.5 } as const;
 
 type Sponsor = {
   id: string;
@@ -18,7 +22,9 @@ type Sponsor = {
 type Player = {
   id: string;
   player_id: string;
+  username: string | null;
   display_name: string;
+  game_alias: string | null;
   joined_at: string;
 };
 
@@ -28,8 +34,10 @@ type EventInfo = {
   joinCode: string;
   status: string;
   logoUrl?: string | null;
+  prizes?: string | null;
   roundCount?: number;
   questionCount?: number;
+  estimatedMinutes?: number | null;
 };
 
 export function LobbyView({
@@ -103,18 +111,23 @@ export function LobbyView({
     async function loadPlayers() {
       const { data } = await supabase
         .from("event_players")
-        .select(`id, player_id, joined_at, profiles!event_players_player_id_fkey ( display_name )`)
+        .select(`id, player_id, joined_at, game_alias, profiles!event_players_player_id_fkey ( display_name, username )`)
         .eq("event_id", event.id)
         .order("joined_at", { ascending: true });
 
       if (data) {
         setPlayers(
-          data.map((row: Record<string, unknown>) => ({
-            id: row.id as string,
-            player_id: row.player_id as string,
-            display_name: (row.profiles as Record<string, unknown>)?.display_name as string || "Player",
-            joined_at: row.joined_at as string,
-          }))
+          data.map((row: Record<string, unknown>) => {
+            const prof = row.profiles as Record<string, unknown>;
+            return {
+              id: row.id as string,
+              player_id: row.player_id as string,
+              username: (prof?.username as string) || null,
+              display_name: prof?.display_name as string || "Player",
+              game_alias: (row.game_alias as string) || null,
+              joined_at: row.joined_at as string,
+            };
+          })
         );
       }
     }
@@ -129,14 +142,16 @@ export function LobbyView({
         async (payload) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("display_name")
+            .select("display_name, username")
             .eq("id", payload.new.player_id)
             .single();
 
           const newPlayer: Player = {
             id: payload.new.id,
             player_id: payload.new.player_id,
+            username: profile?.username || null,
             display_name: profile?.display_name || "Player",
+            game_alias: payload.new.game_alias || null,
             joined_at: payload.new.joined_at,
           };
 
@@ -173,27 +188,16 @@ export function LobbyView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-border bg-background/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-          </a>
-          <ThemeToggle />
-        </div>
-      </header>
+      <PlayerHeader user={player} />
 
       {/* Main content */}
-      <div className="flex-1 max-w-lg mx-auto w-full px-5">
+      <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-14">
 
-        {/* Event info */}
+        {/* Context label + event title */}
         <section className="pt-10 pb-6 text-center space-y-3">
-          <div className="inline-flex items-center gap-2 bg-accent-light px-4 py-1.5">
-            <span className="w-2 h-2 rounded-full bg-correct animate-pulse" />
-            <span className="text-xs font-bold text-accent-text uppercase tracking-wider">
-              Lobby Open
-            </span>
-          </div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">
+            Lobby Open
+          </p>
           <h1 className="font-heading text-[28px] font-bold leading-tight tracking-tight text-foreground">
             {event.title}
           </h1>
@@ -202,9 +206,44 @@ export function LobbyView({
           </p>
         </section>
 
+        {/* Stat cards with icons */}
+        <div className="grid grid-cols-4 gap-2 mb-6">
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <Users size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{players.length}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">players</p>
+          </div>
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <Layers size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{event.roundCount ?? "—"}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">rounds</p>
+          </div>
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <HelpCircle size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{event.questionCount ?? "—"}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">questions</p>
+          </div>
+          <div className="border border-border bg-surface p-3 space-y-1.5 text-center">
+            <Clock size={18} strokeWidth={2.5} className={`${ICON_CLASS} mx-auto`} />
+            <p className="font-heading text-lg font-bold tabular-nums">{event.estimatedMinutes ? `~${event.estimatedMinutes}` : "—"}</p>
+            <p className="text-[10px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">min</p>
+          </div>
+        </div>
+
+        {/* Prizes banner */}
+        {event.prizes && (
+          <div className="border border-primary/20 bg-primary/5 p-4 mb-6 flex items-start gap-3">
+            <Trophy size={20} strokeWidth={2} className="text-primary shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-bold text-primary uppercase tracking-wider mb-0.5">Prizes</p>
+              <p className="text-sm text-foreground">{event.prizes}</p>
+            </div>
+          </div>
+        )}
+
         {/* Join card */}
         <div className="border border-border bg-surface p-5 mb-6 space-y-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <p className="text-[11px] font-medium uppercase tracking-[0.5px] text-stone-500 dark:text-zinc-400">
             Join This Game
           </p>
           <button
@@ -217,66 +256,59 @@ export function LobbyView({
                 {event.joinCode}
               </span>
               {copied ? (
-                <svg className="size-5 text-correct shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                </svg>
+                <Check {...ICON_PROPS} className="text-correct shrink-0" />
               ) : (
-                <svg className="size-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                </svg>
+                <Copy {...ICON_PROPS} className="text-muted-foreground group-hover:text-foreground transition-colors duration-150 shrink-0" />
               )}
             </div>
             <p className="text-xs text-muted-foreground/60">
-              {copied ? "✓ Copied!" : "tap anywhere to copy"}
+              {copied ? "Copied!" : "tap anywhere to copy"}
             </p>
           </button>
           <div className="flex gap-2 pt-1">
             <button
               onClick={() => setShowShare(true)}
-              className="flex-1 h-10 border border-border text-sm font-medium hover:bg-accent transition-colors flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 border border-border text-sm font-heading font-medium hover:bg-accent transition-colors duration-150 flex items-center justify-center gap-1.5"
             >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75ZM6.75 16.5h.75v.75h-.75V16.5ZM16.5 6.75h.75v.75h-.75v-.75ZM13.5 13.5h.75v.75h-.75v-.75ZM13.5 19.5h.75v.75h-.75v-.75ZM19.5 13.5h.75v.75h-.75v-.75ZM19.5 19.5h.75v.75h-.75v-.75ZM16.5 16.5h.75v.75h-.75v-.75Z" />
-              </svg>
+              <QrCode size={16} strokeWidth={2.5} className={ICON_CLASS} />
               Show QR
             </button>
             <button
               onClick={shareLink}
-              className="flex-1 h-10 border border-border text-sm font-medium hover:bg-accent transition-colors flex items-center justify-center gap-1.5"
+              className="flex-1 h-10 border border-border text-sm font-heading font-medium hover:bg-accent transition-colors duration-150 flex items-center justify-center gap-1.5"
             >
-              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-              </svg>
+              <Share2 size={16} strokeWidth={2.5} className={ICON_CLASS} />
               Share
             </button>
           </div>
         </div>
 
-        {/* Player count */}
+        {/* Player count label */}
         <div className="flex items-center justify-between py-4 border-b border-border">
-          <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-            Players
-          </span>
+          <div className="flex items-center gap-2">
+            <Users size={16} strokeWidth={2.5} className={ICON_CLASS} />
+            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+              Players
+            </span>
+          </div>
           <span className="text-sm font-bold text-foreground tabular-nums">
             {players.length}
           </span>
         </div>
 
-        {/* Player list */}
+        {/* Player list — NO rank numbers (lobby ≠ leaderboard) */}
         <ul className="divide-y divide-border">
-          {players.map((p, i) => (
+          {players.map((p) => (
             <li key={p.id} className="flex items-center gap-3 py-3.5">
               <PlayerAvatar seed={p.player_id} name={p.display_name} size={36} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
-                  {p.display_name}
+                  {p.game_alias || (p.username ? `@${p.username}` : p.display_name)}
                   {p.player_id === player.id && (
                     <span className="ml-1.5 text-xs bg-primary text-primary-foreground px-1.5 py-0.5 font-medium">you</span>
                   )}
                 </p>
               </div>
-              <span className="text-xs text-muted-foreground tabular-nums">#{i + 1}</span>
             </li>
           ))}
         </ul>

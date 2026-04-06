@@ -20,7 +20,7 @@ export function QrScanner({
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: "environment", width: { ideal: 720 }, height: { ideal: 1280 } },
         });
         streamRef.current = stream;
         if (videoRef.current) {
@@ -113,7 +113,7 @@ export function QrScanner({
         {/* Camera feed */}
         <video
           ref={videoRef}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
           playsInline
           muted
         />

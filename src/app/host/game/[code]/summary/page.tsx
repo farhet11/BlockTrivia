@@ -91,7 +91,7 @@ export default async function SummaryPage({
         id: user.id,
         displayName: profile?.display_name ?? "Host",
         email: profile?.email ?? user.email ?? "",
-        avatarUrl: profile?.avatar_url ?? null,
+        avatarUrl: profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null,
       }}
     />
   );

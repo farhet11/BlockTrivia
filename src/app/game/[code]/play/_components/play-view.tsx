@@ -60,7 +60,7 @@ export function PlayView({
   sponsors,
   roundsInfo,
 }: {
-  event: { id: string; title: string; joinCode: string; logoUrl: string | null };
+  event: { id: string; title: string; joinCode: string; logoUrl: string | null; logoDarkUrl?: string | null; organizerName?: string | null };
   player: { id: string; displayName: string; email?: string; avatarUrl?: string | null };
   questions: QuestionData[];
   initialGameState: GameState;

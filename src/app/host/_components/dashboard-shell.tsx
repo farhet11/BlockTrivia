@@ -10,7 +10,7 @@ export function DashboardShell({
   user,
   children,
 }: {
-  user: { id: string; displayName: string; email: string; avatarUrl?: string | null };
+  user: { id: string; displayName: string; email: string; avatarUrl?: string | null; role?: string };
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -44,6 +44,7 @@ export function DashboardShell({
       >
         <HostSidebar
           user={user}
+          role={user.role}
           collapsed={collapsed}
           onToggleCollapse={toggleCollapsed}
         />

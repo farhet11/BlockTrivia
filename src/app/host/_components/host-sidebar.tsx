@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { CalendarDays, Plus, BarChart3, FileText, Settings, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { CalendarDays, Plus, BarChart3, FileText, Settings, PanelLeftClose, PanelLeftOpen, Archive } from "lucide-react";
 
 const ICON_SW = 1.5; // sidebar icons — thinnest, matches Claude's sidebar elegance
 
@@ -21,6 +21,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "My Events", href: "/host", icon: CalendarDays },
       { label: "Create Event", href: "/host/events/new", icon: Plus },
+      { label: "Archive", href: "/host/events/archived", icon: Archive },
     ],
   },
   {
@@ -40,10 +41,12 @@ const NAV_SECTIONS: NavSection[] = [
 
 export function HostSidebar({
   user,
+  role,
   collapsed,
   onToggleCollapse,
 }: {
   user: { id: string; displayName: string; email: string };
+  role?: string;
   collapsed: boolean;
   onToggleCollapse: () => void;
 }) {

@@ -20,10 +20,9 @@ export function QrScanner({
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: { facingMode: "environment", width: { ideal: 720 }, height: { ideal: 1280 } },
         });
         streamRef.current = stream;
-
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
@@ -32,27 +31,24 @@ export function QrScanner({
       } catch {
         setError(
           window.location.protocol === "http:"
-            ? "Camera requires HTTPS. On localhost, enter the code manually."
-            : "Could not access camera. Check permissions."
+            ? "Camera requires HTTPS. Enter the code manually instead."
+            : "Could not access camera. Please check permissions and try again."
         );
       }
     }
 
     async function scanFrames() {
       if (!scanningRef.current || !videoRef.current) return;
-
-      // Use BarcodeDetector if available (Chrome, Edge, Android)
       if ("BarcodeDetector" in window) {
         try {
-          // @ts-expect-error — BarcodeDetector is not in all TS libs yet
+          // @ts-expect-error — BarcodeDetector not in all TS libs
           const detector = new BarcodeDetector({ formats: ["qr_code"] });
           const detect = async () => {
             if (!scanningRef.current || !videoRef.current) return;
             try {
               const barcodes = await detector.detect(videoRef.current);
               if (barcodes.length > 0) {
-                const url = barcodes[0].rawValue;
-                const code = extractCode(url);
+                const code = extractCode(barcodes[0].rawValue);
                 if (code) {
                   scanningRef.current = false;
                   cleanup();
@@ -60,21 +56,15 @@ export function QrScanner({
                   return;
                 }
               }
-            } catch {
-              // Frame not ready, continue
-            }
-            if (scanningRef.current) {
-              animationId = requestAnimationFrame(detect);
-            }
+            } catch { /* frame not ready */ }
+            if (scanningRef.current) animationId = requestAnimationFrame(detect);
           };
           detect();
         } catch {
           setError("QR scanning not supported on this browser.");
         }
       } else {
-        setError(
-          "QR scanning not supported in this browser. Try Chrome or use your phone's camera app."
-        );
+        setError("QR scanning not supported. Try Chrome or use your phone's camera app.");
       }
     }
 
@@ -83,7 +73,6 @@ export function QrScanner({
     }
 
     startCamera();
-
     return () => {
       scanningRef.current = false;
       cancelAnimationFrame(animationId);
@@ -93,61 +82,148 @@ export function QrScanner({
   }, []);
 
   function extractCode(value: string): string | null {
-    // Handle full URLs like blocktrivia.com/join/ABCDE or just the code
     const urlMatch = value.match(/\/join\/([A-Z0-9]{5})/i);
     if (urlMatch) return urlMatch[1].toUpperCase();
-
-    // Raw 5-char code
-    if (/^[A-Z0-9]{5}$/i.test(value.trim())) {
-      return value.trim().toUpperCase();
-    }
+    if (/^[A-Z0-9]{5}$/i.test(value.trim())) return value.trim().toUpperCase();
     return null;
   }
 
+  function handleClose() {
+    scanningRef.current = false;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    onClose();
+  }
+
+  const VF = 256; // viewfinder px
+
   return (
-    <div className="fixed inset-0 z-50 bg-foreground/90 flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-4">
-        {error ? (
-          <div className="bg-surface p-6 text-center space-y-4">
-            <p className="text-sm text-muted-foreground">{error}</p>
+    <>
+      <style>{`
+        @keyframes qr-sweep {
+          0%   { top: 6px; }
+          50%  { top: ${VF - 10}px; }
+          100% { top: 6px; }
+        }
+      `}</style>
+
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000", display: "flex", flexDirection: "column" }}>
+
+        {/* Camera — fills entire screen */}
+        <video
+          ref={videoRef}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          playsInline
+          muted
+        />
+
+        {/* UI layer */}
+        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
+
+          {/* Header */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "56px 20px 16px",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)",
+          }}>
+            <span style={{ color: "white", fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px", fontFamily: "var(--font-outfit, sans-serif)" }}>
+              Scan QR Code
+            </span>
             <button
-              onClick={onClose}
-              className="text-primary font-medium text-sm hover:underline underline-offset-4"
+              onClick={handleClose}
+              style={{
+                width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer",
+                background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+              aria-label="Close"
             >
-              Go back to code entry
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
-        ) : (
-          <>
-            <div className="relative aspect-square overflow-hidden bg-black max-h-[60vh]">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                playsInline
-                muted
-              />
-              {/* Scan frame overlay */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2/3 aspect-square border-2 border-white/60 rounded-lg" />
-              </div>
-            </div>
-            <p className="text-center text-sm text-white/70">
-              Point your camera at a BlockTrivia QR code
-            </p>
-          </>
-        )}
 
-        <button
-          onClick={() => {
-            scanningRef.current = false;
-            streamRef.current?.getTracks().forEach((t) => t.stop());
-            onClose();
-          }}
-          className="w-full text-center text-sm text-white/70 hover:text-white transition-colors py-2"
-        >
-          Cancel
-        </button>
+          {/* Viewfinder — centred in remaining space */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
+
+            {/* The box — box-shadow creates the dark surround without extra panels */}
+            <div style={{
+              position: "relative",
+              width: VF,
+              height: VF,
+              boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
+              borderRadius: 4,
+              overflow: "hidden",
+            }}>
+              {/* Corner brackets */}
+              {[
+                { top: 0, left: 0, borderTop: "3px solid #fff", borderLeft: "3px solid #fff", borderTopLeftRadius: 4 },
+                { top: 0, right: 0, borderTop: "3px solid #fff", borderRight: "3px solid #fff", borderTopRightRadius: 4 },
+                { bottom: 0, left: 0, borderBottom: "3px solid #fff", borderLeft: "3px solid #fff", borderBottomLeftRadius: 4 },
+                { bottom: 0, right: 0, borderBottom: "3px solid #fff", borderRight: "3px solid #fff", borderBottomRightRadius: 4 },
+              ].map((s, i) => (
+                <div key={i} style={{ position: "absolute", width: 28, height: 28, ...s }} />
+              ))}
+
+              {/* Sweep line */}
+              <div style={{
+                position: "absolute",
+                left: 8,
+                right: 8,
+                height: 2,
+                background: "rgba(124,58,237,0.9)",
+                boxShadow: "0 0 8px 3px rgba(124,58,237,0.4)",
+                animation: "qr-sweep 2s ease-in-out infinite",
+              }} />
+            </div>
+
+            {/* Instruction text — sits below box, above dark surround level */}
+            {!error && (
+              <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 500, textAlign: "center", margin: 0 }}>
+                Place the QR code within the frame to scan
+              </p>
+            )}
+
+            {error && (
+              <div style={{
+                width: VF + 40,
+                background: "rgba(0,0,0,0.8)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 6,
+                padding: "16px",
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}>
+                <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, margin: 0 }}>{error}</p>
+                <button onClick={handleClose} style={{ color: "#7c3aed", fontWeight: 600, fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>
+                  Go back to code entry
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Cancel button — pinned to bottom */}
+          <div style={{
+            padding: "16px 24px 40px",
+            background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
+          }}>
+            <button
+              onClick={handleClose}
+              style={{
+                width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.08)", color: "white",
+                fontSize: 15, fontWeight: 500, cursor: "pointer", borderRadius: 4,
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+
+        </div>
       </div>
-    </div>
+    </>
   );
 }

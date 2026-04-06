@@ -88,6 +88,7 @@ function validateAlias(value: string): string | null {
   if (!value.trim()) return "Alias can't be empty.";
   if (value.trim().length < ALIAS_MIN) return `At least ${ALIAS_MIN} characters.`;
   if (value.trim().length > ALIAS_MAX) return `Max ${ALIAS_MAX} characters.`;
+  if (value.includes("@")) return 'Alias can\'t contain "@" — that\'s reserved for usernames.';
   return null;
 }
 

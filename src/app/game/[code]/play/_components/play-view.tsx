@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { resolvePlayerName } from "@/lib/player-name";
 import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
@@ -311,7 +312,7 @@ export function PlayView({
     // Fetch top 10 (with fallback to event_players at 0 pts if no scores yet)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
@@ -320,7 +321,7 @@ export function PlayView({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
           player_id: row.player_id,
-          display_name: row.profiles?.display_name ?? "Player",
+          display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
           total_score: row.total_score,
           rank: row.rank,
         }));
@@ -330,14 +331,14 @@ export function PlayView({
           const { data: players } = await supabase
             .from("event_players")
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .select(`player_id, profiles ( display_name )`)
+            .select(`player_id, game_alias, profiles ( username, display_name )`)
             .eq("event_id", event.id)
             .limit(10);
           if (players) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             entries = players.map((p: any, i: number) => ({
               player_id: p.player_id,
-              display_name: p.profiles?.display_name ?? "Player",
+              display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
               total_score: 0,
               rank: i + 1,
             }));
@@ -360,7 +361,7 @@ export function PlayView({
     // Also fetch current player's own entry (for pinned rank when outside top 10)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name )`)
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
@@ -369,7 +370,7 @@ export function PlayView({
         if (data) {
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: (data as any).profiles?.display_name ?? "Player",
+            display_name: resolvePlayerName(null, (data as any).profiles?.username, (data as any).profiles?.display_name),
             total_score: data.total_score,
             rank: data.rank,
           });

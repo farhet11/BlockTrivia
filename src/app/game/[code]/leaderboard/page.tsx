@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { LeaderboardView } from "./_components/leaderboard-view";
+import { resolvePlayerName } from "@/lib/player-name";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ code: string }> };
@@ -68,13 +69,13 @@ export default async function LeaderboardPage({ params }: Props) {
     supabase
       .from("leaderboard_entries")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .select(`player_id, total_score, rank, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name, avatar_url )`)
+      .select(`player_id, total_score, rank, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(50),
     supabase
       .from("event_players")
-      .select(`player_id, profiles ( display_name, avatar_url )`)
+      .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
       .eq("event_id", event.id),
     supabase
       .from("event_players")
@@ -129,7 +130,7 @@ export default async function LeaderboardPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     leaderboard = entries.map((row: any) => ({
       player_id: row.player_id,
-      display_name: row.profiles?.display_name ?? "Player",
+      display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
       avatar_url: row.profiles?.avatar_url ?? null,
       total_score: row.total_score,
       rank: row.rank,
@@ -143,7 +144,7 @@ export default async function LeaderboardPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     leaderboard = allPlayers.map((p: any, i: number) => ({
       player_id: p.player_id,
-      display_name: p.profiles?.display_name ?? "Player",
+      display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
       avatar_url: p.profiles?.avatar_url ?? null,
       total_score: 0,
       rank: i + 1,

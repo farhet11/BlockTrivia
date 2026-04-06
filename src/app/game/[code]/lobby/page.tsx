@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { LobbyView } from "./_components/lobby-view";
+import { resolvePlayerName } from "@/lib/player-name";
 
 export default async function LobbyPage({
   params,
@@ -46,8 +47,9 @@ export default async function LobbyPage({
   if (gameState && gameState.phase !== "lobby") redirect(`/game/${code}/play`);
 
   // Get current player's display name, sponsors, and game stats
-  const [{ data: profile }, { data: sponsors }, { data: rounds }] = await Promise.all([
-    supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single(),
+  const [{ data: profile }, { data: myPlayer }, { data: sponsors }, { data: rounds }] = await Promise.all([
+    supabase.from("profiles").select("username, display_name, avatar_url").eq("id", user.id).single(),
+    supabase.from("event_players").select("game_alias").eq("event_id", event.id).eq("player_id", user.id).maybeSingle(),
     supabase.from("event_sponsors").select("id, name, logo_url, sort_order").eq("event_id", event.id).order("sort_order"),
     supabase.from("rounds").select("id, time_limit_seconds, questions(id)").eq("event_id", event.id),
   ]);
@@ -81,7 +83,7 @@ export default async function LobbyPage({
       }}
       player={{
         id: user.id,
-        displayName: profile?.display_name || "Player",
+        displayName: resolvePlayerName(myPlayer?.game_alias, profile?.username, profile?.display_name),
         email: user.email ?? undefined,
         avatarUrl: profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null,
       }}

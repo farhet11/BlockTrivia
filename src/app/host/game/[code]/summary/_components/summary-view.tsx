@@ -181,9 +181,6 @@ export function SummaryView({
                     </td>
                     <td className="py-3 px-3">
                       <p className="font-medium text-foreground">{entry.display_name}</p>
-                      {entry.email && !entry.email.startsWith("tg_") && (
-                        <p className="text-xs text-muted-foreground">{entry.email}</p>
-                      )}
                     </td>
                     <td className="py-3 px-3 text-right font-bold tabular-nums">{entry.total_score}</td>
                     <td className="py-3 px-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">

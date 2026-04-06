@@ -105,7 +105,7 @@ export function LobbyView({
     async function loadPlayers() {
       const { data } = await supabase
         .from("event_players")
-        .select(`id, player_id, joined_at, profiles!event_players_player_id_fkey ( display_name, avatar_url )`)
+        .select(`id, player_id, game_alias, joined_at, profiles!event_players_player_id_fkey ( username, display_name, avatar_url )`)
         .eq("event_id", event.id)
         .order("joined_at", { ascending: true });
 
@@ -115,7 +115,7 @@ export function LobbyView({
           data.map((row: any) => ({
             id: row.id,
             player_id: row.player_id,
-            display_name: row.profiles?.display_name || "Player",
+            display_name: row.game_alias || row.profiles?.username || row.profiles?.display_name || "Player",
             avatar_url: row.profiles?.avatar_url ?? null,
             joined_at: row.joined_at,
           }))
@@ -136,14 +136,14 @@ export function LobbyView({
         async (payload) => {
           const { data: profile } = await supabase
             .from("profiles")
-            .select("display_name, avatar_url")
+            .select("username, display_name, avatar_url")
             .eq("id", payload.new.player_id)
             .single();
 
           const newPlayer: Player = {
             id: payload.new.id,
             player_id: payload.new.player_id,
-            display_name: profile?.display_name || "Player",
+            display_name: payload.new.game_alias || profile?.username || profile?.display_name || "Player",
             avatar_url: profile?.avatar_url ?? null,
             joined_at: payload.new.joined_at,
           };

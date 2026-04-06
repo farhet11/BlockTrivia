@@ -85,7 +85,7 @@ export function LeaderboardView({
   const refreshLeaderboard = useMemo(() => async () => {
     const { data } = await supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( display_name, avatar_url )`)
+      .select(`player_id, total_score, rank, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(50);
@@ -93,7 +93,7 @@ export function LeaderboardView({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const entries: ExtendedEntry[] = data.map((row: any) => ({
         player_id: row.player_id,
-        display_name: row.profiles?.display_name ?? "Player",
+        display_name: row.profiles?.username || row.profiles?.display_name || "Player",
         avatar_url: row.profiles?.avatar_url ?? null,
         total_score: row.total_score,
         rank: row.rank,

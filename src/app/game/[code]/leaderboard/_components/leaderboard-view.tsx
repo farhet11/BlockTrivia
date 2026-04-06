@@ -9,6 +9,7 @@ import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { AppHeader } from "@/app/_components/app-header";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
+import { SpotlightCard, type SpotlightEntry } from "@/app/_components/spotlight-card";
 
 type Sponsor = { id: string; name: string | null; logo_url: string; sort_order: number };
 
@@ -18,6 +19,9 @@ type ExtendedEntry = LbEntry & {
   accuracy?: number;
   avg_speed_ms?: number;
   is_top_10_pct?: boolean;
+  fastest_answer_ms?: number;
+  slowest_answer_ms?: number;
+  answer_speed_stddev?: number;
 };
 
 // Phase → status badge config
@@ -71,7 +75,16 @@ export function LeaderboardView({
   const [myEntry, setMyEntry] = useState<ExtendedEntry | null>(initialMyEntry);
   const [totalPlayers, setTotalPlayers] = useState(initialTotalPlayers);
   const [showShare, setShowShare] = useState(false);
+  const [spotlights, setSpotlights] = useState<SpotlightEntry[]>([]);
+  const [spotlightsExpanded, setSpotlightsExpanded] = useState(false);
   const gamePhaseRef = useRef(initialPhase);
+
+  // Fetch spotlights when game ends (player view only)
+  useEffect(() => {
+    if (gamePhase !== "ended" || viewerType !== "player") return;
+    supabase.rpc("get_event_spotlights", { p_event_id: event.id })
+      .then(({ data }) => { if (data) setSpotlights(data as SpotlightEntry[]); });
+  }, [gamePhase, viewerType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Confetti on final results
   useEffect(() => {
@@ -259,39 +272,54 @@ export function LeaderboardView({
           <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
         )}
 
-        {/* ── Personal stats (player, ended only) ── */}
-        {gamePhase === "ended" && myEntry && viewerType === "player" && (
-          <div className={`mx-5 mb-4 border p-4 space-y-3 ${myEntry.is_top_10_pct ? "border-primary bg-primary/5" : "border-border bg-surface"}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Your result</p>
-                <p className="font-heading text-xl font-bold">#{myEntry.rank}</p>
+
+        {/* ── Spotlight Cards (player, ended, min 2 qualify) ── */}
+        {gamePhase === "ended" && viewerType === "player" && spotlights.length >= 2 && (() => {
+          const VISIBLE = 3;
+          const visible = spotlightsExpanded ? spotlights : spotlights.slice(0, VISIBLE);
+          const hiddenCount = spotlights.length - VISIBLE;
+          return (
+            <div className="mx-5 mb-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-3">
+                Spotlights
+              </p>
+              <div className="relative">
+                <div className="space-y-2">
+                  {visible.map((s, i) => (
+                    <SpotlightCard
+                      key={s.title}
+                      spotlight={s}
+                      isMe={s.player_id === playerId}
+                      animIndex={i}
+                    />
+                  ))}
+                </div>
+                {!spotlightsExpanded && hiddenCount > 0 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-14 bg-gradient-to-b from-transparent to-background pointer-events-none" />
+                )}
               </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">Score</p>
-                <p className="font-heading text-xl font-bold tabular-nums">{myEntry.total_score}</p>
-              </div>
+              {!spotlightsExpanded && hiddenCount > 0 && (
+                <button
+                  onClick={() => setSpotlightsExpanded(true)}
+                  className="mt-2 w-full text-center text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors py-1"
+                >
+                  + {hiddenCount} more {hiddenCount === 1 ? "spotlight" : "spotlights"}
+                </button>
+              )}
             </div>
-            {myEntry.correct_count != null && myEntry.total_questions ? (
-              <div className="flex gap-4 text-sm text-muted-foreground border-t border-border pt-3">
-                <span><span className="font-semibold text-foreground">{myEntry.correct_count}/{myEntry.total_questions}</span> correct</span>
-                <span><span className="font-semibold text-foreground">{Math.round(Number(myEntry.accuracy ?? 0))}%</span> accuracy</span>
-                {myEntry.avg_speed_ms ? (
-                  <span><span className="font-semibold text-foreground">{((myEntry.avg_speed_ms) / 1000).toFixed(1)}s</span> avg speed</span>
-                ) : null}
-              </div>
-            ) : null}
-            {myEntry.is_top_10_pct && (
-              <p className="text-xs font-bold text-primary uppercase tracking-wider">★ Top 10% of players</p>
-            )}
-          </div>
-        )}
+          );
+        })()}
 
         {/* ── Podium — always visible ── */}
         <div className="px-5 mb-2">
           {podiumEntries.length > 0 ? (
             <div style={{ animation: "lb-fade-up 350ms ease-out 100ms both" }}>
-              <PodiumLayout entries={podiumEntries} myPlayerId={playerId ?? undefined} />
+              <PodiumLayout
+                entries={podiumEntries}
+                myPlayerId={playerId ?? undefined}
+                extendedData={myEntry ? { [myEntry.player_id]: myEntry } : undefined}
+                playerSpotlights={spotlights.filter((s) => s.player_id === playerId)}
+              />
             </div>
           ) : (
             // Skeleton when nobody joined yet

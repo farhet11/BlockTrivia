@@ -101,11 +101,6 @@ function PodiumSlot({
             style={{ fontFamily: "Inter, sans-serif" }}
           >
             {entry.display_name}
-            {isMe && (
-              <span className="ml-1 text-[9px] font-semibold" style={{ color: "#7c3aed" }}>
-                {" "}(you)
-              </span>
-            )}
           </p>
           <p
             className={`font-bold tabular-nums ${large ? "text-xl" : "text-base"}`}
@@ -122,38 +117,124 @@ function PodiumSlot({
 }
 
 // ── Podium layout: handles 1/2/3 player edge cases ────────────────────────
+type SpotlightEntry = {
+  emoji: string;
+  title: string;
+  username: string;
+  stat_value: string;
+  player_id: string;
+};
+
 export function PodiumLayout({
   entries,
   myPlayerId,
+  extendedData,
+  playerSpotlights = [],
 }: {
   entries: LbEntry[];
   myPlayerId?: string;
+  extendedData?: { [key: string]: { correct_count?: number; total_questions?: number; accuracy?: number; avg_speed_ms?: number; is_top_10_pct?: boolean; fastest_answer_ms?: number; slowest_answer_ms?: number; answer_speed_stddev?: number } };
+  playerSpotlights?: SpotlightEntry[];
 }) {
   const [first, second, third] = entries;
   if (!first) return null;
 
   // 1 player only — skip podium, single highlighted row
   if (!second) {
+    const [expanded, setExpanded] = useState(false);
+    const extended = extendedData?.[first.player_id];
+
     return (
-      <div className="flex items-center gap-3 px-4 py-4 bg-surface border border-border">
-        <PlayerAvatar seed={first.player_id} name={first.display_name} size={48} url={first.avatar_url} />
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground truncate" style={{ fontFamily: "Inter, sans-serif" }}>
-            {first.display_name}
-          </p>
-          {first.player_id === myPlayerId && (
-            <span className="text-[9px] text-primary font-semibold">(you)</span>
-          )}
+      <div className="bg-surface border border-border">
+        {/* Main row: rank | avatar | name | score */}
+        <div className="flex items-center gap-3 px-4 py-4">
+          <div
+            className="size-6 flex items-center justify-center text-white text-xs font-bold shrink-0"
+            style={{ background: RANK_BAR[1] }}
+          >
+            1
+          </div>
+          <PlayerAvatar seed={first.player_id} name={first.display_name} size={48} url={first.avatar_url} />
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-foreground truncate" style={{ fontFamily: "Inter, sans-serif" }}>
+              {first.display_name}
+            </p>
+          </div>
+          <div className="flex flex-col items-end shrink-0">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground mb-0.5">Score</p>
+            <span className="font-bold tabular-nums text-xl" style={{ fontFamily: "Outfit, sans-serif" }}>
+              {first.total_score}
+            </span>
+          </div>
         </div>
-        <div
-          className="size-6 flex items-center justify-center text-white text-xs font-bold shrink-0"
-          style={{ background: RANK_BAR[1] }}
-        >
-          1
-        </div>
-        <span className="font-bold tabular-nums text-xl shrink-0" style={{ fontFamily: "Outfit, sans-serif" }}>
-          {first.total_score}
-        </span>
+
+        {/* Toggle button — shown when extended data exists */}
+        {extended && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full text-center py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors border-t border-border bg-primary/5 dark:bg-primary/[0.08]"
+          >
+            {expanded ? "−" : "+"} {expanded ? "Collapse" : "Expand"} Results
+          </button>
+        )}
+
+        {/* Expanded stats + badge — shown when toggled open */}
+        {expanded && extended && (
+          <div className="px-4 py-3 border-t border-border space-y-3 bg-primary/5 dark:bg-primary/[0.08]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Results Details</p>
+
+            {/* Core stats line */}
+            <p className="text-[13px] text-muted-foreground">
+              <span className="font-medium text-foreground">{extended.correct_count}/{extended.total_questions}</span>
+              {" correct"}
+              <span className="mx-1.5 text-muted-foreground/50">·</span>
+              <span className="font-medium text-foreground">{Math.round(Number(extended.accuracy ?? 0))}%</span>
+              {" accuracy"}
+              {extended.avg_speed_ms ? (
+                <>
+                  <span className="mx-1.5 text-muted-foreground/50">·</span>
+                  <span className="font-medium text-foreground">{(extended.avg_speed_ms / 1000).toFixed(1)}s</span>
+                  {" avg"}
+                </>
+              ) : null}
+            </p>
+
+            {/* Speed range: fastest → slowest */}
+            {extended.fastest_answer_ms || extended.slowest_answer_ms ? (
+              <p className="text-[13px] text-muted-foreground">
+                <span className="font-medium text-foreground">⚡ {(extended.fastest_answer_ms ?? 0) / 1000}s</span>
+                {" fastest"}
+                <span className="mx-1.5 text-muted-foreground/50">·</span>
+                <span className="font-medium text-foreground">🐢 {(extended.slowest_answer_ms ?? 0) / 1000}s</span>
+                {" slowest"}
+              </p>
+            ) : null}
+
+            {/* Speed consistency */}
+            {extended.answer_speed_stddev ? (
+              <p className="text-[13px] text-muted-foreground">
+                <span className="font-medium text-foreground">{(extended.answer_speed_stddev / 1000).toFixed(1)}s</span>
+                {" consistency"}
+              </p>
+            ) : null}
+
+            {/* Top 10% badge */}
+            {extended.is_top_10_pct && (
+              <p className="text-[12px] font-bold text-primary">★ Top 10% of players</p>
+            )}
+
+            {/* Player's own spotlights */}
+            {playerSpotlights && playerSpotlights.length > 0 && (
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                {playerSpotlights.map((s) => (
+                  <span key={s.title} className="text-[12px] font-medium text-primary">
+                    {s.emoji} {s.title}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -213,14 +294,6 @@ export function RankingRow({
           style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500, color: isMe ? "#7c3aed" : undefined }}
         >
           {entry.display_name}
-          {isMe && (
-            <span
-              className="ml-1.5 text-[9px] font-semibold px-1.5 py-0.5"
-              style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}
-            >
-              you
-            </span>
-          )}
         </span>
         {delta !== null ? (
           <span
@@ -366,12 +439,6 @@ function PinnedRow({ entry, firstScore }: { entry: LbEntry; firstScore: number }
           style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: "#7c3aed" }}
         >
           {entry.display_name}
-          <span
-            className="ml-1.5 text-[9px] font-semibold px-1.5 py-0.5"
-            style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}
-          >
-            you
-          </span>
         </span>
         <span
           className="shrink-0 tabular-nums font-bold"

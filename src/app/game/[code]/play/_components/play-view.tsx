@@ -434,8 +434,9 @@ export function PlayView({
   const heatPct = currentQuestion && timeLeft !== null
     ? timeLeft / currentQuestion.time_limit_seconds
     : 1;
-  const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered);
-  const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered;
+  const isTimedOut = timeLeft === 0;
+  const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered || isTimedOut);
+  const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered && !isTimedOut;
 
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {
@@ -542,7 +543,10 @@ export function PlayView({
         className="heat-edge"
         style={{
           position: "fixed",
-          inset: 0,
+          top: "3.5rem",
+          right: 0,
+          bottom: 0,
+          left: 0,
           pointerEvents: "none",
           zIndex: 10,
           boxShadow: heatEdgeBoxShadow,

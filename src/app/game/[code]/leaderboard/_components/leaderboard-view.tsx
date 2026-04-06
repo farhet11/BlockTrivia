@@ -114,6 +114,13 @@ export function LeaderboardView({
   // Keep phase ref in sync for use in polling closure
   useEffect(() => { gamePhaseRef.current = gamePhase; }, [gamePhase]);
 
+  // Prefetch /play while player waits — makes the resume transition instant
+  useEffect(() => {
+    if (viewerType !== "player") return;
+    router.prefetch(`/game/${event.joinCode}/play`);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   function applyPhase(newPhase: string) {
     setGamePhase(newPhase);
     gamePhaseRef.current = newPhase;

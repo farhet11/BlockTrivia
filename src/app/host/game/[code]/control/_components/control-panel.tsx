@@ -98,6 +98,7 @@ export function ControlPanel({
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [prePausePhase, setPrePausePhase] = useState<string | null>(null);
+  const [answeredCount, setAnsweredCount] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
@@ -148,6 +149,32 @@ export function ControlPanel({
   const interstitialRound = gameState.phase === "interstitial"
     ? (roundsList.find((r) => r.id === gameState.current_round_id) ?? null)
     : null;
+
+  // Track how many players have answered the current question
+  useEffect(() => {
+    if (!gameState.current_question_id || gameState.phase !== "playing") {
+      setAnsweredCount(0);
+      return;
+    }
+    const qId = gameState.current_question_id;
+
+    // Fetch initial count (handles page refresh mid-question)
+    supabase
+      .from("responses")
+      .select("*", { count: "exact", head: true })
+      .eq("question_id", qId)
+      .then(({ count }) => { if (count !== null) setAnsweredCount(count); });
+
+    // Live updates as players submit
+    const channel = supabase
+      .channel(`answers:${qId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "responses", filter: `question_id=eq.${qId}` },
+        () => setAnsweredCount((c) => c + 1)
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [gameState.current_question_id, gameState.phase, supabase]);
 
   // Subscribe to player count changes
   useEffect(() => {
@@ -544,13 +571,49 @@ export function ControlPanel({
               </div>
             </div>
 
-            {/* Timer */}
+            {/* Timer bar — 4px shrinking bar with glowing leading-edge dot */}
+            {timeLeft !== null && (() => {
+              const pct = Math.max(0, (timeLeft / currentQuestion.time_limit) * 100);
+              const timerColor = pct > 50 ? '#7c3aed' : pct > 20 ? '#f59e0b' : '#ef4444';
+              const timerGlow = pct > 50 ? 'rgba(124,58,237,0.5)' : pct > 20 ? 'rgba(245,158,11,0.5)' : 'rgba(239,68,68,0.5)';
+              return (
+                <div className="w-full h-1 bg-[#f5f3ef] dark:bg-[#1f1f23] relative">
+                  <div
+                    style={{
+                      width: `${pct}%`,
+                      height: '100%',
+                      backgroundColor: timerColor,
+                      transition: 'width 1s linear, background-color 600ms ease',
+                    }}
+                  />
+                  {pct > 0 && (
+                    <div
+                      className="absolute motion-reduce:hidden"
+                      style={{
+                        top: '50%',
+                        left: `${pct}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        backgroundColor: timerColor,
+                        boxShadow: `0 0 8px 3px ${timerGlow}`,
+                        transition: 'left 1s linear, background-color 600ms ease, box-shadow 600ms ease',
+                        willChange: 'left',
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Timer row — round type label + large timer number */}
             <div className="flex items-center justify-between">
               <span className="text-xs uppercase tracking-wider text-muted-foreground">
                 {currentQuestion.round_type.replace("_", "/")}
               </span>
               <span
-                className={`font-heading text-4xl font-bold tabular-nums ${
+                className={`font-mono text-[32px] font-bold tabular-nums ${
                   timeLeft !== null && timeLeft <= 5
                     ? "text-wrong"
                     : timeLeft !== null && timeLeft <= 10
@@ -563,19 +626,19 @@ export function ControlPanel({
             </div>
 
             {/* Question */}
-            <div className="border border-border bg-surface p-6 space-y-4">
-              <h2 className="font-heading text-xl font-bold leading-snug">
+            <div className="space-y-4">
+              <h2 className="font-heading text-base font-medium leading-snug text-foreground">
                 {currentQuestion.body}
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 {((currentQuestion.options ?? []) as string[]).map(
                   (option: string, i: number) => (
                     <div
                       key={i}
-                      className="p-3 border border-border text-sm font-medium text-muted-foreground break-words"
+                      className="p-3 border border-border bg-[#f5f3ef] dark:bg-[#1f1f23] text-sm text-muted-foreground break-words"
                     >
-                      <span className="font-bold mr-2">
+                      <span className="font-semibold mr-1.5">
                         {String.fromCharCode(65 + i)}.
                       </span>
                       {option}
@@ -585,23 +648,35 @@ export function ControlPanel({
               </div>
             </div>
 
-            {/* Controls */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={revealAnswer}
-                disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-              >
-                Reveal Answer
-              </button>
-              <button
-                onClick={pauseGame}
-                disabled={loading}
-                className="h-12 px-6 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
-              >
-                Pause
-              </button>
-            </div>
+            {/* Controls — State 1: waiting on players */}
+            {timeLeft !== null && timeLeft > 0 && answeredCount < playerCount ? (
+              <div className="flex items-center gap-3">
+                <span className="flex-1 inline-flex items-center justify-center px-4 py-2 rounded-full bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.12)] text-[#5b21b6] dark:text-[#a78bfa] text-sm font-semibold select-none">
+                  {answeredCount}/{playerCount} answered
+                </span>
+                <button
+                  onClick={pauseGame}
+                  disabled={loading}
+                  className="h-9 px-5 bg-surface border border-border text-sm font-medium hover:bg-background transition-colors disabled:opacity-50"
+                >
+                  Pause
+                </button>
+              </div>
+            ) : (
+              /* State 2: timer expired or all answered — reveal is ready */
+              <div className="flex flex-col gap-1.5">
+                <p className="text-xs text-center text-muted-foreground">
+                  {answeredCount}/{playerCount} answered
+                </p>
+                <button
+                  onClick={revealAnswer}
+                  disabled={loading}
+                  className="w-full h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Reveal Answer
+                </button>
+              </div>
+            )}
           </div>
         )}
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
+import { ShareResultButton } from "@/app/game/[code]/final/_components/share-result-button";
 
 const MOCK_SPONSORS = [
   { id: "s1", name: "BlockTrivia", logo_url: "/logo-dark.svg", sort_order: 0 },
@@ -134,12 +135,13 @@ export default function LeaderboardPreview() {
           </div>
         )}
 
-        {/* Share result placeholder — final view */}
+        {/* Share result — final view */}
         {view === "final" && (
-          <div className="border border-primary/30 bg-primary/5 p-4 text-center space-y-2">
-            <p className="text-xs font-bold text-primary uppercase tracking-wider">Share Your Result</p>
-            <p className="text-sm text-muted-foreground">ShareResultButton renders here in the real view</p>
-          </div>
+          <ShareResultButton
+            event={{ id: "mock", title: "Sample Event - 2027", joinCode: "ZWXSP", twitter_handle: null, hashtags: null }}
+            myEntry={{ rank: 3, total_score: 645, accuracy: 72, correct_count: 8, total_questions: 11, is_top_10_pct: false }}
+            totalPlayers={24}
+          />
         )}
 
         {/* PODIUM */}
@@ -166,7 +168,7 @@ export default function LeaderboardPreview() {
                 entry={entry}
                 firstScore={firstScore}
                 delta={view === "final" ? null : (MOCK_DELTAS.get(entry.player_id) ?? null)}
-                isMe={view === "player" || view === "final" ? false : false}
+                isMe={false}
                 animIndex={i + 3}
               />
             ))}

@@ -57,22 +57,7 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
 
   async function handleDuplicate(event: Event) {
     setDuplicating(event.id);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setDuplicating(null); return; }
-
-    const { data, error } = await supabase
-      .from("events")
-      .insert({
-        title: `${event.title} (copy)`,
-        created_by: user.id,
-        status: "draft",
-      })
-      .select("id")
-      .single();
-
-    if (!error && data) {
-      router.push(`/host/events/${data.id}/questions`);
-    }
+    router.push(`/host/events/new?from=${event.id}`);
     setDuplicating(null);
   }
 

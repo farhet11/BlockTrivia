@@ -102,7 +102,7 @@ type OrganizerSuggestion = {
   logo_dark_url: string | null;
 };
 
-export function CreateEventForm() {
+export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(false);
@@ -123,6 +123,11 @@ export function CreateEventForm() {
   const [accessEmails, setAccessEmails] = useState("");
   const [csvInfo, setCsvInfo] = useState<{ fileName: string; columnName: string; count: number } | null>(null);
 
+  // Controlled values for pre-fillable fields
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [prizes, setPrizes] = useState("");
+
   // Organizer typeahead state
   const [organizerName, setOrganizerName] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -137,6 +142,36 @@ export function CreateEventForm() {
       if (user) setUserId(user.id);
     });
   }, [supabase]);
+
+  // Pre-fill from source event when duplicating
+  useEffect(() => {
+    if (!fromEventId) return;
+    supabase
+      .from("events")
+      .select("title, description, prizes, organizer_name, format, access_mode, logo_url, logo_dark_url")
+      .eq("id", fromEventId)
+      .single()
+      .then(({ data }) => {
+        if (!data) return;
+        setTitle(data.title ?? "");
+        setDescription(data.description ?? "");
+        setPrizes(data.prizes ?? "");
+        if (data.organizer_name) setOrganizerName(data.organizer_name);
+        if (data.format) setFormat(data.format as EventFormat);
+        if (data.access_mode) setAccessMode(data.access_mode as AccessMode);
+        if (data.logo_url) {
+          setLogoUrl(data.logo_url);
+          setLogoPreview(data.logo_url);
+          setShowMore(true);
+        }
+        if (data.logo_dark_url) {
+          setLogoDarkUrl(data.logo_dark_url);
+          setLogoDarkPreview(data.logo_dark_url);
+          setHasDarkLogo(true);
+        }
+        if (data.prizes) setShowMore(true);
+      });
+  }, [fromEventId, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced organizer name search
   const searchOrganizers = useCallback(
@@ -321,15 +356,62 @@ export function CreateEventForm() {
       .filter((e) => e && e.includes("@")).length;
   }
 
+  async function copyRoundsAndQuestions(fromId: string, toEventId: string) {
+    // Fetch rounds from source
+    const { data: sourceRounds } = await supabase
+      .from("rounds")
+      .select("*")
+      .eq("event_id", fromId)
+      .order("sort_order", { ascending: true });
+
+    if (!sourceRounds || sourceRounds.length === 0) return;
+
+    for (const round of sourceRounds) {
+      const { data: newRound } = await supabase
+        .from("rounds")
+        .insert({
+          event_id: toEventId,
+          round_type: round.round_type,
+          title: round.title,
+          sort_order: round.sort_order,
+          time_limit_seconds: round.time_limit_seconds,
+          base_points: round.base_points,
+          time_bonus_enabled: round.time_bonus_enabled,
+          wipeout_min_leverage: round.wipeout_min_leverage,
+          wipeout_max_leverage: round.wipeout_max_leverage,
+          interstitial_text: round.interstitial_text,
+        })
+        .select("id")
+        .single();
+
+      if (!newRound) continue;
+
+      const { data: sourceQuestions } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("round_id", round.id)
+        .order("sort_order", { ascending: true });
+
+      if (!sourceQuestions || sourceQuestions.length === 0) continue;
+
+      await supabase.from("questions").insert(
+        sourceQuestions.map((q) => ({
+          round_id: newRound.id,
+          body: q.body,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          sort_order: q.sort_order,
+          explanation: q.explanation,
+        }))
+      );
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    const form = new FormData(e.currentTarget);
-    const title = form.get("title") as string;
-    const description = form.get("description") as string;
-    const prizes = (form.get("prizes") as string)?.trim() || null;
     const submittedOrganizerName = organizerName.trim() || null;
 
     if (!userId) {
@@ -348,9 +430,9 @@ export function CreateEventForm() {
     const { data, error: insertError } = await supabase
       .from("events")
       .insert({
-        title,
-        description: description || null,
-        prizes,
+        title: title.trim(),
+        description: description.trim() || null,
+        prizes: prizes.trim() || null,
         organizer_name: submittedOrganizerName,
         format,
         access_mode: accessMode,
@@ -425,6 +507,11 @@ export function CreateEventForm() {
       }
     }
 
+    // Copy rounds + questions from source event if duplicating
+    if (fromEventId && data) {
+      await copyRoundsAndQuestions(fromEventId, data.id);
+    }
+
     router.push(`/host/events/${data.id}/questions`);
   }
 
@@ -448,6 +535,8 @@ export function CreateEventForm() {
           name="title"
           required
           maxLength={100}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
           className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
           placeholder="e.g. ETH Denver 2026 - Main Stage Trivia"
         />
@@ -515,6 +604,8 @@ export function CreateEventForm() {
           name="description"
           rows={3}
           maxLength={500}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           className="w-full bg-surface border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors resize-none"
           placeholder="Brief description of the event"
         />
@@ -552,6 +643,8 @@ export function CreateEventForm() {
           name="prizes"
           rows={2}
           maxLength={300}
+          value={prizes}
+          onChange={(e) => setPrizes(e.target.value)}
           className="w-full bg-surface border border-border px-4 py-3 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors resize-none"
           placeholder="e.g. 500 USDC to top 3, merch for top 10%, whitelist spots"
         />
@@ -843,7 +936,7 @@ export function CreateEventForm() {
           disabled={loading}
           className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-medium"
         >
-          {loading ? "Creating..." : "Create Event"}
+          {loading ? (fromEventId ? "Duplicating..." : "Creating...") : (fromEventId ? "Duplicate Event" : "Create Event")}
         </Button>
         <Button
           type="button"

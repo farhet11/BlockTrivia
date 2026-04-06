@@ -176,8 +176,19 @@ export function ControlPanel({
     return () => { supabase.removeChannel(channel); };
   }, [gameState.current_question_id, gameState.phase, supabase]);
 
-  // Subscribe to player count changes
+  // Subscribe to player count changes + polling fallback every 3s
   useEffect(() => {
+    async function fetchPlayerCount() {
+      const { count } = await supabase
+        .from("event_players")
+        .select("*", { count: "exact", head: true })
+        .eq("event_id", event.id);
+      if (count !== null) setPlayerCount(count);
+    }
+
+    fetchPlayerCount();
+    const pollInterval = setInterval(fetchPlayerCount, 3000);
+
     const channel = supabase
       .channel(`control-players:${event.id}`)
       .on(
@@ -197,6 +208,7 @@ export function ControlPanel({
       .subscribe();
 
     return () => {
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [supabase, event.id]);

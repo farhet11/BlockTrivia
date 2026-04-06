@@ -110,7 +110,7 @@ export function PlayView({
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [answeredQuestionId, setAnsweredQuestionId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [leverage, setLeverage] = useState(1.0);
+  const [leverage, setLeverage] = useState(0.5);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<{
@@ -120,6 +120,7 @@ export function PlayView({
     correctAnswer: number | undefined;
     explanation: string | null;
     didNotAnswer?: boolean;
+    wagerAmt?: number;
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -176,7 +177,7 @@ export function PlayView({
       // New question — reset answer state
       setAnsweredQuestionId(null);
       setSelectedAnswer(null);
-      setLeverage(1.0);
+      setLeverage(0.5);
       setLastResult(null);
       submitLockRef.current = false;
     } else if (next.phase === "ended" || next.phase === "leaderboard") {
@@ -425,7 +426,17 @@ export function PlayView({
         selectedAnswer: answerIndex,
         correctAnswer: result.correct_answer,
         explanation: result.explanation ?? null,
+        wagerAmt: result.wager_amt ?? 0,
       });
+
+      // Refresh rank immediately — leaderboard trigger fires synchronously on response INSERT
+      supabase
+        .from("leaderboard_entries")
+        .select("rank, total_score, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct")
+        .eq("event_id", event.id)
+        .eq("player_id", player.id)
+        .single()
+        .then(({ data }) => { if (data) setMyLbEntry((prev) => prev ? { ...prev, ...data } : data as unknown as LeaderboardEntry); });
     } catch (err) {
       console.error("submit_answer exception:", err);
       submitLockRef.current = false;
@@ -730,26 +741,39 @@ export function PlayView({
           {currentQuestion.body}
         </h1>
 
-        {/* WipeOut leverage slider */}
+        {/* WipeOut wager slider */}
         {isWipeout && !hasAnswered && phase === "playing" && (
-          <div className="space-y-1.5 border border-border p-4 bg-surface">
+          <div className="space-y-2 border border-border p-4 bg-surface">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground font-medium">Wager leverage</span>
-              <span className="font-bold text-primary">{leverage.toFixed(1)}x</span>
+              <span className="text-muted-foreground font-medium">Wager</span>
+              <span className="font-bold text-primary">{Math.round(leverage * 100)}% of your score</span>
             </div>
             <input
               type="range"
               min={currentQuestion.wipeout_min_leverage}
               max={currentQuestion.wipeout_max_leverage}
-              step={0.1}
+              step={0.05}
               value={leverage}
               onChange={(e) => setLeverage(parseFloat(e.target.value))}
               className="w-full accent-primary"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{currentQuestion.wipeout_min_leverage}x safe</span>
-              <span>{currentQuestion.wipeout_max_leverage}x max risk</span>
+              <span>{Math.round(currentQuestion.wipeout_min_leverage * 100)}% safe</span>
+              <span>100% all-in</span>
             </div>
+            {(() => {
+              const bankedScore = myLbEntry?.total_score ?? 0;
+              const wagerAmt = Math.floor(Math.max(50, bankedScore) * leverage);
+              const lossCap = Math.min(wagerAmt, bankedScore);
+              return (
+                <p className="text-xs text-muted-foreground pt-0.5">
+                  <span className="text-correct font-medium">+{wagerAmt} pts</span>
+                  {" if correct · "}
+                  <span className="text-wrong font-medium">−{lossCap} pts</span>
+                  {" if wrong"}
+                </p>
+              );
+            })()}
           </div>
         )}
 
@@ -826,6 +850,56 @@ export function PlayView({
           <div className="border border-border bg-surface p-4 text-sm text-muted-foreground">
             <span className="font-semibold text-foreground block mb-1 text-xs uppercase tracking-wider">Why</span>
             {lastResult.explanation}
+          </div>
+        )}
+
+        {/* P5 — Result card (dopamine hit) */}
+        {phase === "revealing" && (
+          <div className={`border p-4 flex items-center justify-between gap-4 ${
+            lastResult?.didNotAnswer || !lastResult
+              ? "border-border bg-muted/30"
+              : lastResult.isCorrect
+              ? "border-correct/30 bg-[#dcfce7] dark:bg-correct/10"
+              : "border-wrong/30 bg-[#fef2f2] dark:bg-wrong/10"
+          }`}>
+            <div className="space-y-1 min-w-0">
+              <p className={`font-heading text-2xl font-bold tabular-nums ${
+                lastResult?.didNotAnswer || !lastResult
+                  ? "text-muted-foreground"
+                  : lastResult.pointsAwarded > 0
+                  ? "text-correct"
+                  : lastResult.pointsAwarded < 0
+                  ? "text-wrong"
+                  : "text-muted-foreground"
+              }`}>
+                {lastResult?.didNotAnswer || !lastResult
+                  ? "0 pts"
+                  : lastResult.pointsAwarded >= 0
+                  ? `+${lastResult.pointsAwarded} pts`
+                  : `${lastResult.pointsAwarded} pts`}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                {lastResult?.didNotAnswer || !lastResult
+                  ? "Time's up — no answer"
+                  : lastResult.isCorrect
+                  ? isWipeout && lastResult.wagerAmt
+                    ? `Wagered ${lastResult.wagerAmt} pts`
+                    : currentQuestion?.time_bonus_enabled
+                    ? "Base + speed bonus"
+                    : "Correct answer"
+                  : isWipeout && lastResult.wagerAmt
+                  ? `Lost ${Math.min(lastResult.wagerAmt, myLbEntry?.total_score ?? 0)} pts wagered`
+                  : "Better luck next time"}
+              </p>
+            </div>
+            {myLbEntry?.rank != null && (
+              <div className="text-right shrink-0">
+                <p className="font-heading text-2xl font-bold tabular-nums text-foreground">
+                  #{myLbEntry.rank}
+                </p>
+                <p className="text-xs text-muted-foreground">your rank</p>
+              </div>
+            )}
           </div>
         )}
 

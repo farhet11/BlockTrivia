@@ -47,6 +47,7 @@ function getTimerPhase(pct: number): { color: string; glow: string } {
   return { color: '#ef4444', glow: 'rgba(239,68,68,0.5)' };
 }
 
+
 type Sponsor = {
   id: string;
   name: string | null;

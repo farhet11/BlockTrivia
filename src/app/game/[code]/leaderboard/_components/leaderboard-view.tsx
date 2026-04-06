@@ -120,6 +120,7 @@ export function LeaderboardView({
     router.prefetch(`/game/${event.joinCode}/play`);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+
   function applyPhase(newPhase: string) {
     setGamePhase(newPhase);
     gamePhaseRef.current = newPhase;

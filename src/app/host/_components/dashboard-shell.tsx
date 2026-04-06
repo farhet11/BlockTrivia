@@ -33,7 +33,7 @@ export function DashboardShell({
     <div className="min-h-dvh bg-background flex flex-col overflow-hidden">
       {/* Full-width fixed header */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-background">
-        <AppHeader user={user} avatarUrl={user.avatarUrl} logoHref="/host" isHost />
+        <AppHeader user={user} avatarUrl={user.avatarUrl} logoHref="/host" isHost fullWidth />
       </div>
 
       {/* Below header: sidebar + content (pt-14 offsets the fixed header) */}

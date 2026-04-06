@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { ConfirmModal } from "@/app/_components/confirm-modal";
 import { GlobalFooter } from "@/app/_components/global-footer";
@@ -173,7 +173,7 @@ export function ProfileView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader user={user} avatarUrl={avatarUrl} />
+      <AppHeader user={user} avatarUrl={avatarUrl} />
 
       <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 pt-20 pb-12 space-y-6">
         {/* Identity Hero */}

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { FindGame } from "./find-game";
 import { IdentityPanel } from "./identity-panel";
 import { LivenessChallenge } from "@/app/_components/liveness-challenge";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 
 type VerifiedEvent = {
   id: string;
@@ -146,7 +146,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
 
   return (
     <div className="min-h-dvh bg-background overflow-hidden" ref={containerRef}>
-      <PlayerHeader user={sessionUser} avatarUrl={sessionUser?.avatarUrl} />
+      <AppHeader user={sessionUser} avatarUrl={sessionUser?.avatarUrl} />
 
       {/* Sliding panels container */}
       <div className="relative pt-14">

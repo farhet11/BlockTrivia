@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { BrandedQR } from "@/app/_components/branded-qr";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-podium";
@@ -423,7 +423,7 @@ export function ControlPanel({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader
+      <AppHeader
         logoHref="/host"
         user={hostUser ?? null}
         avatarUrl={hostUser?.avatarUrl}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 
@@ -249,7 +249,7 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
   if (phase === "name") {
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader logoHref="/" />
+        <AppHeader logoHref="/" />
         <div className="flex-1 flex flex-col items-center justify-center px-5 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full space-y-8">
           <div className="text-center space-y-2">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Demo Game</p>
@@ -302,7 +302,7 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
     ];
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader logoHref="/" />
+        <AppHeader logoHref="/" />
         <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-6">
           <div className="text-center space-y-1">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Demo Game</p>
@@ -462,7 +462,7 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
 
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader logoHref="/" />
+        <AppHeader logoHref="/" />
         <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-6 space-y-5">
           <div className="text-center space-y-0.5">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">
@@ -515,7 +515,7 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
 
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader logoHref="/" />
+        <AppHeader logoHref="/" />
         <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
           <div className="text-center space-y-1">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Game Over</p>

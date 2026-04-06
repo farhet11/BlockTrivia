@@ -1,6 +1,6 @@
 "use client";
 
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PodiumLayout, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 
@@ -41,7 +41,7 @@ export default function LeaderboardPinnedPreview() {
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader user={MY_PLAYER} />
+      <AppHeader user={MY_PLAYER} />
 
       <div className="flex-1 max-w-lg mx-auto w-full px-5 pt-16 pb-8 space-y-3">
         {/* Event info */}

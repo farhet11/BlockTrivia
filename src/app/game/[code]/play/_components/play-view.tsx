@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
@@ -383,7 +383,7 @@ export function PlayView({
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader
+        <AppHeader
           user={{ id: player.id, displayName: player.displayName, email: player.email }}
           avatarUrl={player.avatarUrl}
           right={event.logoUrl ? (
@@ -475,7 +475,7 @@ export function PlayView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <PlayerHeader
+      <AppHeader
         user={{ id: player.id, displayName: player.displayName }}
         avatarUrl={player.avatarUrl}
         right={timeLeft !== null && !hasAnswered ? (

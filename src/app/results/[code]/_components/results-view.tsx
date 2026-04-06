@@ -1,7 +1,7 @@
 "use client";
 
 import { SponsorBar } from "@/app/_components/sponsor-bar";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { PodiumLayout, RankingRow, PinnedRankSection } from "@/app/_components/lb-podium";
 
 type Sponsor = {
@@ -48,7 +48,7 @@ export function ResultsView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader
+      <AppHeader
         right={event.logoUrl ? (
           <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
         ) : null}

@@ -41,6 +41,12 @@ function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
   ].join(", ");
 }
 
+function getTimerPhase(pct: number): { color: string; glow: string } {
+  if (pct > 0.5) return { color: '#7c3aed', glow: 'rgba(124,58,237,0.5)' };
+  if (pct > 0.2) return { color: '#f59e0b', glow: 'rgba(245,158,11,0.5)' };
+  return { color: '#ef4444', glow: 'rgba(239,68,68,0.5)' };
+}
+
 type Sponsor = {
   id: string;
   name: string | null;
@@ -132,7 +138,7 @@ export function PlayView({
   const hasAnswered = answeredQuestionId === gameState.current_question_id;
   const isTrueFalse = currentQuestion?.round_type === "true_false";
   const isWipeout = currentQuestion?.round_type === "wipeout";
-  const optionLabels = isTrueFalse ? ["True", "False"] : ["A", "B", "C", "D"];
+  const optionLabels = isTrueFalse ? ["A", "B"] : ["A", "B", "C", "D"];
 
   // Progress bar data
   const rounds = useMemo(() => {
@@ -559,57 +565,129 @@ export function PlayView({
       <AppHeader
         user={{ id: player.id, displayName: player.displayName }}
         avatarUrl={player.avatarUrl}
-        right={timeLeft !== null && !hasAnswered ? (
-          <span
-            className={`font-heading text-lg font-bold tabular-nums ${
-              timeLeft <= 5 ? "text-wrong" : timeLeft <= 10 ? "text-timer-warn" : "text-foreground"
-            }`}
-          >
-            {timeLeft}s
-          </span>
-        ) : null}
+        right={null}
       />
 
-      {/* Timer bar — 4px shrinking bar per DESIGN.md */}
+      {/* Timer bar — 4px shrinking bar with glowing leading-edge dot */}
       {phase === "playing" && timeLeft !== null && currentQuestion && !hasAnswered && (() => {
         const pct = (timeLeft / currentQuestion.time_limit_seconds) * 100;
+        const { color: timerColor, glow: timerGlow } = getTimerPhase(pct / 100);
         return (
-          <div className="w-full h-1 bg-transparent">
-            <div
-              className="h-full"
-              style={{
-                width: `${pct}%`,
-                backgroundColor: pct > 50 ? '#7c3aed' : pct > 20 ? '#f59e0b' : '#ef4444',
-                transition: 'width 1s linear, background-color 300ms ease',
-              }}
-            />
-          </div>
+          <>
+            <div className="w-full h-1 bg-[#f5f3ef] dark:bg-[#1f1f23] relative">
+              <div
+                style={{
+                  width: `${pct}%`,
+                  height: '100%',
+                  backgroundColor: timerColor,
+                  transition: 'width 1s linear, background-color 600ms ease',
+                }}
+              />
+              {pct > 0 && (
+                <div
+                  className="absolute motion-reduce:hidden"
+                  style={{
+                    top: '50%',
+                    left: `${pct}%`,
+                    transform: 'translate(-50%, -50%)',
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    backgroundColor: timerColor,
+                    boxShadow: `0 0 8px 3px ${timerGlow}`,
+                    transition: 'left 1s linear, background-color 600ms ease, box-shadow 600ms ease',
+                    willChange: 'left',
+                  }}
+                />
+              )}
+            </div>
+            {/* Timer number — below bar, right-aligned, grouped with bar */}
+            <div className="flex justify-end px-4 mt-2">
+              <span
+                className="font-mono text-sm font-bold tabular-nums"
+                style={{ color: timerColor, transition: 'color 600ms ease' }}
+              >
+                {timeLeft}s
+              </span>
+            </div>
+          </>
         );
       })()}
 
-      {/* Progress bar */}
-      {currentRoundData && questionsInRound.length > 0 && (
+      {/* Progress bar — multi-round with question tick marks */}
+      {currentRoundData && rounds.length > 0 && (
         <div className="border-b border-border px-5 py-2.5 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
             <span className="font-medium truncate max-w-[60%]">
               {currentRoundData.title}
-              <span className="ml-1.5 text-muted-foreground/60">
-                ({currentRoundIndex + 1}/{rounds.length})
-              </span>
+              {rounds.length > 1 && (
+                <span className="ml-1.5 text-muted-foreground/60">
+                  ({currentRoundIndex + 1}/{rounds.length})
+                </span>
+              )}
             </span>
             <span className="tabular-nums">
               Q{indexInRound + 1}/{questionsInRound.length}
             </span>
           </div>
-          <div className="flex gap-1">
-            {questionsInRound.map((q, i) => (
-              <div
-                key={q.id}
-                className={`h-1 flex-1 transition-colors duration-200 ${
-                  i < indexInRound ? "bg-primary/40" : i === indexInRound ? "bg-primary" : "bg-border"
-                }`}
-              />
-            ))}
+          <div className="flex gap-3">
+            {rounds.map((round, rIdx) => {
+              const rQs = round.questions;
+              const qCount = rQs.length;
+              if (qCount === 0) return null;
+              const isCompleted = rIdx < currentRoundIndex;
+              const isActive = rIdx === currentRoundIndex;
+              const fillPct = isCompleted ? 100 : isActive ? (indexInRound / qCount) * 100 : 0;
+              return (
+                <div key={round.id} className="flex-1 h-1 relative" style={{ minWidth: 0 }}>
+                  {/* Track */}
+                  <div className="absolute inset-0 bg-[#f5f3ef] dark:bg-[#1f1f23]" />
+                  {/* Fill — completed questions */}
+                  {fillPct > 0 && (
+                    <div
+                      className="absolute top-0 left-0 h-full bg-primary transition-all duration-200"
+                      style={{ width: `${fillPct}%` }}
+                    />
+                  )}
+                  {/* Current question slot — half-opacity violet strip */}
+                  {isActive && (
+                    <div
+                      className="absolute top-0 h-full bg-primary/40 transition-all duration-200"
+                      style={{
+                        left: `${fillPct}%`,
+                        width: `${100 / qCount}%`,
+                      }}
+                    />
+                  )}
+                  {/* Question tick dividers — skip for single-question rounds */}
+                  {qCount > 1 && Array.from({ length: qCount - 1 }).map((_, d) => {
+                    // For very long rounds (>15 questions), show only every 5th tick
+                    // Always show the current-position tick
+                    const isCurrentTick = isActive && d === indexInRound - 1;
+                    if (qCount > 15 && (d + 1) % 5 !== 0 && !isCurrentTick) return null;
+                    const posPct = ((d + 1) / qCount) * 100;
+                    const isOnFill = isCompleted || (isActive && d < indexInRound);
+                    const tickBg = isCurrentTick
+                      ? '#7c3aed'
+                      : isOnFill
+                      ? 'rgba(255,255,255,0.45)'
+                      : undefined;
+                    return (
+                      <div
+                        key={d}
+                        className={`absolute top-0 h-full ${tickBg === undefined ? 'bg-foreground/15' : ''}`}
+                        style={{
+                          left: `${posPct}%`,
+                          width: isCurrentTick ? 2 : 1,
+                          transform: 'translateX(-50%)',
+                          backgroundColor: tickBg,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -682,14 +760,14 @@ export function PlayView({
         )}
 
         {/* Answer options */}
-        <div className={`grid gap-3 ${isTrueFalse ? "grid-cols-1" : "grid-cols-2"}`}>
+        <div className="grid grid-cols-2 gap-3">
           {optionLabels.map((label, i) => {
             const isSelected = selectedAnswer !== null && selectedAnswer >= 0 && selectedAnswer === i;
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
             const isTimedOut = timeLeft === 0 && !hasAnswered;
 
-            let cls = "p-4 min-h-14 border text-left transition-colors ";
+            let cls = `flex items-center gap-3 p-4 ${isTrueFalse ? "min-h-16" : "min-h-14"} border text-left transition-colors w-full `;
             if (isRevealing) {
               if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
               else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
@@ -697,10 +775,18 @@ export function PlayView({
             } else if (isSelected) {
               cls += "border-primary bg-accent-light text-primary";
             } else if (hasAnswered || isTimedOut) {
-              cls += "border-border text-muted-foreground opacity-50";
+              cls += "border-border text-muted-foreground";
             } else {
               cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
             }
+
+            const badgeCls = `w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold ${
+              isRevealing && isCorrectOption
+                ? "bg-correct/10 text-correct"
+                : isRevealing && isSelected && !isCorrectOption
+                ? "bg-wrong/10 text-wrong"
+                : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+            }`;
 
             return (
               <button
@@ -708,9 +794,18 @@ export function PlayView({
                 disabled={hasAnswered || phase !== "playing" || isSubmitting || isTimedOut}
                 onClick={() => submitAnswer(i)}
                 className={cls}
+                aria-label={`Answer ${currentQuestion.options[i]}`}
               >
-                <span className="block text-xs font-bold mb-1 opacity-60">{label}</span>
-                <span className="text-sm font-medium leading-snug break-words">
+                <span className={badgeCls}>
+                  {isRevealing && isCorrectOption ? (
+                    <Check size={14} strokeWidth={2.5} />
+                  ) : isRevealing && isSelected && !isCorrectOption ? (
+                    <X size={14} strokeWidth={2.5} />
+                  ) : (
+                    label
+                  )}
+                </span>
+                <span className={`leading-snug break-words ${isTrueFalse ? "text-[18px] font-semibold" : "text-sm font-medium"}`}>
                   {isSubmitting && isSelected ? (
                     <span className="inline-flex items-center gap-1.5">
                       <BlockSpinner variant="wave" size={16} />

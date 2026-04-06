@@ -9,7 +9,7 @@ import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { ConfirmModal } from "@/app/_components/confirm-modal";
 import { GlobalFooter } from "@/app/_components/global-footer";
 import { TelegramLoginButton, type TelegramAuthResult } from "@/app/_components/telegram-login-button";
-import { Pencil, Check, X, LogOut, Camera, ChevronRight, Trash2, ArrowRight } from "lucide-react";
+import { Pencil, Check, X, LogOut, Camera, ChevronRight, Trash2 } from "lucide-react";
 
 type GameEntry = {
   title: string;
@@ -511,7 +511,7 @@ export function ProfileView({
             onClick={() => setShowSignOut(true)}
             className="flex items-center gap-2.5 w-full py-3 text-[15px] font-medium text-muted-foreground hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors -mx-1 px-1"
           >
-            <ArrowRight size={16} strokeWidth={1.75} />
+            <LogOut size={16} strokeWidth={1.75} />
             Sign out
           </button>
         </div>
@@ -532,8 +532,9 @@ export function ProfileView({
             <div className="mt-3">
               <button
                 onClick={() => setShowDelete(true)}
-                className="text-sm font-medium text-wrong border border-[rgba(239,68,68,0.3)] px-5 py-[10px] hover:bg-[#fef2f2] dark:hover:bg-[rgba(239,68,68,0.1)] transition-colors"
+                className="flex items-center gap-2 text-sm font-medium text-wrong border border-[rgba(239,68,68,0.3)] px-5 py-[10px] hover:bg-[#fef2f2] dark:hover:bg-[rgba(239,68,68,0.1)] transition-colors"
               >
+                <Trash2 size={14} strokeWidth={1.75} />
                 Delete account
               </button>
             </div>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { LeaderboardView } from "./_components/leaderboard-view";
+import { resolvePlayerName } from "@/lib/player-name";
 import type { Metadata } from "next";
 
 type Props = { params: Promise<{ code: string }> };
@@ -129,7 +130,7 @@ export default async function LeaderboardPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     leaderboard = entries.map((row: any) => ({
       player_id: row.player_id,
-      display_name: row.profiles?.username || row.profiles?.display_name || "Player",
+      display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
       avatar_url: row.profiles?.avatar_url ?? null,
       total_score: row.total_score,
       rank: row.rank,
@@ -143,7 +144,7 @@ export default async function LeaderboardPage({ params }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     leaderboard = allPlayers.map((p: any, i: number) => ({
       player_id: p.player_id,
-      display_name: p.game_alias || p.profiles?.username || p.profiles?.display_name || "Player",
+      display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
       avatar_url: p.profiles?.avatar_url ?? null,
       total_score: 0,
       rank: i + 1,

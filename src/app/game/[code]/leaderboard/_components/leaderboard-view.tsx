@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { resolvePlayerName } from "@/lib/player-name";
 import confetti from "canvas-confetti";
 import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
@@ -93,7 +94,7 @@ export function LeaderboardView({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const entries: ExtendedEntry[] = data.map((row: any) => ({
         player_id: row.player_id,
-        display_name: row.profiles?.username || row.profiles?.display_name || "Player",
+        display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
         avatar_url: row.profiles?.avatar_url ?? null,
         total_score: row.total_score,
         rank: row.rank,

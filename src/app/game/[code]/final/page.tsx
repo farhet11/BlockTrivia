@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { FinalView } from "./_components/final-view";
+import { resolvePlayerName } from "@/lib/player-name";
 
 export default async function FinalPage({
   params,
@@ -44,7 +45,7 @@ export default async function FinalPage({
   const leaderboard = (entries ?? []).map((row) => ({
     player_id: row.player_id,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    display_name: (row.profiles as any)?.username || (row.profiles as any)?.display_name || "Player",
+    display_name: resolvePlayerName(null, (row.profiles as any)?.username, (row.profiles as any)?.display_name),
     total_score: row.total_score,
     correct_count: row.correct_count,
     total_questions: row.total_questions,

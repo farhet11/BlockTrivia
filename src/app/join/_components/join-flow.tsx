@@ -26,7 +26,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   const [step, setStep] = useState<"find" | "identity" | "liveness">("find");
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [verifiedEvent, setVerifiedEvent] = useState<VerifiedEvent | null>(null);
-  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string } | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string; avatarUrl?: string | null } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Prevent browser auto-scroll from fighting translateX positioning
@@ -42,14 +42,26 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
 
   // Check for existing session on mount
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         const name =
           user.user_metadata?.full_name ||
           user.user_metadata?.name ||
           user.email?.split("@")[0] ||
           "Player";
-        setSessionUser({ id: user.id, displayName: name });
+
+        // Fetch avatar from profile
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", user.id)
+          .single();
+
+        setSessionUser({
+          id: user.id,
+          displayName: name,
+          avatarUrl: profile?.avatar_url ?? null
+        });
       }
     });
   }, [supabase]);
@@ -133,7 +145,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
 
   return (
     <div className="min-h-dvh bg-background overflow-hidden" ref={containerRef}>
-      <PlayerHeader user={sessionUser} />
+      <PlayerHeader user={sessionUser} avatarUrl={sessionUser?.avatarUrl} />
 
       {/* Sliding panels container */}
       <div className="relative pt-14">

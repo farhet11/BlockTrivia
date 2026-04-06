@@ -10,7 +10,7 @@ export function DashboardShell({
   user,
   children,
 }: {
-  user: { id: string; displayName: string; email: string };
+  user: { id: string; displayName: string; email: string; avatarUrl?: string | null };
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -32,7 +32,7 @@ export function DashboardShell({
   return (
     <div className="min-h-dvh bg-background flex flex-col overflow-hidden">
       {/* Full-width header — always on top */}
-      <DashboardHeader user={user} />
+      <DashboardHeader user={user} avatarUrl={user.avatarUrl} />
 
       {/* Below header: sidebar + content (pt-14 offsets the fixed header) */}
       <div

@@ -5,8 +5,10 @@ import { AvatarDropdown } from "@/app/_components/avatar-dropdown";
 
 export function DashboardHeader({
   user,
+  avatarUrl,
 }: {
   user: { id: string; displayName: string; email: string };
+  avatarUrl?: string | null;
 }) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-sm overflow-hidden">
@@ -16,7 +18,7 @@ export function DashboardHeader({
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
         </Link>
 
-        <AvatarDropdown user={user} isHost />
+        <AvatarDropdown user={user} isHost avatarUrl={avatarUrl} />
       </div>
     </header>
   );

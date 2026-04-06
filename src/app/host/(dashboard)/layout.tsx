@@ -17,7 +17,7 @@ export default async function HostDashboardLayout({
   // Fetch profile for sidebar display
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, email")
+    .select("display_name, email, avatar_url")
     .eq("id", user.id)
     .single();
 
@@ -29,12 +29,16 @@ export default async function HostDashboardLayout({
 
   const email = profile?.email || user.email || "";
 
+  const avatarUrl =
+    profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null;
+
   return (
     <DashboardShell
       user={{
         id: user.id,
         displayName,
         email,
+        avatarUrl,
       }}
     >
       {children}

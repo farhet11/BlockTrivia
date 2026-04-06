@@ -10,6 +10,37 @@ import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 
+function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
+  if (isAnswered || pct > 0.5) return "none";
+  if (pct > 0.2) {
+    const intensity = 1 - (pct - 0.2) / 0.3;
+    const o1 = (0.25 + intensity * 0.25) * 0.9;
+    const o2 = (0.25 + intensity * 0.25) * 0.6;
+    const o3 = (0.25 + intensity * 0.25) * 0.35;
+    const o4 = (0.25 + intensity * 0.25) * 0.15;
+    return [
+      `inset 0 0 40px 20px rgba(245,158,11,${o1})`,
+      `inset 0 0 100px 50px rgba(245,158,11,${o2})`,
+      `inset 0 0 200px 80px rgba(245,158,11,${o3})`,
+      `inset 0 0 350px 100px rgba(245,158,11,${o4})`,
+    ].join(", ");
+  }
+  const intensity = 1 - pct / 0.2;
+  const r = Math.round(239 + intensity * 16);
+  const g = Math.round(68 - intensity * 40);
+  const b = Math.round(68 - intensity * 40);
+  const o1 = (0.45 + intensity * 0.35) * 0.9;
+  const o2 = (0.45 + intensity * 0.35) * 0.6;
+  const o3 = (0.45 + intensity * 0.35) * 0.35;
+  const o4 = (0.45 + intensity * 0.35) * 0.15;
+  return [
+    `inset 0 0 40px 20px rgba(${r},${g},${b},${o1})`,
+    `inset 0 0 100px 50px rgba(${r},${g},${b},${o2})`,
+    `inset 0 0 200px 80px rgba(${r},${g},${b},${o3})`,
+    `inset 0 0 350px 100px rgba(${r},${g},${b},${o4})`,
+  ].join(", ");
+}
+
 type Sponsor = {
   id: string;
   name: string | null;
@@ -381,6 +412,13 @@ export function PlayView({
 
   const phase = gameState.phase;
 
+  // Heat Edge aura
+  const heatPct = currentQuestion && timeLeft !== null
+    ? timeLeft / currentQuestion.time_limit_seconds
+    : 1;
+  const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered);
+  const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered;
+
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
@@ -477,6 +515,24 @@ export function PlayView({
   // ── Question screen ────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {/* Heat Edge urgency aura */}
+      <style>{`
+        @keyframes heat-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @media (prefers-reduced-motion: reduce) { .heat-edge { display: none !important; } }
+      `}</style>
+      <div
+        className="heat-edge"
+        style={{
+          position: "fixed",
+          inset: 0,
+          pointerEvents: "none",
+          zIndex: 10,
+          boxShadow: heatEdgeBoxShadow,
+          transition: "box-shadow 500ms ease",
+          animation: isHeatPulsing ? "heat-pulse 1.6s ease-in-out infinite" : "none",
+        }}
+      />
+
       {/* Header */}
       <AppHeader
         user={{ id: player.id, displayName: player.displayName }}

@@ -98,6 +98,7 @@ export function ControlPanel({
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [prePausePhase, setPrePausePhase] = useState<string | null>(null);
+  const [answeredCount, setAnsweredCount] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
@@ -148,6 +149,32 @@ export function ControlPanel({
   const interstitialRound = gameState.phase === "interstitial"
     ? (roundsList.find((r) => r.id === gameState.current_round_id) ?? null)
     : null;
+
+  // Track how many players have answered the current question
+  useEffect(() => {
+    if (!gameState.current_question_id || gameState.phase !== "playing") {
+      setAnsweredCount(0);
+      return;
+    }
+    const qId = gameState.current_question_id;
+
+    // Fetch initial count (handles page refresh mid-question)
+    supabase
+      .from("responses")
+      .select("*", { count: "exact", head: true })
+      .eq("question_id", qId)
+      .then(({ count }) => { if (count !== null) setAnsweredCount(count); });
+
+    // Live updates as players submit
+    const channel = supabase
+      .channel(`answers:${qId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "responses", filter: `question_id=eq.${qId}` },
+        () => setAnsweredCount((c) => c + 1)
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [gameState.current_question_id, gameState.phase, supabase]);
 
   // Subscribe to player count changes
   useEffect(() => {
@@ -589,10 +616,13 @@ export function ControlPanel({
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={revealAnswer}
-                disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                disabled={loading || (timeLeft !== null && timeLeft > 0 && answeredCount < playerCount)}
+                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title={timeLeft !== null && timeLeft > 0 && answeredCount < playerCount ? `Waiting for players (${answeredCount}/${playerCount} answered)` : undefined}
               >
-                Reveal Answer
+                {timeLeft !== null && timeLeft > 0 && answeredCount < playerCount
+                  ? `${answeredCount}/${playerCount} answered`
+                  : "Reveal Answer"}
               </button>
               <button
                 onClick={pauseGame}

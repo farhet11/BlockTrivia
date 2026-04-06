@@ -101,11 +101,11 @@ export function QrScanner({
     onClose();
   }
 
-  // Viewfinder size as % of screen width, capped
-  const VF = "min(65vw, 280px)";
+  // Viewfinder size
+  const VF = "min(68vw, 260px)";
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div className="fixed inset-0 z-[200] bg-black flex flex-col">
 
       {/* Full-screen camera feed */}
       <video
@@ -118,38 +118,53 @@ export function QrScanner({
       {/* Dark overlay with transparent viewfinder cutout */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         {/* Top shade */}
-        <div className="w-full flex-1 bg-black/60" />
+        <div className="w-full flex-1 bg-black/65" />
 
         {/* Middle row */}
         <div className="flex w-full items-center" style={{ height: VF }}>
-          <div className="flex-1 h-full bg-black/60" />
+          <div className="flex-1 h-full bg-black/65" />
 
-          {/* Viewfinder — transparent, corner brackets via pseudo-approach */}
-          <div className="relative shrink-0" style={{ width: VF, height: VF }}>
-            {/* Corner brackets */}
-            {[
-              "top-0 left-0 border-t-2 border-l-2",
-              "top-0 right-0 border-t-2 border-r-2",
-              "bottom-0 left-0 border-b-2 border-l-2",
-              "bottom-0 right-0 border-b-2 border-r-2",
-            ].map((cls, i) => (
+          {/* Viewfinder — transparent window */}
+          <div
+            className="relative shrink-0 overflow-hidden"
+            style={{ width: VF, height: VF }}
+          >
+            {/* White border frame */}
+            <div className="absolute inset-0 border-2 border-white/40 rounded-sm" />
+
+            {/* Corner brackets — thicker + larger */}
+            {([
+              "top-0 left-0 border-t-[3px] border-l-[3px] rounded-tl-sm",
+              "top-0 right-0 border-t-[3px] border-r-[3px] rounded-tr-sm",
+              "bottom-0 left-0 border-b-[3px] border-l-[3px] rounded-bl-sm",
+              "bottom-0 right-0 border-b-[3px] border-r-[3px] rounded-br-sm",
+            ] as const).map((cls, i) => (
               <span
                 key={i}
-                className={`absolute ${cls} border-white w-7 h-7`}
+                className={`absolute ${cls} border-white w-9 h-9`}
               />
             ))}
+
+            {/* Scanning sweep line */}
+            <div
+              className="absolute left-2 right-2 h-px bg-primary/80"
+              style={{
+                animation: "qr-sweep 2s ease-in-out infinite",
+                boxShadow: "0 0 6px 1px rgba(124,58,237,0.6)",
+              }}
+            />
           </div>
 
-          <div className="flex-1 h-full bg-black/60" />
+          <div className="flex-1 h-full bg-black/65" />
         </div>
 
         {/* Bottom shade */}
-        <div className="w-full flex-1 bg-black/60" />
+        <div className="w-full flex-1 bg-black/65" />
       </div>
 
-      {/* Header — close X */}
+      {/* Header — title + close */}
       <div className="relative z-10 flex items-center justify-between px-5 pt-14">
-        <p className="text-white font-heading text-lg font-bold">Scan QR Code</p>
+        <p className="text-white font-heading text-lg font-bold tracking-tight">Scan QR Code</p>
         <button
           onClick={handleClose}
           className="size-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
@@ -161,10 +176,22 @@ export function QrScanner({
         </button>
       </div>
 
-      {/* Instructions or error — bottom */}
-      <div className="relative z-10 mt-auto pb-16 px-5 text-center space-y-4">
+      {/* Label above viewfinder — centered in the dead space */}
+      <div className="relative z-10 flex-1 flex items-end justify-center pb-5 pointer-events-none">
+        {!error && (
+          <p className="text-white/70 text-sm font-medium tracking-wide text-center">
+            Align QR code within the frame
+          </p>
+        )}
+      </div>
+
+      {/* Spacer for viewfinder area */}
+      <div style={{ height: VF }} className="shrink-0" />
+
+      {/* Bottom area — status + cancel */}
+      <div className="relative z-10 flex-1 flex flex-col justify-end pb-12 px-5 space-y-4 text-center">
         {error ? (
-          <div className="bg-black/70 border border-white/10 p-5 space-y-3">
+          <div className="bg-black/80 border border-white/10 rounded-sm p-5 space-y-3">
             <p className="text-sm text-white/80">{error}</p>
             <button
               onClick={handleClose}
@@ -174,18 +201,27 @@ export function QrScanner({
             </button>
           </div>
         ) : (
-          <p className="text-sm text-white/60">
+          <p className="text-xs text-white/40">
             Point your camera at a BlockTrivia QR code
           </p>
         )}
 
         <button
           onClick={handleClose}
-          className="w-full h-12 bg-white/10 hover:bg-white/15 transition-colors text-white font-medium text-sm border border-white/10"
+          className="w-full h-12 bg-white/10 hover:bg-white/15 transition-colors text-white font-medium text-sm border border-white/10 rounded-sm"
         >
           Cancel
         </button>
       </div>
+
+      {/* Sweep animation */}
+      <style>{`
+        @keyframes qr-sweep {
+          0%   { top: 8px; }
+          50%  { top: calc(100% - 8px); }
+          100% { top: 8px; }
+        }
+      `}</style>
     </div>
   );
 }

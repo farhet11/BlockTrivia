@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { createClient } from "@/lib/supabase";
@@ -70,6 +70,7 @@ export function LeaderboardView({
   const [myEntry, setMyEntry] = useState<ExtendedEntry | null>(initialMyEntry);
   const [totalPlayers, setTotalPlayers] = useState(initialTotalPlayers);
   const [showShare, setShowShare] = useState(false);
+  const gamePhaseRef = useRef(initialPhase);
 
   // Confetti on final results
   useEffect(() => {
@@ -110,6 +111,20 @@ export function LeaderboardView({
     }
   }, [supabase, event.id, playerId]);
 
+  // Keep phase ref in sync for use in polling closure
+  useEffect(() => { gamePhaseRef.current = gamePhase; }, [gamePhase]);
+
+  function applyPhase(newPhase: string) {
+    setGamePhase(newPhase);
+    gamePhaseRef.current = newPhase;
+    if (viewerType === "player" && newPhase === "playing") {
+      router.replace(`/game/${event.joinCode}/play`);
+    }
+    if (newPhase === "ended") {
+      router.replace(`/game/${event.joinCode}/leaderboard`);
+    }
+  }
+
   // Realtime subscriptions
   useEffect(() => {
     const channel = supabase
@@ -119,20 +134,31 @@ export function LeaderboardView({
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_state", filter: `event_id=eq.${event.id}` }, (payload) => {
         const newPhase = payload.new?.phase as string | undefined;
-        if (newPhase) {
-          setGamePhase(newPhase);
-          // Player: when game resumes, go back to play screen
-          if (viewerType === "player" && newPhase === "playing") {
-            router.replace(`/game/${event.joinCode}/play`);
-          }
-        }
+        if (newPhase) applyPhase(newPhase);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "event_players", filter: `event_id=eq.${event.id}` }, () => {
         setTotalPlayers((c) => c + 1);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, event.id, event.joinCode, viewerType, router, refreshLeaderboard]);
+  }, [supabase, event.id, event.joinCode, viewerType, router, refreshLeaderboard]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Polling fallback — catches Realtime misses, same pattern as play-view
+  useEffect(() => {
+    if (viewerType !== "player") return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("game_state")
+        .select("phase")
+        .eq("event_id", event.id)
+        .single();
+      if (!data) return;
+      if (data.phase !== gamePhaseRef.current) {
+        applyPhase(data.phase);
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [supabase, event.id, viewerType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const phaseConfig = PHASE_CONFIG[gamePhase] ?? PHASE_CONFIG.playing;
   const podiumEntries = leaderboard.slice(0, 3);

@@ -41,7 +41,7 @@ export function LobbyView({
   sponsors,
 }: {
   event: EventInfo;
-  player: { id: string; displayName: string; avatarUrl?: string | null };
+  player: { id: string; displayName: string; email?: string; avatarUrl?: string | null };
   sponsors: Sponsor[];
 }) {
   const router = useRouter();
@@ -158,7 +158,7 @@ export function LobbyView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader user={{ id: player.id, displayName: player.displayName }} avatarUrl={player.avatarUrl} />
+      <PlayerHeader user={{ id: player.id, displayName: player.displayName, email: player.email }} avatarUrl={player.avatarUrl} />
 
       <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full flex flex-col">
 

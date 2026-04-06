@@ -100,7 +100,7 @@ export default async function PlayPage({
   return (
     <PlayView
       event={{ id: event.id, title: event.title, joinCode: event.join_code, logoUrl: event.logo_url ?? null, logoDarkUrl: event.logo_dark_url ?? null, organizerName: event.organizer_name ?? null }}
-      player={{ id: user.id, displayName: profile?.display_name ?? "Player", avatarUrl: profile?.avatar_url ?? null }}
+      player={{ id: user.id, displayName: profile?.display_name ?? "Player", email: user.email ?? undefined, avatarUrl: profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null }}
       questions={questionList}
       initialGameState={gameState}
       sponsors={sponsors ?? []}

@@ -26,7 +26,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   const [step, setStep] = useState<"find" | "identity" | "liveness">("find");
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [verifiedEvent, setVerifiedEvent] = useState<VerifiedEvent | null>(null);
-  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string; avatarUrl?: string | null } | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string; email?: string; avatarUrl?: string | null } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Prevent browser auto-scroll from fighting translateX positioning
@@ -44,23 +44,24 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
-        const name =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split("@")[0] ||
-          "Player";
-
-        // Fetch avatar from profile
+        // Fetch profile for canonical display_name and avatar
         const { data: profile } = await supabase
           .from("profiles")
-          .select("avatar_url")
+          .select("display_name, avatar_url")
           .eq("id", user.id)
           .single();
 
         setSessionUser({
           id: user.id,
-          displayName: name,
-          avatarUrl: profile?.avatar_url ?? null
+          displayName:
+            profile?.display_name ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split("@")[0] ||
+            "Player",
+          email: user.email ?? undefined,
+          // Fall back to OAuth photo if no uploaded avatar
+          avatarUrl: profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null,
         });
       }
     });

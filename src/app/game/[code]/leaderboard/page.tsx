@@ -187,7 +187,7 @@ export default async function LeaderboardPage({ params }: Props) {
       sponsors={sponsors ?? []}
       viewerType={viewerType}
       playerId={user?.id ?? null}
-      playerAvatarUrl={profile?.avatar_url ?? null}
+      playerAvatarUrl={profile?.avatar_url ?? (user?.user_metadata?.avatar_url as string | null) ?? null}
       playerEmail={user?.email ?? null}
     />
   );

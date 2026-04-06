@@ -77,7 +77,7 @@ export default async function ProfilePage() {
         username: profile.username ?? null,
         email: profile.email ?? user.email ?? "",
         role: profile.role as "super_admin" | "host" | "player",
-        avatarUrl: profile.avatar_url,
+        avatarUrl: profile.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null,
       }}
       stats={{
         totalGames,

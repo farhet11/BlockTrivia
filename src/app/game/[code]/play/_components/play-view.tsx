@@ -61,7 +61,7 @@ export function PlayView({
   roundsInfo,
 }: {
   event: { id: string; title: string; joinCode: string; logoUrl: string | null };
-  player: { id: string; displayName: string; avatarUrl?: string | null };
+  player: { id: string; displayName: string; email?: string; avatarUrl?: string | null };
   questions: QuestionData[];
   initialGameState: GameState;
   sponsors: Sponsor[];
@@ -384,7 +384,7 @@ export function PlayView({
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <PlayerHeader
-          user={{ id: player.id, displayName: player.displayName }}
+          user={{ id: player.id, displayName: player.displayName, email: player.email }}
           avatarUrl={player.avatarUrl}
           right={event.logoUrl ? (
             <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />

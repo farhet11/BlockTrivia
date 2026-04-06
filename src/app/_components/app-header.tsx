@@ -2,7 +2,7 @@
 
 import { AvatarDropdown } from "./avatar-dropdown";
 
-export function PlayerHeader({
+export function AppHeader({
   user,
   avatarUrl,
   right,

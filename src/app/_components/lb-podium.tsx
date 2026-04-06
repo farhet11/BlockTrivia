@@ -117,14 +117,24 @@ function PodiumSlot({
 }
 
 // ── Podium layout: handles 1/2/3 player edge cases ────────────────────────
+type SpotlightEntry = {
+  emoji: string;
+  title: string;
+  username: string;
+  stat_value: string;
+  player_id: string;
+};
+
 export function PodiumLayout({
   entries,
   myPlayerId,
   extendedData,
+  playerSpotlights = [],
 }: {
   entries: LbEntry[];
   myPlayerId?: string;
-  extendedData?: { [key: string]: { correct_count?: number; total_questions?: number; accuracy?: number; avg_speed_ms?: number; is_top_10_pct?: boolean } };
+  extendedData?: { [key: string]: { correct_count?: number; total_questions?: number; accuracy?: number; avg_speed_ms?: number; is_top_10_pct?: boolean; fastest_answer_ms?: number; slowest_answer_ms?: number; answer_speed_stddev?: number } };
+  playerSpotlights?: SpotlightEntry[];
 }) {
   const [first, second, third] = entries;
   if (!first) return null;
@@ -135,8 +145,9 @@ export function PodiumLayout({
     const extended = extendedData?.[first.player_id];
 
     return (
-      <div>
-        <div className="flex items-center gap-3 px-4 py-4 bg-surface border border-border">
+      <div className="bg-surface border border-border">
+        {/* Main row: rank | avatar | name | score */}
+        <div className="flex items-center gap-3 px-4 py-4">
           <div
             className="size-6 flex items-center justify-center text-white text-xs font-bold shrink-0"
             style={{ background: RANK_BAR[1] }}
@@ -156,16 +167,23 @@ export function PodiumLayout({
             </span>
           </div>
         </div>
+
+        {/* Toggle button — shown when extended data exists */}
         {extended && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full text-center py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors border-t border-border bg-background/50 dark:bg-muted/20"
+            className="w-full text-center py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors border-t border-border bg-primary/5 dark:bg-primary/[0.08]"
           >
-            {expanded ? "−" : "+"} {expanded ? "Hide" : "Show"} details
+            {expanded ? "−" : "+"} {expanded ? "Collapse" : "Expand"} Results
           </button>
         )}
+
+        {/* Expanded stats + badge — shown when toggled open */}
         {expanded && extended && (
-          <div className="px-4 py-3 border-t border-border bg-background/50 dark:bg-muted/20 space-y-2">
+          <div className="px-4 py-3 border-t border-border space-y-3 bg-primary/5 dark:bg-primary/[0.08]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Results Details</p>
+
+            {/* Core stats line */}
             <p className="text-[13px] text-muted-foreground">
               <span className="font-medium text-foreground">{extended.correct_count}/{extended.total_questions}</span>
               {" correct"}
@@ -180,8 +198,40 @@ export function PodiumLayout({
                 </>
               ) : null}
             </p>
+
+            {/* Speed range: fastest → slowest */}
+            {extended.fastest_answer_ms || extended.slowest_answer_ms ? (
+              <p className="text-[13px] text-muted-foreground">
+                <span className="font-medium text-foreground">⚡ {(extended.fastest_answer_ms ?? 0) / 1000}s</span>
+                {" fastest"}
+                <span className="mx-1.5 text-muted-foreground/50">·</span>
+                <span className="font-medium text-foreground">🐢 {(extended.slowest_answer_ms ?? 0) / 1000}s</span>
+                {" slowest"}
+              </p>
+            ) : null}
+
+            {/* Speed consistency */}
+            {extended.answer_speed_stddev ? (
+              <p className="text-[13px] text-muted-foreground">
+                <span className="font-medium text-foreground">{(extended.answer_speed_stddev / 1000).toFixed(1)}s</span>
+                {" consistency"}
+              </p>
+            ) : null}
+
+            {/* Top 10% badge */}
             {extended.is_top_10_pct && (
               <p className="text-[12px] font-bold text-primary">★ Top 10% of players</p>
+            )}
+
+            {/* Player's own spotlights */}
+            {playerSpotlights && playerSpotlights.length > 0 && (
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                {playerSpotlights.map((s) => (
+                  <span key={s.title} className="text-[12px] font-medium text-primary">
+                    {s.emoji} {s.title}
+                  </span>
+                ))}
+              </div>
             )}
           </div>
         )}

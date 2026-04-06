@@ -19,6 +19,9 @@ type ExtendedEntry = LbEntry & {
   accuracy?: number;
   avg_speed_ms?: number;
   is_top_10_pct?: boolean;
+  fastest_answer_ms?: number;
+  slowest_answer_ms?: number;
+  answer_speed_stddev?: number;
 };
 
 // Phase → status badge config
@@ -269,54 +272,6 @@ export function LeaderboardView({
           <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
         )}
 
-        {/* ── Personal stats (player, ended only) ── */}
-        {gamePhase === "ended" && myEntry && viewerType === "player" && (
-          <div className={`mx-5 mb-4 border px-5 py-4 ${myEntry.is_top_10_pct ? "border-primary bg-primary/5" : "border-border bg-surface"}`}>
-            {/* Line 1 — labels */}
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Your Result</p>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Score</p>
-            </div>
-            {/* Line 2 — rank + score */}
-            <div className="flex items-baseline justify-between">
-              <p className="text-2xl font-bold tabular-nums">
-                {myEntry.rank != null ? `#${myEntry.rank}` : "#—"}
-              </p>
-              <p className="text-2xl font-bold tabular-nums">{myEntry.total_score}</p>
-            </div>
-            {/* Line 3 — inline stats */}
-            {myEntry.total_questions ? (
-              <p className="text-[13px] text-muted-foreground mt-1">
-                <span className="font-medium text-foreground">{myEntry.correct_count}/{myEntry.total_questions}</span>
-                {" correct"}
-                <span className="mx-1.5 text-muted-foreground/50">·</span>
-                <span className="font-medium text-foreground">{Math.round(Number(myEntry.accuracy ?? 0))}%</span>
-                {" accuracy"}
-                {myEntry.avg_speed_ms ? (
-                  <>
-                    <span className="mx-1.5 text-muted-foreground/50">·</span>
-                    <span className="font-medium text-foreground">{(myEntry.avg_speed_ms / 1000).toFixed(1)}s</span>
-                    {" avg"}
-                  </>
-                ) : null}
-              </p>
-            ) : null}
-            {/* Line 4 — badge (conditional) */}
-            {myEntry.is_top_10_pct && (
-              <p className="text-[12px] font-bold text-primary uppercase tracking-wider mt-2">★ Top 10% of players</p>
-            )}
-            {/* Own spotlight pills */}
-            {spotlights.filter((s) => s.player_id === playerId).length > 0 && (
-              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                {spotlights.filter((s) => s.player_id === playerId).map((s) => (
-                  <span key={s.title} className="text-[12px] font-medium text-primary">
-                    {s.emoji} {s.title}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ── Spotlight Cards (player, ended, min 2 qualify) ── */}
         {gamePhase === "ended" && viewerType === "player" && spotlights.length >= 2 && (() => {
@@ -363,6 +318,7 @@ export function LeaderboardView({
                 entries={podiumEntries}
                 myPlayerId={playerId ?? undefined}
                 extendedData={myEntry ? { [myEntry.player_id]: myEntry } : undefined}
+                playerSpotlights={spotlights.filter((s) => s.player_id === playerId)}
               />
             </div>
           ) : (

@@ -7,12 +7,15 @@ language plpgsql
 security definer set search_path = ''
 as $$
 declare
-  v_total_score   integer;
-  v_correct_count integer;
-  v_total_q       integer;
-  v_accuracy      numeric(5,2);
-  v_avg_speed     integer;
-  v_player_count  integer;
+  v_total_score      integer;
+  v_correct_count    integer;
+  v_total_q          integer;
+  v_accuracy         numeric(5,2);
+  v_avg_speed        integer;
+  v_fastest_answer   integer;
+  v_slowest_answer   integer;
+  v_speed_stddev     numeric;
+  v_player_count     integer;
 begin
   -- Aggregate all responses for this player in this event
   select
@@ -23,23 +26,29 @@ begin
       then round((count(*) filter (where is_correct))::numeric / count(*) * 100, 2)
       else 0
     end,
-    coalesce(avg(time_taken_ms)::integer, 0)
-  into v_total_score, v_correct_count, v_total_q, v_accuracy, v_avg_speed
+    coalesce(avg(time_taken_ms)::integer, 0),
+    coalesce(min(time_taken_ms), 0),
+    coalesce(max(time_taken_ms), 0),
+    coalesce(stddev_pop(time_taken_ms)::numeric, 0)
+  into v_total_score, v_correct_count, v_total_q, v_accuracy, v_avg_speed, v_fastest_answer, v_slowest_answer, v_speed_stddev
   from public.responses
   where event_id = new.event_id and player_id = new.player_id;
 
   -- Upsert leaderboard entry
   insert into public.leaderboard_entries
-    (event_id, player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms)
+    (event_id, player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, fastest_answer_ms, slowest_answer_ms, answer_speed_stddev)
   values
-    (new.event_id, new.player_id, v_total_score, v_correct_count, v_total_q, v_accuracy, v_avg_speed)
+    (new.event_id, new.player_id, v_total_score, v_correct_count, v_total_q, v_accuracy, v_avg_speed, v_fastest_answer, v_slowest_answer, v_speed_stddev)
   on conflict (event_id, player_id) do update set
-    total_score     = excluded.total_score,
-    correct_count   = excluded.correct_count,
-    total_questions = excluded.total_questions,
-    accuracy        = excluded.accuracy,
-    avg_speed_ms    = excluded.avg_speed_ms,
-    updated_at      = now();
+    total_score       = excluded.total_score,
+    correct_count     = excluded.correct_count,
+    total_questions   = excluded.total_questions,
+    accuracy          = excluded.accuracy,
+    avg_speed_ms      = excluded.avg_speed_ms,
+    fastest_answer_ms = excluded.fastest_answer_ms,
+    slowest_answer_ms = excluded.slowest_answer_ms,
+    answer_speed_stddev = excluded.answer_speed_stddev,
+    updated_at        = now();
 
   -- Re-rank all players in this event by score desc, speed asc
   update public.leaderboard_entries le

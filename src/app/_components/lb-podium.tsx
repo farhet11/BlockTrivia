@@ -174,15 +174,13 @@ export function PodiumLayout({
             onClick={() => setExpanded(!expanded)}
             className="w-full text-center py-2 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors border-t border-border bg-primary/5 dark:bg-primary/[0.08]"
           >
-            {expanded ? "−" : "+"} {expanded ? "Collapse" : "Expand"} Results
+            {expanded ? "−" : "+"} {expanded ? "Hide" : "Show"} details
           </button>
         )}
 
         {/* Expanded stats + badge — shown when toggled open */}
         {expanded && extended && (
           <div className="px-4 py-3 border-t border-border space-y-3 bg-primary/5 dark:bg-primary/[0.08]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Results Details</p>
-
             {/* Core stats line */}
             <p className="text-[13px] text-muted-foreground">
               <span className="font-medium text-foreground">{extended.correct_count}/{extended.total_questions}</span>

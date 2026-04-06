@@ -228,9 +228,6 @@ export function ResultsView({
                     <td className="py-3 px-3 max-w-0">
                       <p className="font-medium text-foreground truncate">
                         {entry.display_name}
-                        {entry.player_id === myPlayerId && (
-                          <span className="ml-1.5 text-xs text-primary font-normal">(you)</span>
-                        )}
                       </p>
                     </td>
                     <td className="py-3 px-3 text-right font-bold tabular-nums">{entry.total_score}</td>

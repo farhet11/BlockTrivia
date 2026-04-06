@@ -156,7 +156,7 @@ export function SummaryView({
             </a>
           </p>
 
-          <div className="border border-border overflow-x-auto">
+          <div className="border border-border overflow-x-auto max-h-[400px] overflow-y-auto">
             <table className="w-full text-sm border-collapse table-fixed">
               <colgroup>
                 <col className="w-9" />
@@ -166,13 +166,13 @@ export function SummaryView({
                 <col className="w-20 hidden sm:table-column" />
                 <col className="w-20 hidden sm:table-column" />
               </colgroup>
-              <thead>
+              <thead className="sticky top-0 bg-background z-10">
                 <tr className="border-b border-border">
                   <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">#</th>
                   <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Name</th>
                   <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Score</th>
                   <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden sm:table-cell">Correct</th>
-                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden sm:table-cell">Accuracy</th>
+                  <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Accuracy</th>
                   <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden sm:table-cell">Avg Speed</th>
                 </tr>
               </thead>
@@ -194,7 +194,7 @@ export function SummaryView({
                     <td className="py-3 px-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
                       {entry.correct_count}/{entry.total_questions}
                     </td>
-                    <td className="py-3 px-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
+                    <td className="py-3 px-3 text-right tabular-nums text-muted-foreground">
                       {Math.round(Number(entry.accuracy))}%
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">

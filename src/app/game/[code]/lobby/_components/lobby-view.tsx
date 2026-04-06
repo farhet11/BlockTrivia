@@ -248,14 +248,6 @@ export function LobbyView({
                   style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500, color: isMe ? "#7c3aed" : undefined }}
                 >
                   {p.display_name}
-                  {isMe && (
-                    <span
-                      className="ml-1.5 text-[9px] font-semibold px-1.5 py-0.5"
-                      style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed" }}
-                    >
-                      you
-                    </span>
-                  )}
                 </span>
               </div>
             );

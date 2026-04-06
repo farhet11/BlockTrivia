@@ -328,10 +328,13 @@ export function PlayView({
 
   async function submitAnswer(answerIndex: number) {
     if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
-    submitLockRef.current = true;
 
+    // Reject if time has expired client-side
     const startedAt = new Date(gameState.question_started_at).getTime();
-    const timeTakenMs = Math.min(Date.now() - startedAt, currentQuestion.time_limit_seconds * 1000);
+    const timeTakenMs = Date.now() - startedAt;
+    if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) return;
+
+    submitLockRef.current = true;
 
     setSelectedAnswer(answerIndex);
     setIsSubmitting(true);
@@ -587,12 +590,20 @@ export function PlayView({
           </div>
         )}
 
+        {/* Time's up — unanswered */}
+        {timeLeft === 0 && !hasAnswered && phase === "playing" && (
+          <p className="text-center text-sm text-wrong font-medium">
+            Time&apos;s up — no answer recorded.
+          </p>
+        )}
+
         {/* Answer options */}
         <div className={`grid gap-3 ${isTrueFalse ? "grid-cols-1" : "grid-cols-2"}`}>
           {optionLabels.map((label, i) => {
             const isSelected = selectedAnswer === i;
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
+            const isTimedOut = timeLeft === 0 && !hasAnswered;
 
             let cls = "p-4 min-h-14 border text-left transition-colors ";
             if (isRevealing) {
@@ -601,7 +612,7 @@ export function PlayView({
               else cls += "border-border text-muted-foreground opacity-50";
             } else if (isSelected) {
               cls += "border-primary bg-accent-light text-primary";
-            } else if (hasAnswered) {
+            } else if (hasAnswered || isTimedOut) {
               cls += "border-border text-muted-foreground opacity-50";
             } else {
               cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
@@ -610,7 +621,7 @@ export function PlayView({
             return (
               <button
                 key={i}
-                disabled={hasAnswered || phase !== "playing" || isSubmitting}
+                disabled={hasAnswered || phase !== "playing" || isSubmitting || isTimedOut}
                 onClick={() => submitAnswer(i)}
                 className={cls}
               >

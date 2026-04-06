@@ -10,6 +10,37 @@ import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 
+function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
+  if (isAnswered || pct > 0.5) return "none";
+  if (pct > 0.2) {
+    const intensity = 1 - (pct - 0.2) / 0.3;
+    const o1 = (0.25 + intensity * 0.25) * 0.9;
+    const o2 = (0.25 + intensity * 0.25) * 0.6;
+    const o3 = (0.25 + intensity * 0.25) * 0.35;
+    const o4 = (0.25 + intensity * 0.25) * 0.15;
+    return [
+      `inset 0 0 40px 20px rgba(245,158,11,${o1})`,
+      `inset 0 0 100px 50px rgba(245,158,11,${o2})`,
+      `inset 0 0 200px 80px rgba(245,158,11,${o3})`,
+      `inset 0 0 350px 100px rgba(245,158,11,${o4})`,
+    ].join(", ");
+  }
+  const intensity = 1 - pct / 0.2;
+  const r = Math.round(239 + intensity * 16);
+  const g = Math.round(68 - intensity * 40);
+  const b = Math.round(68 - intensity * 40);
+  const o1 = (0.45 + intensity * 0.35) * 0.9;
+  const o2 = (0.45 + intensity * 0.35) * 0.6;
+  const o3 = (0.45 + intensity * 0.35) * 0.35;
+  const o4 = (0.45 + intensity * 0.35) * 0.15;
+  return [
+    `inset 0 0 40px 20px rgba(${r},${g},${b},${o1})`,
+    `inset 0 0 100px 50px rgba(${r},${g},${b},${o2})`,
+    `inset 0 0 200px 80px rgba(${r},${g},${b},${o3})`,
+    `inset 0 0 350px 100px rgba(${r},${g},${b},${o4})`,
+  ].join(", ");
+}
+
 type Sponsor = {
   id: string;
   name: string | null;
@@ -81,6 +112,7 @@ export function PlayView({
     selectedAnswer: number;
     correctAnswer: number | undefined;
     explanation: string | null;
+    didNotAnswer?: boolean;
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -226,6 +258,23 @@ export function PlayView({
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, currentQuestion, hasAnswered]);
 
+  // When host reveals answer, fetch correct answer for players who didn't submit
+  useEffect(() => {
+    if (gameState.phase !== "revealing" || hasAnswered || !currentQuestion) return;
+    supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data }) => {
+      if (data && !data.error) {
+        setLastResult({
+          isCorrect: false,
+          pointsAwarded: 0,
+          selectedAnswer: -1,
+          correctAnswer: data.correct_answer,
+          explanation: data.explanation ?? null,
+          didNotAnswer: true,
+        });
+      }
+    });
+  }, [gameState.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Interstitial countdown display (mirrors host 8s countdown)
   useEffect(() => {
     if (gameState.phase !== "interstitial") {
@@ -328,10 +377,13 @@ export function PlayView({
 
   async function submitAnswer(answerIndex: number) {
     if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
-    submitLockRef.current = true;
 
+    // Reject if time has expired client-side
     const startedAt = new Date(gameState.question_started_at).getTime();
-    const timeTakenMs = Math.min(Date.now() - startedAt, currentQuestion.time_limit_seconds * 1000);
+    const timeTakenMs = Date.now() - startedAt;
+    if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) return;
+
+    submitLockRef.current = true;
 
     setSelectedAnswer(answerIndex);
     setIsSubmitting(true);
@@ -377,6 +429,14 @@ export function PlayView({
   }
 
   const phase = gameState.phase;
+
+  // Heat Edge aura
+  const heatPct = currentQuestion && timeLeft !== null
+    ? timeLeft / currentQuestion.time_limit_seconds
+    : 1;
+  const isTimedOut = timeLeft === 0;
+  const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered || isTimedOut);
+  const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered && !isTimedOut;
 
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {
@@ -474,6 +534,27 @@ export function PlayView({
   // ── Question screen ────────────────────────────────────────────────────────
   return (
     <div className="min-h-dvh bg-background flex flex-col">
+      {/* Heat Edge urgency aura */}
+      <style>{`
+        @keyframes heat-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @media (prefers-reduced-motion: reduce) { .heat-edge { display: none !important; } }
+      `}</style>
+      <div
+        className="heat-edge"
+        style={{
+          position: "fixed",
+          top: "3.5rem",
+          right: 0,
+          bottom: 0,
+          left: 0,
+          pointerEvents: "none",
+          zIndex: 10,
+          boxShadow: heatEdgeBoxShadow,
+          transition: "box-shadow 500ms ease",
+          animation: isHeatPulsing ? "heat-pulse 1.6s ease-in-out infinite" : "none",
+        }}
+      />
+
       {/* Header */}
       <AppHeader
         user={{ id: player.id, displayName: player.displayName }}
@@ -534,7 +615,7 @@ export function PlayView({
       )}
 
       {/* Revealing banner */}
-      {phase === "revealing" && lastResult && (
+      {phase === "revealing" && lastResult && !lastResult.didNotAnswer && (
         <div
           className={`px-5 py-3 flex items-center justify-between ${
             lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
@@ -550,9 +631,15 @@ export function PlayView({
         </div>
       )}
 
+      {phase === "revealing" && lastResult?.didNotAnswer && (
+        <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
+          <span className="text-sm text-muted-foreground">Time&apos;s up — 0 pts</span>
+        </div>
+      )}
+
       {phase === "revealing" && !lastResult && (
         <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
-          <span className="text-sm text-muted-foreground">Time&apos;s up - you didn&apos;t answer in time.</span>
+          <span className="text-sm text-muted-foreground">Time&apos;s up — 0 pts</span>
         </div>
       )}
 
@@ -587,12 +674,20 @@ export function PlayView({
           </div>
         )}
 
+        {/* Time's up — unanswered */}
+        {timeLeft === 0 && !hasAnswered && phase === "playing" && (
+          <p className="text-center text-sm text-wrong font-medium">
+            Time&apos;s up — no answer recorded.
+          </p>
+        )}
+
         {/* Answer options */}
         <div className={`grid gap-3 ${isTrueFalse ? "grid-cols-1" : "grid-cols-2"}`}>
           {optionLabels.map((label, i) => {
-            const isSelected = selectedAnswer === i;
+            const isSelected = selectedAnswer !== null && selectedAnswer >= 0 && selectedAnswer === i;
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
+            const isTimedOut = timeLeft === 0 && !hasAnswered;
 
             let cls = "p-4 min-h-14 border text-left transition-colors ";
             if (isRevealing) {
@@ -601,7 +696,7 @@ export function PlayView({
               else cls += "border-border text-muted-foreground opacity-50";
             } else if (isSelected) {
               cls += "border-primary bg-accent-light text-primary";
-            } else if (hasAnswered) {
+            } else if (hasAnswered || isTimedOut) {
               cls += "border-border text-muted-foreground opacity-50";
             } else {
               cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
@@ -610,7 +705,7 @@ export function PlayView({
             return (
               <button
                 key={i}
-                disabled={hasAnswered || phase !== "playing" || isSubmitting}
+                disabled={hasAnswered || phase !== "playing" || isSubmitting || isTimedOut}
                 onClick={() => submitAnswer(i)}
                 className={cls}
               >

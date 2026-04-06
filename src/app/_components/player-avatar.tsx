@@ -8,10 +8,12 @@ export function PlayerAvatar({
   seed,
   name,
   size = 40,
+  url,
 }: {
   seed: string;
   name?: string;
   size?: number;
+  url?: string | null;
 }) {
   const svg = useMemo(
     () =>
@@ -25,13 +27,15 @@ export function PlayerAvatar({
     [seed, size]
   );
 
+  const imgSrc = url || svg;
+
   return (
     <img
-      src={svg}
+      src={imgSrc}
       alt={name ? `${name}'s avatar` : "Player avatar"}
       width={size}
       height={size}
-      style={{ borderRadius: 8, flexShrink: 0 }}
+      style={{ borderRadius: 8, flexShrink: 0, objectFit: "cover" }}
     />
   );
 }

@@ -7,11 +7,13 @@ export function PlayerHeader({
   avatarUrl,
   right,
   logoHref = "/join",
+  isHost = false,
 }: {
   user?: { id: string; displayName: string; email?: string } | null;
   avatarUrl?: string | null;
   right?: React.ReactNode;
   logoHref?: string;
+  isHost?: boolean;
 }) {
   return (
     <div className="border-b border-border w-full shrink-0">
@@ -31,7 +33,7 @@ export function PlayerHeader({
 
         <div className="flex items-center gap-2">
           {right}
-          {user ? <AvatarDropdown user={user} avatarUrl={avatarUrl} /> : null}
+          {user ? <AvatarDropdown user={user} avatarUrl={avatarUrl} isHost={isHost} /> : null}
         </div>
       </header>
     </div>

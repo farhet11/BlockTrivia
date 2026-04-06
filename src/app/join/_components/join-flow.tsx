@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase";
 import { FindGame } from "./find-game";
 import { IdentityPanel } from "./identity-panel";
 import { LivenessChallenge } from "@/app/_components/liveness-challenge";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 
 type VerifiedEvent = {
   id: string;
@@ -26,7 +26,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
   const [step, setStep] = useState<"find" | "identity" | "liveness">("find");
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [verifiedEvent, setVerifiedEvent] = useState<VerifiedEvent | null>(null);
-  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string } | null>(null);
+  const [sessionUser, setSessionUser] = useState<{ id: string; displayName: string; email?: string; avatarUrl?: string | null } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Prevent browser auto-scroll from fighting translateX positioning
@@ -42,14 +42,27 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
 
   // Check for existing session on mount
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
-        const name =
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name ||
-          user.email?.split("@")[0] ||
-          "Player";
-        setSessionUser({ id: user.id, displayName: name });
+        // Fetch profile for canonical display_name and avatar
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name, avatar_url")
+          .eq("id", user.id)
+          .single();
+
+        setSessionUser({
+          id: user.id,
+          displayName:
+            profile?.display_name ||
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email?.split("@")[0] ||
+            "Player",
+          email: user.email ?? undefined,
+          // Fall back to OAuth photo if no uploaded avatar
+          avatarUrl: profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null,
+        });
       }
     });
   }, [supabase]);
@@ -133,7 +146,7 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
 
   return (
     <div className="min-h-dvh bg-background overflow-hidden" ref={containerRef}>
-      <PlayerHeader user={sessionUser} />
+      <AppHeader user={sessionUser} avatarUrl={sessionUser?.avatarUrl} />
 
       {/* Sliding panels container */}
       <div className="relative pt-14">

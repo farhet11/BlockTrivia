@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import confetti from "canvas-confetti";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ShareResultButton } from "./share-result-button";
 import { PodiumLayout, RankingRow, PinnedRankSection } from "@/app/_components/lb-podium";
@@ -83,7 +83,7 @@ export function FinalView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader />
+      <AppHeader />
 
       <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 py-8 space-y-8">
         {/* Title */}

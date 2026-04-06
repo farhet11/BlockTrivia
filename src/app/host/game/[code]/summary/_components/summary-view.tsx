@@ -1,6 +1,6 @@
 "use client";
 
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { AnnounceResultsButton } from "./announce-results-button";
 
 type Entry = {
@@ -63,7 +63,7 @@ export function SummaryView({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
-      <PlayerHeader
+      <AppHeader
         logoHref="/host"
         user={hostUser ?? null}
         avatarUrl={hostUser?.avatarUrl}

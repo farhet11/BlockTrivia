@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 import { createClient } from "@/lib/supabase";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 
@@ -146,7 +146,7 @@ export function LeaderboardView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* ── Header ── */}
-      <PlayerHeader
+      <AppHeader
         user={viewerType === "player" && playerId ? { id: playerId, displayName: myDisplayName, email: playerEmail ?? undefined } : null}
         avatarUrl={playerAvatarUrl}
       />

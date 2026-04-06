@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { HostSidebar } from "./host-sidebar";
-import { DashboardHeader } from "./dashboard-header";
+import { AppHeader } from "@/app/_components/app-header";
 
 const SIDEBAR_KEY = "bt-sidebar-collapsed";
 
@@ -10,7 +10,7 @@ export function DashboardShell({
   user,
   children,
 }: {
-  user: { id: string; displayName: string; email: string };
+  user: { id: string; displayName: string; email: string; avatarUrl?: string | null };
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -31,8 +31,10 @@ export function DashboardShell({
 
   return (
     <div className="min-h-dvh bg-background flex flex-col overflow-hidden">
-      {/* Full-width header — always on top */}
-      <DashboardHeader user={user} />
+      {/* Full-width fixed header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-background">
+        <AppHeader user={user} avatarUrl={user.avatarUrl} logoHref="/host" isHost fullWidth />
+      </div>
 
       {/* Below header: sidebar + content (pt-14 offsets the fixed header) */}
       <div

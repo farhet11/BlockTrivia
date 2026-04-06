@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
-import { PlayerHeader } from "@/app/_components/player-header";
+import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { BlockSpinner } from "@/components/ui/block-spinner";
@@ -60,8 +60,8 @@ export function PlayView({
   sponsors,
   roundsInfo,
 }: {
-  event: { id: string; title: string; joinCode: string; logoUrl: string | null };
-  player: { id: string; displayName: string; avatarUrl?: string | null };
+  event: { id: string; title: string; joinCode: string; logoUrl: string | null; logoDarkUrl?: string | null; organizerName?: string | null };
+  player: { id: string; displayName: string; email?: string; avatarUrl?: string | null };
   questions: QuestionData[];
   initialGameState: GameState;
   sponsors: Sponsor[];
@@ -383,8 +383,8 @@ export function PlayView({
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
     return (
       <div className="min-h-dvh bg-background flex flex-col">
-        <PlayerHeader
-          user={{ id: player.id, displayName: player.displayName }}
+        <AppHeader
+          user={{ id: player.id, displayName: player.displayName, email: player.email }}
           avatarUrl={player.avatarUrl}
           right={event.logoUrl ? (
             <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
@@ -475,7 +475,7 @@ export function PlayView({
   return (
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
-      <PlayerHeader
+      <AppHeader
         user={{ id: player.id, displayName: player.displayName }}
         avatarUrl={player.avatarUrl}
         right={timeLeft !== null && !hasAnswered ? (

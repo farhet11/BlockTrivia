@@ -82,7 +82,8 @@ export default async function LobbyPage({
       player={{
         id: user.id,
         displayName: profile?.display_name || "Player",
-        avatarUrl: profile?.avatar_url ?? null,
+        email: user.email ?? undefined,
+        avatarUrl: profile?.avatar_url ?? (user.user_metadata?.avatar_url as string | null) ?? null,
       }}
       sponsors={sponsors ?? []}
     />

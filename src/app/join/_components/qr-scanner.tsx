@@ -20,7 +20,7 @@ export function QrScanner({
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
         });
         streamRef.current = stream;
 
@@ -33,7 +33,7 @@ export function QrScanner({
         setError(
           window.location.protocol === "http:"
             ? "Camera requires HTTPS. On localhost, enter the code manually."
-            : "Could not access camera. Check permissions."
+            : "Could not access camera. Check permissions and try again."
         );
       }
     }
@@ -41,18 +41,16 @@ export function QrScanner({
     async function scanFrames() {
       if (!scanningRef.current || !videoRef.current) return;
 
-      // Use BarcodeDetector if available (Chrome, Edge, Android)
       if ("BarcodeDetector" in window) {
         try {
-          // @ts-expect-error — BarcodeDetector is not in all TS libs yet
+          // @ts-expect-error — BarcodeDetector not in all TS libs
           const detector = new BarcodeDetector({ formats: ["qr_code"] });
           const detect = async () => {
             if (!scanningRef.current || !videoRef.current) return;
             try {
               const barcodes = await detector.detect(videoRef.current);
               if (barcodes.length > 0) {
-                const url = barcodes[0].rawValue;
-                const code = extractCode(url);
+                const code = extractCode(barcodes[0].rawValue);
                 if (code) {
                   scanningRef.current = false;
                   cleanup();
@@ -61,7 +59,7 @@ export function QrScanner({
                 }
               }
             } catch {
-              // Frame not ready, continue
+              // Frame not ready yet
             }
             if (scanningRef.current) {
               animationId = requestAnimationFrame(detect);
@@ -72,9 +70,7 @@ export function QrScanner({
           setError("QR scanning not supported on this browser.");
         }
       } else {
-        setError(
-          "QR scanning not supported in this browser. Try Chrome or use your phone's camera app."
-        );
+        setError("QR scanning not supported in this browser. Try Chrome or use your phone's camera app.");
       }
     }
 
@@ -93,57 +89,99 @@ export function QrScanner({
   }, []);
 
   function extractCode(value: string): string | null {
-    // Handle full URLs like blocktrivia.com/join/ABCDE or just the code
     const urlMatch = value.match(/\/join\/([A-Z0-9]{5})/i);
     if (urlMatch) return urlMatch[1].toUpperCase();
-
-    // Raw 5-char code
-    if (/^[A-Z0-9]{5}$/i.test(value.trim())) {
-      return value.trim().toUpperCase();
-    }
+    if (/^[A-Z0-9]{5}$/i.test(value.trim())) return value.trim().toUpperCase();
     return null;
   }
 
+  function handleClose() {
+    scanningRef.current = false;
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    onClose();
+  }
+
+  // Viewfinder size as % of screen width, capped
+  const VF = "min(65vw, 280px)";
+
   return (
-    <div className="fixed inset-0 z-50 bg-foreground/90 flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-4">
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+
+      {/* Full-screen camera feed */}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-cover"
+        playsInline
+        muted
+      />
+
+      {/* Dark overlay with transparent viewfinder cutout */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        {/* Top shade */}
+        <div className="w-full flex-1 bg-black/60" />
+
+        {/* Middle row */}
+        <div className="flex w-full items-center" style={{ height: VF }}>
+          <div className="flex-1 h-full bg-black/60" />
+
+          {/* Viewfinder — transparent, corner brackets via pseudo-approach */}
+          <div className="relative shrink-0" style={{ width: VF, height: VF }}>
+            {/* Corner brackets */}
+            {[
+              "top-0 left-0 border-t-2 border-l-2",
+              "top-0 right-0 border-t-2 border-r-2",
+              "bottom-0 left-0 border-b-2 border-l-2",
+              "bottom-0 right-0 border-b-2 border-r-2",
+            ].map((cls, i) => (
+              <span
+                key={i}
+                className={`absolute ${cls} border-white w-7 h-7`}
+              />
+            ))}
+          </div>
+
+          <div className="flex-1 h-full bg-black/60" />
+        </div>
+
+        {/* Bottom shade */}
+        <div className="w-full flex-1 bg-black/60" />
+      </div>
+
+      {/* Header — close X */}
+      <div className="relative z-10 flex items-center justify-between px-5 pt-14">
+        <p className="text-white font-heading text-lg font-bold">Scan QR Code</p>
+        <button
+          onClick={handleClose}
+          className="size-9 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          aria-label="Close scanner"
+        >
+          <svg className="size-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Instructions or error — bottom */}
+      <div className="relative z-10 mt-auto pb-16 px-5 text-center space-y-4">
         {error ? (
-          <div className="bg-surface p-6 text-center space-y-4">
-            <p className="text-sm text-muted-foreground">{error}</p>
+          <div className="bg-black/70 border border-white/10 p-5 space-y-3">
+            <p className="text-sm text-white/80">{error}</p>
             <button
-              onClick={onClose}
-              className="text-primary font-medium text-sm hover:underline underline-offset-4"
+              onClick={handleClose}
+              className="text-primary font-medium text-sm"
             >
               Go back to code entry
             </button>
           </div>
         ) : (
-          <>
-            <div className="relative aspect-square overflow-hidden bg-black max-h-[60vh]">
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                playsInline
-                muted
-              />
-              {/* Scan frame overlay */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-2/3 aspect-square border-2 border-white/60 rounded-lg" />
-              </div>
-            </div>
-            <p className="text-center text-sm text-white/70">
-              Point your camera at a BlockTrivia QR code
-            </p>
-          </>
+          <p className="text-sm text-white/60">
+            Point your camera at a BlockTrivia QR code
+          </p>
         )}
 
         <button
-          onClick={() => {
-            scanningRef.current = false;
-            streamRef.current?.getTracks().forEach((t) => t.stop());
-            onClose();
-          }}
-          className="w-full text-center text-sm text-white/70 hover:text-white transition-colors py-2"
+          onClick={handleClose}
+          className="w-full h-12 bg-white/10 hover:bg-white/15 transition-colors text-white font-medium text-sm border border-white/10"
         >
           Cancel
         </button>

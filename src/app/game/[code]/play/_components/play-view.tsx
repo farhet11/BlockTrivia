@@ -112,6 +112,7 @@ export function PlayView({
     selectedAnswer: number;
     correctAnswer: number | undefined;
     explanation: string | null;
+    didNotAnswer?: boolean;
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -256,6 +257,23 @@ export function PlayView({
     interval = setInterval(tick, 200);
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, currentQuestion, hasAnswered]);
+
+  // When host reveals answer, fetch correct answer for players who didn't submit
+  useEffect(() => {
+    if (gameState.phase !== "revealing" || hasAnswered || !currentQuestion) return;
+    supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data }) => {
+      if (data && !data.error) {
+        setLastResult({
+          isCorrect: false,
+          pointsAwarded: 0,
+          selectedAnswer: -1,
+          correctAnswer: data.correct_answer,
+          explanation: data.explanation ?? null,
+          didNotAnswer: true,
+        });
+      }
+    });
+  }, [gameState.phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Interstitial countdown display (mirrors host 8s countdown)
   useEffect(() => {
@@ -593,7 +611,7 @@ export function PlayView({
       )}
 
       {/* Revealing banner */}
-      {phase === "revealing" && lastResult && (
+      {phase === "revealing" && lastResult && !lastResult.didNotAnswer && (
         <div
           className={`px-5 py-3 flex items-center justify-between ${
             lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
@@ -609,9 +627,15 @@ export function PlayView({
         </div>
       )}
 
+      {phase === "revealing" && lastResult?.didNotAnswer && (
+        <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
+          <span className="text-sm text-muted-foreground">Time&apos;s up — 0 pts</span>
+        </div>
+      )}
+
       {phase === "revealing" && !lastResult && (
         <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
-          <span className="text-sm text-muted-foreground">Time&apos;s up - you didn&apos;t answer in time.</span>
+          <span className="text-sm text-muted-foreground">Time&apos;s up — 0 pts</span>
         </div>
       )}
 
@@ -656,7 +680,7 @@ export function PlayView({
         {/* Answer options */}
         <div className={`grid gap-3 ${isTrueFalse ? "grid-cols-1" : "grid-cols-2"}`}>
           {optionLabels.map((label, i) => {
-            const isSelected = selectedAnswer === i;
+            const isSelected = selectedAnswer !== null && selectedAnswer >= 0 && selectedAnswer === i;
             const isCorrectOption = lastResult?.correctAnswer === i;
             const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
             const isTimedOut = timeLeft === 0 && !hasAnswered;

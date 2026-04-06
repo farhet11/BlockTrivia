@@ -159,7 +159,7 @@ export function ResultsView({
 
         {/* 1.1 Header */}
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#22c55e]">Game Ended</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary">Game Ended</p>
           <h1 className="font-heading text-2xl font-semibold tracking-tight">{event.title}</h1>
           {(formattedDate || organizerDisplay) && (
             <p className="text-[14px] text-muted-foreground">
@@ -192,10 +192,18 @@ export function ResultsView({
           </p>
 
           <div className="border border-border overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
+            <table className="w-full text-sm border-collapse table-fixed">
+              <colgroup>
+                <col className="w-9" />
+                <col />{/* Name — takes remaining space */}
+                <col className="w-16" />
+                <col className="w-20 hidden sm:table-column" />
+                <col className="w-20 hidden sm:table-column" />
+                <col className="w-20 hidden sm:table-column" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground w-10">#</th>
+                  <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">#</th>
                   <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Name</th>
                   <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Score</th>
                   <th className="text-right py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground hidden sm:table-cell">Correct</th>
@@ -217,8 +225,8 @@ export function ResultsView({
                         {entry.rank}
                       </span>
                     </td>
-                    <td className="py-3 px-3">
-                      <p className="font-medium text-foreground">
+                    <td className="py-3 px-3 max-w-0">
+                      <p className="font-medium text-foreground truncate">
                         {entry.display_name}
                         {entry.player_id === myPlayerId && (
                           <span className="ml-1.5 text-xs text-primary font-normal">(you)</span>

@@ -141,7 +141,7 @@ export function PodiumLayout({
 
   // 1 player only — skip podium, single highlighted row
   if (!second) {
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const extended = extendedData?.[first.player_id];
 
     return (

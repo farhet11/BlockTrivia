@@ -94,113 +94,129 @@ export function QrScanner({
     onClose();
   }
 
+  const VF = 256; // viewfinder px
+
   return (
     <>
-      {/* Sweep keyframe */}
       <style>{`
         @keyframes qr-sweep {
-          0%   { transform: translateY(0); }
-          50%  { transform: translateY(228px); }
-          100% { transform: translateY(0); }
+          0%   { top: 6px; }
+          50%  { top: ${VF - 10}px; }
+          100% { top: 6px; }
         }
       `}</style>
 
-      {/* Full-screen overlay — sits above everything */}
-      <div
-        style={{ position: "fixed", inset: 0, zIndex: 9999 }}
-        className="flex flex-col bg-black"
-      >
-        {/* Camera feed */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000", display: "flex", flexDirection: "column" }}>
+
+        {/* Camera — fills entire screen */}
         <video
           ref={videoRef}
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", background: "#000" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
           playsInline
           muted
         />
 
-        {/* Everything on top of the camera */}
+        {/* UI layer */}
         <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", height: "100%" }}>
 
-          {/* Top bar */}
-          <div
-            style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%)" }}
-            className="flex items-center justify-between px-5 pt-14 pb-8"
-          >
-            <p className="text-white font-heading text-lg font-bold tracking-tight">Scan QR Code</p>
+          {/* Header */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "56px 20px 16px",
+            background: "linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)",
+          }}>
+            <span style={{ color: "white", fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px", fontFamily: "var(--font-outfit, sans-serif)" }}>
+              Scan QR Code
+            </span>
             <button
               onClick={handleClose}
-              style={{ background: "rgba(255,255,255,0.15)", borderRadius: "50%", width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", border: "none", cursor: "pointer" }}
+              style={{
+                width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer",
+                background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center",
+              }}
               aria-label="Close"
             >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          {/* Centre — viewfinder */}
-          <div className="flex-1 flex flex-col items-center justify-center gap-5">
-            <p className="text-white/80 text-sm font-medium tracking-wide">
-              Align QR code within the frame
-            </p>
+          {/* Viewfinder — centred in remaining space */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20 }}>
 
-            {/* Viewfinder box */}
-            <div
-              style={{
-                width: 240,
-                height: 240,
-                position: "relative",
-                border: "1px solid rgba(255,255,255,0.25)",
-                overflow: "hidden",
-              }}
-            >
+            {/* The box — box-shadow creates the dark surround without extra panels */}
+            <div style={{
+              position: "relative",
+              width: VF,
+              height: VF,
+              boxShadow: "0 0 0 9999px rgba(0,0,0,0.55)",
+              borderRadius: 4,
+              overflow: "hidden",
+            }}>
               {/* Corner brackets */}
               {[
-                { top: 0, left: 0, borderTop: "3px solid white", borderLeft: "3px solid white" },
-                { top: 0, right: 0, borderTop: "3px solid white", borderRight: "3px solid white" },
-                { bottom: 0, left: 0, borderBottom: "3px solid white", borderLeft: "3px solid white" },
-                { bottom: 0, right: 0, borderBottom: "3px solid white", borderRight: "3px solid white" },
+                { top: 0, left: 0, borderTop: "3px solid #fff", borderLeft: "3px solid #fff", borderTopLeftRadius: 4 },
+                { top: 0, right: 0, borderTop: "3px solid #fff", borderRight: "3px solid #fff", borderTopRightRadius: 4 },
+                { bottom: 0, left: 0, borderBottom: "3px solid #fff", borderLeft: "3px solid #fff", borderBottomLeftRadius: 4 },
+                { bottom: 0, right: 0, borderBottom: "3px solid #fff", borderRight: "3px solid #fff", borderBottomRightRadius: 4 },
               ].map((s, i) => (
-                <div key={i} style={{ position: "absolute", width: 32, height: 32, ...s }} />
+                <div key={i} style={{ position: "absolute", width: 28, height: 28, ...s }} />
               ))}
 
               {/* Sweep line */}
-              <div
-                style={{
-                  position: "absolute",
-                  left: 8,
-                  right: 8,
-                  top: 4,
-                  height: 2,
-                  background: "rgba(124,58,237,0.9)",
-                  boxShadow: "0 0 8px 2px rgba(124,58,237,0.5)",
-                  animation: "qr-sweep 2s ease-in-out infinite",
-                }}
-              />
+              <div style={{
+                position: "absolute",
+                left: 8,
+                right: 8,
+                height: 2,
+                background: "rgba(124,58,237,0.9)",
+                boxShadow: "0 0 8px 3px rgba(124,58,237,0.4)",
+                animation: "qr-sweep 2s ease-in-out infinite",
+              }} />
             </div>
-          </div>
 
-          {/* Bottom bar */}
-          <div
-            style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)" }}
-            className="flex flex-col items-center gap-4 px-5 pt-10 pb-12"
-          >
-            {error ? (
-              <div className="w-full bg-black/70 border border-white/10 p-4 space-y-3 text-center">
-                <p className="text-sm text-white/80">{error}</p>
-                <button onClick={handleClose} className="text-primary font-medium text-sm">
-                  Go back to code entry
-                </button>
-              </div>
-            ) : (
-              <p className="text-xs text-white/40 text-center">
-                Point your camera at a BlockTrivia QR code
+            {/* Instruction text — sits below box, above dark surround level */}
+            {!error && (
+              <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 500, textAlign: "center", margin: 0 }}>
+                Place the QR code within the frame to scan
               </p>
             )}
 
+            {error && (
+              <div style={{
+                width: VF + 40,
+                background: "rgba(0,0,0,0.8)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                borderRadius: 6,
+                padding: "16px",
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}>
+                <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, margin: 0 }}>{error}</p>
+                <button onClick={handleClose} style={{ color: "#7c3aed", fontWeight: 600, fontSize: 13, background: "none", border: "none", cursor: "pointer" }}>
+                  Go back to code entry
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Cancel button — pinned to bottom */}
+          <div style={{
+            padding: "16px 24px 40px",
+            background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)",
+          }}>
             <button
               onClick={handleClose}
-              className="w-full h-12 text-white font-medium text-sm border border-white/20 bg-white/10"
+              style={{
+                width: "100%", height: 48, border: "1px solid rgba(255,255,255,0.2)",
+                background: "rgba(255,255,255,0.08)", color: "white",
+                fontSize: 15, fontWeight: 500, cursor: "pointer", borderRadius: 4,
+              }}
             >
               Cancel
             </button>

@@ -65,6 +65,8 @@ export function ProfileView({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [showRemovePhoto, setShowRemovePhoto] = useState(false);
 
   async function saveName() {
     const trimmed = name.trim();
@@ -108,8 +110,14 @@ export function ProfileView({
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError("File too large. Max 5 MB.");
+      setTimeout(() => setAvatarError(null), 4000);
+      e.target.value = "";
+      return;
+    }
 
+    setAvatarError(null);
     setUploadingAvatar(true);
     const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${user.id}/avatar.${ext}`;
@@ -119,7 +127,11 @@ export function ProfileView({
       contentType: file.type,
     });
 
-    if (!uploadError) {
+    if (uploadError) {
+      console.error("Avatar upload failed:", uploadError);
+      setAvatarError("Upload failed. Try a JPG, PNG or WebP under 5 MB.");
+      setTimeout(() => setAvatarError(null), 4000);
+    } else {
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
       const publicUrl = data.publicUrl;
       await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
@@ -127,6 +139,18 @@ export function ProfileView({
     }
     setUploadingAvatar(false);
     e.target.value = "";
+  }
+
+  async function handleDeleteAvatar() {
+    setUploadingAvatar(true);
+    const isStorageUrl = (avatarUrl ?? "").includes("/storage/v1/object/public/avatars/");
+    if (isStorageUrl) {
+      const ext = avatarUrl!.split(".").pop()?.split("?")[0] ?? "jpg";
+      await supabase.storage.from("avatars").remove([`${user.id}/avatar.${ext}`]);
+    }
+    await supabase.from("profiles").update({ avatar_url: "none" }).eq("id", user.id);
+    setAvatarUrl(null);
+    setUploadingAvatar(false);
   }
 
   async function handleSignOut() {
@@ -202,6 +226,18 @@ export function ProfileView({
               onChange={handleAvatarUpload}
             />
           </div>
+
+          {avatarError && (
+            <p className="mt-1.5 text-xs text-destructive">{avatarError}</p>
+          )}
+          {avatarUrl && !uploadingAvatar && !avatarError && (
+            <button
+              onClick={() => setShowRemovePhoto(true)}
+              className="mt-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+            >
+              Remove photo
+            </button>
+          )}
 
           <div className="mt-3">
             {editing ? (
@@ -444,6 +480,16 @@ export function ProfileView({
       </div>
 
       {/* Modals */}
+      {showRemovePhoto && (
+        <ConfirmModal
+          title="Remove photo?"
+          description="Your avatar will revert to the generated thumbdice image."
+          confirmLabel="Remove"
+          variant="default"
+          onConfirm={() => { setShowRemovePhoto(false); handleDeleteAvatar(); }}
+          onCancel={() => setShowRemovePhoto(false)}
+        />
+      )}
       {showSignOut && (
         <ConfirmModal
           title="Sign out"

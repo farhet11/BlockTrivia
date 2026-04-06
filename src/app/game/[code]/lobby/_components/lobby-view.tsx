@@ -125,6 +125,9 @@ export function LobbyView({
 
     loadPlayers();
 
+    // Polling fallback — re-fetches full list every 3s in case Realtime misses a join
+    const pollInterval = setInterval(loadPlayers, 3000);
+
     const channel = supabase
       .channel(`lobby:${event.id}`)
       .on(
@@ -153,7 +156,10 @@ export function LobbyView({
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
+    };
   }, [supabase, event.id]);
 
   return (

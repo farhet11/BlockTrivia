@@ -124,13 +124,23 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
 
         {/* Zone 2: Action bar */}
         <div className="border-t border-border bg-[#f5f3ef]/50 dark:bg-[#1a1a1e] px-4 py-2.5 flex items-center justify-between rounded-b-lg">
-          <Link
-            href={editHref}
-            className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors px-2 py-1"
-          >
-            <Pencil {...ACTION_ICON} />
-            <span className="hidden sm:inline text-xs font-medium">Edit</span>
-          </Link>
+          {isEnded ? (
+            <Link
+              href={summaryHref}
+              className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors px-2 py-1"
+            >
+              <FileText {...ACTION_ICON} />
+              <span className="hidden sm:inline text-xs font-medium">Summary</span>
+            </Link>
+          ) : (
+            <Link
+              href={editHref}
+              className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors px-2 py-1"
+            >
+              <Pencil {...ACTION_ICON} />
+              <span className="hidden sm:inline text-xs font-medium">Edit</span>
+            </Link>
+          )}
 
           <button
             onClick={() => handleDuplicate(event)}
@@ -142,16 +152,6 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
               {duplicating === event.id ? "..." : "Duplicate"}
             </span>
           </button>
-
-          {isEnded && (
-            <Link
-              href={summaryHref}
-              className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors px-2 py-1"
-            >
-              <FileText {...ACTION_ICON} />
-              <span className="hidden sm:inline text-xs font-medium">Summary</span>
-            </Link>
-          )}
 
           <button
             onClick={(e) => {

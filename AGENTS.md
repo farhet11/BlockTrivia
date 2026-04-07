@@ -112,4 +112,38 @@ Until all required boxes are checked, the task is IN PROGRESS. Say so.
 - "I committed it" ≠ done if it's not on the right branch
 - "It's merged" ≠ done without `git log` proof
 
+---
+
+## 8. Feature Workflow
+
+Every non-trivial feature follows this sequence. Do not skip steps.
+
+1. **Brainstorm** — discuss the idea in chat first
+2. **Plan mode** — required when the task (a) touches more than 2 files,
+   (b) adds new functionality, or (c) touches DB/auth/migrations.
+   Trivial single-file fixes can skip. You approve the plan before I write code.
+3. **Notion → In Progress** — I update the Notion roadmap item to
+   "In Progress" via the Notion MCP tool. If the Notion MCP is not
+   connected in this session, I flag it immediately — I never silently skip.
+4. **Branch + code + build check** — feature branch, code written,
+   `npm run build` and `npm run lint` pass (for code-touching tasks).
+5. **You test on localhost and approve** — I do not proceed past this
+   without your explicit OK.
+6. **PR opened** — I open the PR and tell you. I stop here and wait.
+7. **Migration check** — if the feature needs a DB migration, you confirm
+   you've run it from the Supabase UI before I consider the PR mergeable.
+   I never run migrations myself.
+8. **Explicit merge instruction** — I never merge on standing authorization.
+   You say "merge it" in the message where you want it merged. Each PR
+   requires its own instruction. Approval to open a PR ≠ approval to merge.
+9. **Notion → Done** — I update the Notion item to "Done" after merge is
+   confirmed via `git log`.
+
+### One feature at a time
+
+No stacking unmerged feature branches unless they are truly independent
+(no shared files, no shared schema changes). If you ask me to start
+feature B while feature A is still open, I stop and confirm A is either
+merged or explicitly parked first.
+
 <!-- END: blocktrivia-agent-rules -->

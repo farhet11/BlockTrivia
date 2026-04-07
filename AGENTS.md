@@ -122,9 +122,11 @@ Every non-trivial feature follows this sequence. Do not skip steps.
 2. **Plan mode** — required when the task (a) touches more than 2 files,
    (b) adds new functionality, or (c) touches DB/auth/migrations.
    Trivial single-file fixes can skip. You approve the plan before I write code.
-3. **Notion → In Progress** — I update the Notion roadmap item to
-   "In Progress" via the Notion MCP tool. If the Notion MCP is not
-   connected in this session, I flag it immediately — I never silently skip.
+3. **Notion → In Progress** — I update the matching item in the
+   "Feature Roadmap" database: set `Status` → `In progress`.
+   I only touch the `Status` field — never other fields unless instructed.
+   If the Notion MCP tool is not connected in this session, I flag it
+   immediately and stop — I never silently skip this step.
 4. **Branch + code + build check** — feature branch, code written,
    `npm run build` and `npm run lint` pass (for code-touching tasks).
 5. **You test on localhost and approve** — I do not proceed past this
@@ -136,8 +138,8 @@ Every non-trivial feature follows this sequence. Do not skip steps.
 8. **Explicit merge instruction** — I never merge on standing authorization.
    You say "merge it" in the message where you want it merged. Each PR
    requires its own instruction. Approval to open a PR ≠ approval to merge.
-9. **Notion → Done** — I update the Notion item to "Done" after merge is
-   confirmed via `git log`.
+9. **Notion → Done** — I update the "Feature Roadmap" item:
+   set `Status` → `Done`. Only after merge is confirmed via `git log`.
 
 ### One feature at a time
 

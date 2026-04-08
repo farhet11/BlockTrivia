@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getAnthropicClient, MINDSCAN_MODEL } from "@/lib/anthropic";
 import { buildOnboardingFollowupPrompt } from "@/lib/mindscan/prompts";
@@ -88,9 +89,15 @@ export async function POST(request: Request) {
     }
     rawText = first.text;
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    if (err instanceof Anthropic.RateLimitError) {
+      return NextResponse.json(
+        { error: "MindScan is busy — please wait a moment and try again." },
+        { status: 429 }
+      );
+    }
+    console.error("MindScan onboarding-followup error:", err);
     return NextResponse.json(
-      { error: `MindScan call failed: ${message}` },
+      { error: "MindScan call failed. Please try again." },
       { status: 502 }
     );
   }

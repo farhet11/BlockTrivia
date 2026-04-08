@@ -156,6 +156,7 @@ Full Supabase Postgres schema in `supabase/migrations/001_initial_schema.sql`:
 npm run dev     # Start dev server
 npm run build   # Production build
 npm run lint    # ESLint
+npm test        # Run Vitest test suite
 ```
 
 ## Key Conventions
@@ -166,6 +167,15 @@ npm run lint    # ESLint
 - Read `node_modules/next/dist/docs/` before writing any Next.js code — this is Next.js 16 with breaking changes
 - Design tokens are CSS variables in `globals.css`, mapped via `@theme inline` for Tailwind
 - Logo: use `logo-light.svg` (light mode) and `logo-dark.svg` (dark mode) with `dark:hidden` / `hidden dark:block` pattern
+
+## Testing
+
+- Run: `npm test` (vitest run) — test directory: `src/__tests__/`
+- Full docs: `TESTING.md`
+- When writing new functions, write a corresponding test
+- When fixing a bug, write a regression test
+- When adding a conditional (if/else), write tests for BOTH paths
+- Never commit code that makes existing tests fail
 
 ## Skill routing
 

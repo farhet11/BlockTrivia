@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { resolvePlayerName } from "@/lib/player-name";
@@ -449,6 +450,41 @@ export function PlayView({
 
   const phase = gameState.phase;
 
+  // ── Confetti ───────────────────────────────────────────────────────────────
+  const fireConfetti = useCallback(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const brandColors = [
+      "#7c3aed", "#7c3aed", // double-weighted violet
+      "#1a1917",            // ink
+      "#a78bfa", "#c4b5fd", // light violet
+      "#22c55e", "#86efac", // correct green
+      "#faf9f7",            // warm cream
+    ];
+    const square = confetti.shapeFromPath({ path: "M0 0 L1 0 L1 1 L0 1 Z" });
+    const shapes: confetti.Shape[] = ["square", square, "circle"];
+
+    // Burst 1 — center cannon
+    confetti({ particleCount: 80, spread: 70, origin: { x: 0.5, y: 0.8 }, colors: brandColors, shapes, ticks: 180, gravity: 0.9, scalar: 1.2, startVelocity: 45, disableForReducedMotion: true });
+    // Burst 2 — left spray
+    setTimeout(() => confetti({ particleCount: 40, spread: 55, angle: 60, origin: { x: 0.2, y: 0.85 }, colors: brandColors, shapes, ticks: 160, gravity: 1.0, scalar: 1.0, startVelocity: 40, disableForReducedMotion: true }), 100);
+    // Burst 3 — right spray
+    setTimeout(() => confetti({ particleCount: 40, spread: 55, angle: 120, origin: { x: 0.8, y: 0.85 }, colors: brandColors, shapes, ticks: 160, gravity: 1.0, scalar: 1.0, startVelocity: 40, disableForReducedMotion: true }), 200);
+    // Burst 4 — center shower, bigger particles
+    setTimeout(() => confetti({ particleCount: 30, spread: 120, origin: { x: 0.5, y: 0.7 }, colors: ["#7c3aed", "#1a1917", "#a78bfa", "#faf9f7"], shapes, ticks: 200, gravity: 0.7, scalar: 1.5, startVelocity: 30, disableForReducedMotion: true }), 350);
+    // Burst 5 — final sparkle
+    setTimeout(() => confetti({ particleCount: 25, spread: 160, origin: { x: 0.5, y: 0.75 }, colors: ["#22c55e", "#86efac", "#faf9f7"], ticks: 120, gravity: 1.4, scalar: 0.6, startVelocity: 50, disableForReducedMotion: true }), 500);
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "revealing" || !lastResult?.isCorrect) return;
+    const timer = setTimeout(() => {
+      fireConfetti();
+      navigator.vibrate?.(50);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [phase, lastResult?.isCorrect, fireConfetti]);
+
   // Heat Edge aura
   const heatPct = currentQuestion && timeLeft !== null
     ? timeLeft / currentQuestion.time_limit_seconds
@@ -708,9 +744,13 @@ export function PlayView({
       {/* Revealing banner */}
       {phase === "revealing" && lastResult && !lastResult.didNotAnswer && (
         <div
-          className={`px-5 py-3 flex items-center justify-between ${
+          className={`reveal-anim px-5 py-3 flex items-center justify-between ${
             lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
           }`}
+          style={{ animation: lastResult.isCorrect
+            ? "reveal-banner 300ms cubic-bezier(0.34,1.56,0.64,1)"
+            : "reveal-banner 260ms ease-out"
+          }}
         >
           <span className={`font-bold text-sm flex items-center gap-1.5 ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
             {lastResult.isCorrect ? <Check size={16} strokeWidth={2.5} /> : <X size={16} strokeWidth={2.5} />}
@@ -820,6 +860,13 @@ export function PlayView({
                 disabled={hasAnswered || phase !== "playing" || isSubmitting || isTimedOut}
                 onClick={() => submitAnswer(i)}
                 className={cls}
+                style={
+                  isRevealing && isCorrectOption
+                    ? { animation: "correct-pulse 420ms ease-out" }
+                    : isRevealing && isSelected && !isCorrectOption
+                    ? { animation: "shake 480ms ease-in-out" }
+                    : undefined
+                }
                 aria-label={`Answer ${currentQuestion.options[i]}`}
               >
                 <span className={badgeCls}>
@@ -856,13 +903,19 @@ export function PlayView({
 
         {/* P5 — Result card (dopamine hit) */}
         {phase === "revealing" && (
-          <div className={`border p-4 flex items-center justify-between gap-4 ${
-            lastResult?.didNotAnswer || !lastResult
-              ? "border-border bg-muted/30"
-              : lastResult.isCorrect
-              ? "border-correct/30 bg-[#dcfce7] dark:bg-correct/10"
-              : "border-wrong/30 bg-[#fef2f2] dark:bg-wrong/10"
-          }`}>
+          <div
+            className={`reveal-anim border p-4 flex items-center justify-between gap-4 ${
+              lastResult?.didNotAnswer || !lastResult
+                ? "border-border bg-muted/30"
+                : lastResult.isCorrect
+                ? "border-correct/30 bg-[#dcfce7] dark:bg-correct/10"
+                : "border-wrong/30 bg-[#fef2f2] dark:bg-wrong/10"
+            }`}
+            style={{ animation: lastResult?.isCorrect
+              ? "result-spring 500ms cubic-bezier(0.34,1.56,0.64,1)"
+              : "result-spring 380ms ease-out"
+            }}
+          >
             <div className="space-y-1 min-w-0">
               <p className={`font-heading text-2xl font-bold tabular-nums ${
                 lastResult?.didNotAnswer || !lastResult

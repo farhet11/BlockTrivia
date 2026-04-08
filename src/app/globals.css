@@ -190,6 +190,26 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Answer reveal animations ──────────────────────────────────────── */
+
+@keyframes reveal-banner {
+  from { opacity: 0; transform: translateY(-100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes result-spring {
+  from { opacity: 0; transform: translateY(18px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes correct-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.05); }
+  65%  { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .lb-anim { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  .lb-anim   { animation-duration: 0.01ms !important; animation-delay: 0ms !important; transition-duration: 0.01ms !important; }
+  .reveal-anim { animation-duration: 0.01ms !important; animation-delay: 0ms !important; }
 }

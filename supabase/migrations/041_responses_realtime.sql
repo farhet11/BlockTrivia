@@ -1,0 +1,12 @@
+-- Enable Realtime replication for the responses table so the host control
+-- panel receives live INSERT events as players submit answers.
+--
+-- Without this, postgres_changes subscriptions on `responses` are silently
+-- ignored because the table is not in the publication. The host's answered
+-- count only updates on page refresh instead of in real time.
+--
+-- RLS is enforced at the Supabase Realtime gateway per client connection:
+--   • Players see only their own response (player_id = auth.uid()).
+--   • Event creators see all responses for their events.
+-- So adding the table to the publication is safe.
+alter publication supabase_realtime add table public.responses;

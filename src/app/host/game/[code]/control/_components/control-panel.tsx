@@ -158,22 +158,31 @@ export function ControlPanel({
     }
     const qId = gameState.current_question_id;
 
-    // Fetch initial count (handles page refresh mid-question)
-    supabase
-      .from("responses")
-      .select("*", { count: "exact", head: true })
-      .eq("question_id", qId)
-      .then(({ count }) => { if (count !== null) setAnsweredCount(count); });
+    async function fetchCount() {
+      const { count } = await supabase
+        .from("responses")
+        .select("*", { count: "exact", head: true })
+        .eq("question_id", qId);
+      if (count !== null) setAnsweredCount(count);
+    }
 
-    // Live updates as players submit
+    fetchCount();
+
+    // Realtime: fires once responses is in the supabase_realtime publication (migration 041).
+    // Polling every 2s is the belt-and-suspenders fallback for any Realtime gap.
+    const poll = setInterval(fetchCount, 2000);
+
     const channel = supabase
       .channel(`answers:${qId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "responses", filter: `question_id=eq.${qId}` },
-        () => setAnsweredCount((c) => c + 1)
+        fetchCount
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(poll);
+      supabase.removeChannel(channel);
+    };
   }, [gameState.current_question_id, gameState.phase, supabase]);
 
   // Subscribe to player count changes + polling fallback every 3s
@@ -663,7 +672,7 @@ export function ControlPanel({
             {/* Controls — State 1: waiting on players */}
             {timeLeft !== null && timeLeft > 0 && answeredCount < playerCount ? (
               <div className="flex items-center gap-3">
-                <span className="flex-1 inline-flex items-center justify-center px-4 py-2 rounded-full bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.12)] text-[#5b21b6] dark:text-[#a78bfa] text-sm font-semibold select-none">
+                <span className="flex-1 inline-flex items-center justify-center px-4 py-2 bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.12)] text-[#5b21b6] dark:text-[#a78bfa] text-sm font-semibold select-none">
                   {answeredCount}/{playerCount} answered
                 </span>
                 <button

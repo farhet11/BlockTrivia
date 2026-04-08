@@ -18,13 +18,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // --- 1b. Rate limit --------------------------------------------------------
-  const rateLimitError = await checkAndLog(supabase, user.id, "onboarding-followup");
-  if (rateLimitError) {
-    return NextResponse.json({ error: rateLimitError }, { status: 429 });
+  // Verify user is a host (only hosts can use onboarding)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!profile || profile.role !== "host") {
+    return NextResponse.json(
+      { error: "Only hosts can access onboarding features" },
+      { status: 403 }
+    );
   }
 
-  // --- 2. Validate input -----------------------------------------------------
+  // --- 2. Validate input (BEFORE rate limit) ---------------------------------
   let body: unknown;
   try {
     body = await request.json();
@@ -50,6 +57,12 @@ export async function POST(request: Request) {
       { error: `Keep it under ${MAX_CHARS} characters.` },
       { status: 400 }
     );
+  }
+
+  // --- 2b. Rate limit (AFTER validation) -----------------------------------
+  const rateLimitError = await checkAndLog(supabase, user.id, "onboarding-followup");
+  if (rateLimitError) {
+    return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }
 
   // --- 3. Call Claude --------------------------------------------------------

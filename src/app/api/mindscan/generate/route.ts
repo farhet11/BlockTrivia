@@ -74,6 +74,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Verify user is a host (only hosts can generate questions)
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  if (!profile || profile.role !== "host") {
+    return NextResponse.json(
+      { error: "Only hosts can generate questions" },
+      { status: 403 }
+    );
+  }
+
   // --- 2b. Rate limit --------------------------------------------------------
   const rateLimitError = await checkAndLog(supabase, user.id, "generate");
   if (rateLimitError) {

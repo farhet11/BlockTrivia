@@ -572,7 +572,7 @@ export function ControlPanel({
                     </span>
                   )}
                 </span>
-                <span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 400, color: "#78756e" }}>
                   Q{indexInRound + 1}/{questionsInRound.length}
                 </span>
               </div>
@@ -713,7 +713,7 @@ export function ControlPanel({
                   </span>
                 )}
               </span>
-              <span>Q{indexInRound + 1}/{questionsInRound.length}</span>
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 400, color: "#78756e" }}>Q{indexInRound + 1}/{questionsInRound.length}</span>
             </div>
 
             <div className="border border-correct bg-correct/5 p-6 space-y-4">

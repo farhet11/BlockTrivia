@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { RoundCard } from "./round-card";
 import { JsonImportModal } from "./json-import-modal";
+import { MindScanModal } from "./mindscan-modal";
 import Link from "next/link";
 
 export type Round = {
@@ -52,6 +53,7 @@ export function QuestionBuilder({
   const [rounds, setRounds] = useState<Round[]>(initialRounds);
   const [questions, setQuestions] = useState<Question[]>(initialQuestions);
   const [showJsonImport, setShowJsonImport] = useState(false);
+  const [showMindScan, setShowMindScan] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [duplicating, setDuplicating] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -265,6 +267,11 @@ export function QuestionBuilder({
     setShowJsonImport(false);
   }
 
+  function handleMindScanImported(newQuestions: Question[]) {
+    setQuestions([...questions, ...newQuestions]);
+    setShowMindScan(false);
+  }
+
   return (
     <div className="space-y-6 pb-20">
       {/* Actions bar */}
@@ -280,6 +287,14 @@ export function QuestionBuilder({
           onClick={() => setShowJsonImport(true)}
         >
           Import JSON
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setShowMindScan(true)}
+          disabled={rounds.length === 0}
+          title={rounds.length === 0 ? "Add a round first" : undefined}
+        >
+          Generate questions ✨
         </Button>
       </div>
 
@@ -320,6 +335,15 @@ export function QuestionBuilder({
           onRoundsCreated={(newRounds) => setRounds([...rounds, ...newRounds])}
           onRoundsReplaced={(newRounds, newQuestions) => { setRounds(newRounds); setQuestions(newQuestions); }}
           onClose={() => setShowJsonImport(false)}
+        />
+      )}
+
+      {/* MindScan Generate Modal */}
+      {showMindScan && (
+        <MindScanModal
+          rounds={rounds}
+          onImported={handleMindScanImported}
+          onClose={() => setShowMindScan(false)}
         />
       )}
 

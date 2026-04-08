@@ -116,7 +116,7 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
           <p className="text-[13px] text-stone-500 dark:text-zinc-400 mt-1 flex items-center gap-1.5 flex-wrap">
             <span className="font-mono font-medium tracking-wider text-foreground">{event.join_code}</span>
             <span className="text-stone-300 dark:text-zinc-600">·</span>
-            <span>{new Date(event.created_at).toLocaleDateString()}</span>
+            <span>{new Date(event.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
             <span className="text-stone-300 dark:text-zinc-600">·</span>
             <StatusPill status={event.status} />
           </p>

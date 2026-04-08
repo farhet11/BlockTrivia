@@ -571,6 +571,9 @@ export function ControlPanel({
                       · Round {currentRoundIndex + 1}/{rounds.length}
                     </span>
                   )}
+                  <span className="ml-1.5 text-muted-foreground/60 uppercase tracking-wider">
+                    · {currentQuestion.round_type.replace("_", "/")}
+                  </span>
                 </span>
                 <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 400, color: "#78756e" }}>
                   Q{indexInRound + 1}/{questionsInRound.length}
@@ -628,11 +631,8 @@ export function ControlPanel({
               );
             })()}
 
-            {/* Timer row — round type label + large timer number */}
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                {currentQuestion.round_type.replace("_", "/")}
-              </span>
+            {/* Timer row — large timer number */}
+            <div className="flex items-center justify-end">
               <span
                 className={`font-mono text-[32px] font-bold tabular-nums ${
                   timeLeft !== null && timeLeft <= 5

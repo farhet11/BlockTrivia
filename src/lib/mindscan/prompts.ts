@@ -5,6 +5,19 @@ import type {
 } from "./types";
 
 /**
+ * Escape user-controlled text for safe interpolation inside XML tags.
+ * Prevents prompt injection by escaping `&`, `<`, and `>` characters.
+ * Note: `&` must be escaped first to avoid double-encoding.
+ */
+function escapeXmlText(text: string | null): string {
+  if (!text) return "";
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
  * MindScan prompt module — the moat.
  *
  * These functions are pure. No Claude calls, no DB reads. Keep them side-effect
@@ -73,7 +86,7 @@ Output format (must match exactly):
   const user = `${contextBlock}Generate ${count} ${difficulty} questions from the following content.
 
 <content>
-${content}
+${escapeXmlText(content)}
 </content>`;
 
   return { system, user };
@@ -121,7 +134,7 @@ Output format (must match exactly):
   const user = `The host described this misconception:
 
 <misconception>
-${misconception}
+${escapeXmlText(misconception)}
 </misconception>
 
 Generate 2 or 3 diagnostic multiple-choice questions.`;
@@ -133,11 +146,11 @@ function buildHostContextBlock(ctx: HostContext): string {
   const parts: string[] = [];
   if (ctx.biggest_misconception) {
     parts.push(
-      `- Biggest community misconception (from host): ${ctx.biggest_misconception}`
+      `- Biggest community misconception (from host): ${escapeXmlText(ctx.biggest_misconception)}`
     );
   }
   if (ctx.event_goal) {
-    parts.push(`- Host's goal for this event: ${ctx.event_goal}`);
+    parts.push(`- Host's goal for this event: ${escapeXmlText(ctx.event_goal)}`);
   }
   if (ctx.followups && ctx.followups.length > 0) {
     parts.push(
@@ -145,7 +158,7 @@ function buildHostContextBlock(ctx: HostContext): string {
         ctx.followups
           .map(
             (f, i) =>
-              `  ${i + 1}. Q: ${f.question}\n     Host picked: ${f.answer}`
+              `  ${i + 1}. Q: ${escapeXmlText(f.question)}\n     Host picked: ${escapeXmlText(f.answer)}`
           )
           .join("\n")
     );

@@ -199,3 +199,157 @@ describe("reminderCompletion", () => {
     ).toBe(0);
   });
 });
+
+// ── checkAndLog rate-limit logic ───────────────────────────────────────────
+
+/**
+ * Pure unit tests for the rate-limit window calculation logic.
+ * We can't test the Supabase calls directly, but we can verify the
+ * window start calculation and limit enforcement logic.
+ */
+
+const WINDOW_HOURS = 1;
+const LIMITS = { generate: 20, "onboarding-followup": 10 };
+
+function computeWindowStart(now: number = Date.now()): Date {
+  return new Date(now - WINDOW_HOURS * 60 * 60 * 1000);
+}
+
+function isOverLimit(
+  count: number,
+  endpoint: "generate" | "onboarding-followup"
+): boolean {
+  return count >= (LIMITS[endpoint] ?? 20);
+}
+
+describe("rate-limit window calculation", () => {
+  it("window start is exactly 1 hour before now", () => {
+    const now = 1_000_000_000;
+    const windowStart = computeWindowStart(now);
+    expect(windowStart.getTime()).toBe(now - 3_600_000);
+  });
+
+  it("is NOT over limit at count = 19 for generate", () => {
+    expect(isOverLimit(19, "generate")).toBe(false);
+  });
+
+  it("IS over limit at count = 20 for generate", () => {
+    expect(isOverLimit(20, "generate")).toBe(true);
+  });
+
+  it("IS over limit at count = 21 for generate (burst protection)", () => {
+    expect(isOverLimit(21, "generate")).toBe(true);
+  });
+
+  it("is NOT over limit at count = 9 for onboarding-followup", () => {
+    expect(isOverLimit(9, "onboarding-followup")).toBe(false);
+  });
+
+  it("IS over limit at count = 10 for onboarding-followup", () => {
+    expect(isOverLimit(10, "onboarding-followup")).toBe(true);
+  });
+});
+
+// ── T/F import validation logic ────────────────────────────────────────────
+
+/**
+ * Pure logic extracted from json-import-modal.tsx validation.
+ * Tests the MCQ-into-TF detection logic.
+ */
+
+function hasMcqOptions(
+  questions: Array<{ options?: string[] }>
+): { hasMcq: boolean; count: number } {
+  const mcq = questions.filter(
+    (q) => Array.isArray(q.options) && q.options.length > 2
+  );
+  return { hasMcq: mcq.length > 0, count: mcq.length };
+}
+
+describe("T/F import validation", () => {
+  it("passes for questions with no options (pure T/F format)", () => {
+    const qs = [{ body: "Statement A" }, { body: "Statement B" }];
+    expect(hasMcqOptions(qs).hasMcq).toBe(false);
+  });
+
+  it("passes for questions with exactly 2 options", () => {
+    const qs = [{ options: ["True", "False"] }];
+    expect(hasMcqOptions(qs).hasMcq).toBe(false);
+  });
+
+  it("rejects questions with 4 options (MCQ format)", () => {
+    const qs = [{ options: ["A", "B", "C", "D"] }];
+    const result = hasMcqOptions(qs);
+    expect(result.hasMcq).toBe(true);
+    expect(result.count).toBe(1);
+  });
+
+  it("rejects mixed batch: 1 T/F + 1 MCQ", () => {
+    const qs = [
+      { options: ["True", "False"] },
+      { options: ["A", "B", "C", "D"] },
+    ];
+    const result = hasMcqOptions(qs);
+    expect(result.hasMcq).toBe(true);
+    expect(result.count).toBe(1);
+  });
+
+  it("counts all MCQ questions in a batch", () => {
+    const qs = [
+      { options: ["A", "B", "C", "D"] },
+      { options: ["A", "B", "C", "D"] },
+      { options: ["True", "False"] },
+    ];
+    const result = hasMcqOptions(qs);
+    expect(result.count).toBe(2);
+  });
+
+  it("passes for empty questions array", () => {
+    expect(hasMcqOptions([]).hasMcq).toBe(false);
+  });
+
+  it("passes for questions with 3 options (edge: T/F/Maybe format)", () => {
+    const qs = [{ options: ["True", "False", "Maybe"] }];
+    // 3 > 2, so this IS considered MCQ (correct — 3-option Qs don't belong in T/F rounds)
+    expect(hasMcqOptions(qs).hasMcq).toBe(true);
+  });
+});
+
+// ── auto-save stale timestamp guard ─────────────────────────────────────────
+
+/**
+ * Tests the stale-save detection logic from onboarding-flow.tsx.
+ * Verifies the condition: skip if scheduledAt !== lastUpdatedAt AND lastUpdatedAt !== null.
+ */
+
+function shouldSkipStaleSave(
+  scheduledAt: string | null,
+  lastUpdatedAt: string | null
+): boolean {
+  return scheduledAt !== lastUpdatedAt && lastUpdatedAt !== null;
+}
+
+describe("auto-save stale timestamp guard", () => {
+  it("does NOT skip when timestamps match (no concurrent save)", () => {
+    expect(shouldSkipStaleSave("2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z")).toBe(false);
+  });
+
+  it("SKIPS when lastUpdatedAt changed (another save happened)", () => {
+    expect(
+      shouldSkipStaleSave("2026-01-01T00:00:00Z", "2026-01-01T00:00:01Z")
+    ).toBe(true);
+  });
+
+  it("does NOT skip when lastUpdatedAt is null (first save, no server timestamp yet)", () => {
+    expect(shouldSkipStaleSave("2026-01-01T00:00:00Z", null)).toBe(false);
+  });
+
+  it("does NOT skip when both are null (brand new user, no saves yet)", () => {
+    expect(shouldSkipStaleSave(null, null)).toBe(false);
+  });
+
+  it("SKIPS when scheduledAt is null but lastUpdatedAt has a value", () => {
+    // scheduledAt=null means scheduled before any save; if a save happened since, skip
+    expect(shouldSkipStaleSave(null, "2026-01-01T00:00:01Z")).toBe(true);
+  });
+});

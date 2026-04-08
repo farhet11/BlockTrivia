@@ -280,6 +280,23 @@ export function JsonImportModal({
       ? parsed
       : parsed.rounds;
 
+    // Pre-validate ALL rounds before any mutations (deletes or inserts).
+    // This prevents partial writes where a delete committed but an insert failed.
+    for (const r of importRounds) {
+      const roundType = r.round_type ?? r.type ?? "mcq";
+      if (roundType === "true_false") {
+        const mcqQuestions = (r.questions ?? []).filter(
+          (q) => Array.isArray(q.options) && q.options.length > 2
+        );
+        if (mcqQuestions.length > 0) {
+          setError(
+            `"${r.title ?? "Untitled round"}" is a True/False round, but ${mcqQuestions.length} question(s) have multiple options. Import to an MCQ round instead to preserve the options.`
+          );
+          return;
+        }
+      }
+    }
+
     // Replace mode: delete all existing rounds (cascade removes questions)
     if (importMode === "replace" && rounds.length > 0) {
       const { error: delErr } = await supabase
@@ -321,6 +338,7 @@ export function JsonImportModal({
       newRounds.push(roundData as Round);
 
       const isTrueFalse = roundType === "true_false";
+
       const rows = (r.questions ?? []).map((q, qi) => ({
         round_id: roundData.id,
         body: q.body,
@@ -391,6 +409,19 @@ export function JsonImportModal({
     const startOrder = existing?.[0] ? existing[0].sort_order + 1 : 0;
     const targetRound = rounds.find((r) => r.id === targetRoundId);
     const isTrueFalse = targetRound?.round_type === "true_false";
+
+    // Validate: warn if importing MCQ questions into a True/False round
+    if (isTrueFalse) {
+      const mcqQuestions = parsed.filter(
+        (q) => Array.isArray(q.options) && q.options.length > 2
+      );
+      if (mcqQuestions.length > 0) {
+        setError(
+          `This is a True/False round, but ${mcqQuestions.length} question(s) have multiple options. Create an MCQ round instead to preserve the options.`
+        );
+        return;
+      }
+    }
 
     const rows = parsed.map((q, i) => ({
       round_id: targetRoundId,

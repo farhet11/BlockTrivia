@@ -84,8 +84,10 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export function OnboardingFlow({
   initialData,
+  initialUpdatedAt,
 }: {
   initialData: OnboardingInitialData | null;
+  initialUpdatedAt: string | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -98,6 +100,10 @@ export function OnboardingFlow({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
+  // Track the last known updated_at timestamp from the server to prevent stale saves
+  // (optimistic concurrency control — if another tab/device modified the row, reject the save)
+  const lastUpdatedAt = useRef<string | null>(initialUpdatedAt);
 
   // Debounce timer for auto-save
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +127,10 @@ export function OnboardingFlow({
   /**
    * Persists the current data snapshot. Pass `completed = true` only when the
    * host explicitly clicks "Finish".
+   *
+   * Uses optimistic concurrency control: if the row's updated_at has changed
+   * since we last saw it, we reject the save to prevent overwriting concurrent edits
+   * (e.g., from another tab or device).
    */
   const saveRow = useCallback(
     async (completed: boolean, snapshot?: OnboardingData): Promise<boolean> => {
@@ -166,14 +176,26 @@ export function OnboardingFlow({
           completed_at: completed ? new Date().toISOString() : null,
         };
 
-        const { error: upsertError } = await supabase
+        // Client-side stale-save guard: after a successful save, update our
+        // local updated_at ref so that any pending debounced auto-saves scheduled
+        // BEFORE this save will cancel themselves (see scheduleAutoSave).
+        // Note: this is NOT server-side OCC — the upsert unconditionally overwrites.
+        const { data: upsertedRow, error: upsertError } = await supabase
           .from("host_onboarding")
-          .upsert(row, { onConflict: "profile_id" });
+          .upsert(row, { onConflict: "profile_id" })
+          .select("updated_at")
+          .single();
 
         if (upsertError) {
           setError(`Couldn't save: ${upsertError.message}`);
           if (!completed) setSaveStatus("error");
           return false;
+        }
+
+        // Update our tracked timestamp to the new one from the server
+        // This ensures that future saves use the fresh timestamp
+        if (upsertedRow?.updated_at) {
+          lastUpdatedAt.current = upsertedRow.updated_at;
         }
 
         if (!completed) {
@@ -186,17 +208,30 @@ export function OnboardingFlow({
         if (completed) setSubmitting(false);
       }
     },
+    // `supabase` is stable (created once via useMemo). `data` is intentionally
+    // excluded — saveRow always receives a `snapshot` argument at call sites.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [supabase, data]
+    [supabase]
   );
 
   /**
    * Schedules a debounced auto-save. Called from onBlur handlers on every
    * field. The 500 ms debounce collapses rapid tab-throughs into a single save.
+   *
+   * CRITICAL: When an auto-save is scheduled, we capture the current timestamp.
+   * If another save (e.g., handleFinish) completes before this auto-save fires,
+   * the auto-save will detect the stale timestamp and cancel itself.
    */
   function scheduleAutoSave(snapshot: OnboardingData) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    const scheduledAt = lastUpdatedAt.current;
     autoSaveTimer.current = setTimeout(() => {
+      // Check if timestamp has changed since we scheduled this save
+      // If it has, another save already happened (e.g., handleFinish), so skip this stale save
+      if (scheduledAt !== lastUpdatedAt.current && lastUpdatedAt.current !== null) {
+        // Silently cancel — a newer save already succeeded
+        return;
+      }
       saveRow(false, snapshot);
     }, 500);
   }

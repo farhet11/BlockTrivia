@@ -225,6 +225,7 @@ npm test        # Run Vitest test suite
 **Why this matters:**
 This format is the bridge between git history and Notion changelog. Each bullet becomes a Notion entry, organized by tag (DEV / UX / INFRA / MINDSCAN / COPY). When someone reads the changelog, they see exactly what shipped and where.
 
+
 ## Skill routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill

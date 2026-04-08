@@ -213,10 +213,21 @@ export function OnboardingFlow({
   /**
    * Schedules a debounced auto-save. Called from onBlur handlers on every
    * field. The 500 ms debounce collapses rapid tab-throughs into a single save.
+   *
+   * CRITICAL: When an auto-save is scheduled, we capture the current timestamp.
+   * If another save (e.g., handleFinish) completes before this auto-save fires,
+   * the auto-save will detect the stale timestamp and cancel itself.
    */
   function scheduleAutoSave(snapshot: OnboardingData) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    const scheduledAt = lastUpdatedAt.current;
     autoSaveTimer.current = setTimeout(() => {
+      // Check if timestamp has changed since we scheduled this save
+      // If it has, another save already happened (e.g., handleFinish), so skip this stale save
+      if (scheduledAt !== lastUpdatedAt.current && lastUpdatedAt.current !== null) {
+        // Silently cancel — a newer save already succeeded
+        return;
+      }
       saveRow(false, snapshot);
     }, 500);
   }

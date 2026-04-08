@@ -43,7 +43,7 @@ export function MindScanModal({
   const supabase = useMemo(() => createClient(), []);
 
   const [content, setContent] = useState("");
-  const [count, setCount] = useState<MindScanCount>(10);
+  const [count, setCount] = useState<MindScanCount>(5);
   const [difficulty, setDifficulty] = useState<MindScanDifficulty>("medium");
   const [targetRoundId, setTargetRoundId] = useState(rounds[0]?.id ?? "");
 

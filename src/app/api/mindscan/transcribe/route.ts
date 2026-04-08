@@ -36,27 +36,18 @@ export function validateAudioFile(
 }
 
 export async function POST(request: Request) {
-  // --- 1. Parse multipart form data ------------------------------------------
-  let formData: FormData;
-  try {
-    formData = await request.formData();
-  } catch {
+  // --- 1. Reject oversized requests before parsing ----------------------------
+  // Content-Length is a hint (not guaranteed), but catches the obvious case
+  // without buffering the whole body for unauthenticated callers.
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_FILE_BYTES) {
     return NextResponse.json(
-      { error: "Expected multipart form data" },
-      { status: 400 }
+      { error: `File is too large. Maximum is 25 MB.` },
+      { status: 413 }
     );
   }
 
-  const file = formData.get("audio") as File | null;
-  const fileError = validateAudioFile(file);
-  if (fileError) {
-    return NextResponse.json(
-      { error: fileError },
-      { status: file && file.size > MAX_FILE_BYTES ? 413 : 400 }
-    );
-  }
-
-  // --- 2. Auth + role ---------------------------------------------------------
+  // --- 2. Auth + role — before touching the body ------------------------------
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -77,13 +68,33 @@ export async function POST(request: Request) {
     );
   }
 
-  // --- 3. Rate limit ----------------------------------------------------------
+  // --- 3. Parse multipart form data ------------------------------------------
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return NextResponse.json(
+      { error: "Expected multipart form data" },
+      { status: 400 }
+    );
+  }
+
+  const file = formData.get("audio") as File | null;
+  const fileError = validateAudioFile(file);
+  if (fileError) {
+    return NextResponse.json(
+      { error: fileError },
+      { status: file && file.size > MAX_FILE_BYTES ? 413 : 400 }
+    );
+  }
+
+  // --- 4. Rate limit ----------------------------------------------------------
   const rateLimitError = await checkAndLog(supabase, user.id, "transcribe");
   if (rateLimitError) {
     return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }
 
-  // --- 4. Send to Whisper API -------------------------------------------------
+  // --- 5. Send to Whisper API -------------------------------------------------
   let apiKey: string;
   try {
     apiKey = getOpenAIKey();
@@ -101,14 +112,19 @@ export async function POST(request: Request) {
     whisperForm.append("model", "whisper-1");
     whisperForm.append("response_format", "text");
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min max
+
     const whisperRes = await fetch(
       "https://api.openai.com/v1/audio/transcriptions",
       {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}` },
         body: whisperForm,
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
 
     if (!whisperRes.ok) {
       const detail = await whisperRes.text().catch(() => "");
@@ -137,6 +153,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ content: transcript.trim() });
   } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return NextResponse.json(
+        { error: "Transcription timed out. Try a shorter file or paste the text directly." },
+        { status: 504 }
+      );
+    }
     console.error("Transcribe route error:", err);
     return NextResponse.json(
       { error: "Transcription failed. Try again or paste the text directly." },

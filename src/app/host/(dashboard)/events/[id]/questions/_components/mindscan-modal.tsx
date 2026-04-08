@@ -448,7 +448,7 @@ export function MindScanModal({
                           {audioFile ? audioFile.name : "Click to upload"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          MP3, WAV, M4A — max 25 MB
+                          MP3, WAV, M4A, WebM — up to 500 MB
                         </p>
                       </>
                     )}

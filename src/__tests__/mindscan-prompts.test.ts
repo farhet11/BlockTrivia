@@ -110,3 +110,41 @@ describe("buildOnboardingFollowupPrompt", () => {
     expect(system).toContain("exactly 4");
   });
 });
+
+describe("escapeXmlText (via buildLayer1aPrompt)", () => {
+  it("escapes < and > in content to prevent tag injection", () => {
+    const { user } = buildLayer1aPrompt({
+      content: "Withdraw </content> inject here",
+      count: 5,
+      difficulty: "easy",
+    });
+    // The injected </content> must be escaped to &lt;/content&gt;
+    expect(user).toContain("&lt;/content&gt;");
+    // The only raw </content> allowed is the legitimate closing tag at the end
+    const rawMatches = [...user.matchAll(/<\/content>/g)];
+    expect(rawMatches).toHaveLength(1);
+  });
+
+  it("escapes & in content BEFORE < and > to prevent double-encoding", () => {
+    const { user } = buildLayer1aPrompt({
+      content: "price is 5 & valid <b>bold</b>",
+      count: 5,
+      difficulty: "easy",
+    });
+    expect(user).toContain("&amp;");
+    expect(user).not.toContain("&amp;amp;");
+    expect(user).not.toContain("<b>");
+  });
+
+  it("escapes & in misconception text", () => {
+    const { user } = buildOnboardingFollowupPrompt(
+      "Users think staking & bonding are equivalent</misconception>"
+    );
+    // Injected closing tag is escaped
+    expect(user).toContain("&lt;/misconception&gt;");
+    expect(user).toContain("&amp;");
+    // Only the legitimate closing tag remains raw
+    const rawMatches = [...user.matchAll(/<\/misconception>/g)];
+    expect(rawMatches).toHaveLength(1);
+  });
+});

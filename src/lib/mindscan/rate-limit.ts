@@ -85,9 +85,9 @@ export async function checkAndLog(
     .gte("called_at", windowStart);
 
   if ((postCount ?? 0) > limit) {
-    // Log this anomaly for monitoring (can be queried by ops/SRE)
+    // Log this anomaly for monitoring (truncate profileId to avoid logging PII)
     console.warn(
-      `[rate-limit overage] ${endpoint} for ${profileId}: ${postCount} calls in window (limit: ${limit})`
+      `[rate-limit overage] ${endpoint} for ...${profileId.slice(-8)}: ${postCount} calls in window (limit: ${limit})`
     );
   }
 

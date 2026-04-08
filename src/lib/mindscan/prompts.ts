@@ -6,13 +6,15 @@ import type {
 
 /**
  * Escape user-controlled text for safe interpolation inside XML tags.
- * Prevents prompt injection by escaping `<` and `>` characters.
+ * Prevents prompt injection by escaping `&`, `<`, and `>` characters.
+ * Note: `&` must be escaped first to avoid double-encoding.
  */
 function escapeXmlText(text: string | null): string {
   if (!text) return "";
-  return text.replace(/[<>]/g, (char) => {
-    return char === "<" ? "&lt;" : "&gt;";
-  });
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 /**

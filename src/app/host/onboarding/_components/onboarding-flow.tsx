@@ -176,8 +176,10 @@ export function OnboardingFlow({
           completed_at: completed ? new Date().toISOString() : null,
         };
 
-        // Optimistic concurrency control: use upsert with onConflict, then verify updated_at
-        // If another client modified the row between our last load and now, fail gracefully
+        // Client-side stale-save guard: after a successful save, update our
+        // local updated_at ref so that any pending debounced auto-saves scheduled
+        // BEFORE this save will cancel themselves (see scheduleAutoSave).
+        // Note: this is NOT server-side OCC — the upsert unconditionally overwrites.
         const { data: upsertedRow, error: upsertError } = await supabase
           .from("host_onboarding")
           .upsert(row, { onConflict: "profile_id" })
@@ -206,8 +208,10 @@ export function OnboardingFlow({
         if (completed) setSubmitting(false);
       }
     },
+    // `supabase` is stable (created once via useMemo). `data` is intentionally
+    // excluded — saveRow always receives a `snapshot` argument at call sites.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [supabase, data]
+    [supabase]
   );
 
   /**

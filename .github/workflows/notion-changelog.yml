@@ -19,45 +19,104 @@ jobs:
           PR_DATE: ${{ github.event.pull_request.merged_at }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          DATE="${PR_DATE:0:10}"
-          SAFE_TITLE=$(echo "$PR_TITLE" | tr '"' "'" | tr '\n' ' ')
+          python3 << 'PYEOF'
+          import os, json, urllib.request
 
-          FIRST_LINE=$(echo "$PR_BODY" | head -1)
-          if echo "$FIRST_LINE" | grep -q "🎨 UX"; then
-            TAG="🎨 UX"
-          elif echo "$FIRST_LINE" | grep -q "🏗️ INFRA"; then
-            TAG="🏗️ INFRA"
-          elif echo "$FIRST_LINE" | grep -q "🧠 MINDSCAN"; then
-            TAG="🧠 MINDSCAN"
-          elif echo "$FIRST_LINE" | grep -q "✍️ COPY"; then
-            TAG="✍️ COPY"
-          else
-            TAG="⚙️ DEV"
-          fi
+          notion_key = os.environ['NOTION_KEY']
+          pr_number  = os.environ['PR_NUMBER']
+          pr_title   = os.environ['PR_TITLE']
+          pr_url     = os.environ['PR_URL']
+          pr_date    = os.environ['PR_DATE'][:10]
+          pr_body    = os.environ.get('PR_BODY', '')
 
-          ENTRY="${TAG} — PR #${PR_NUMBER} — ${SAFE_TITLE} (${DATE})"
+          TAGS = ['⚙️ DEV', '🎨 UX', '🏗️ INFRA', '🧠 MINDSCAN', '✍️ COPY']
 
-          curl -s -X PATCH "https://api.notion.com/v1/blocks/33bfbd0f-4a87-81ca-865e-e77c8c4d221c/children" \
-            -H "Authorization: Bearer $NOTION_KEY" \
-            -H "Notion-Version: 2022-06-28" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"after\": \"aa237aa4-f13f-4e7b-84a5-868dd6f9104b\",
-              \"children\": [
-                {
-                  \"object\": \"block\",
-                  \"type\": \"bulleted_list_item\",
-                  \"bulleted_list_item\": {
-                    \"rich_text\": [
-                      {
-                        \"type\": \"text\",
-                        \"text\": {
-                          \"content\": \"${ENTRY}\",
-                          \"link\": { \"url\": \"${PR_URL}\" }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }"
+          def parse_sections(body):
+              """Return {tag: [item, ...]} for each tag section in the PR body."""
+              sections = {}
+              current_tag = None
+              for line in body.split('\n'):
+                  stripped = line.strip()
+                  matched_tag = next((t for t in TAGS if stripped.startswith('##') and t in stripped), None)
+                  if matched_tag:
+                      current_tag = matched_tag
+                      sections[current_tag] = []
+                      continue
+                  if stripped.startswith('##'):
+                      current_tag = None
+                      continue
+                  if current_tag and stripped.startswith('-'):
+                      item = stripped.lstrip('-').strip()
+                      if item and not item.startswith('<!--'):
+                          sections[current_tag].append(item)
+              return sections
+
+          def text_block(content, bold=False, link=None):
+              t = {"type": "text", "text": {"content": content}}
+              if link:
+                  t["text"]["link"] = {"url": link}
+              if bold:
+                  t["annotations"] = {"bold": True}
+              return t
+
+          sections = parse_sections(pr_body)
+          filled   = {tag: items for tag, items in sections.items() if items}
+
+          blocks = []
+
+          # PR heading — heading_3, linked to the PR URL
+          blocks.append({
+              "object": "block",
+              "type": "heading_3",
+              "heading_3": {
+                  "rich_text": [text_block(
+                      f"PR #{pr_number} \u2014 {pr_title} ({pr_date})",
+                      link=pr_url
+                  )]
+              }
+          })
+
+          # Per-tag sections — only emit tags that have at least one item
+          for tag in TAGS:
+              items = filled.get(tag)
+              if not items:
+                  continue
+              blocks.append({
+                  "object": "block",
+                  "type": "paragraph",
+                  "paragraph": {"rich_text": [text_block(tag, bold=True)]}
+              })
+              for item in items:
+                  blocks.append({
+                      "object": "block",
+                      "type": "bulleted_list_item",
+                      "bulleted_list_item": {"rich_text": [text_block(item)]}
+                  })
+
+          # Fallback: no structured sections found — log title as single bullet
+          if len(blocks) == 1:
+              blocks.append({
+                  "object": "block",
+                  "type": "bulleted_list_item",
+                  "bulleted_list_item": {"rich_text": [text_block(pr_title)]}
+              })
+
+          payload = {
+              "after": "aa237aa4-f13f-4e7b-84a5-868dd6f9104b",
+              "children": blocks
+          }
+
+          req = urllib.request.Request(
+              "https://api.notion.com/v1/blocks/33bfbd0f-4a87-81ca-865e-e77c8c4d221c/children",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {notion_key}",
+                  "Notion-Version": "2022-06-28",
+                  "Content-Type": "application/json",
+              },
+              method="PATCH",
+          )
+          with urllib.request.urlopen(req) as resp:
+              result = json.loads(resp.read().decode())
+              print(f"Created {len(result.get('results', []))} blocks for PR #{pr_number}")
+          PYEOF

@@ -20,13 +20,16 @@ export default async function HostOnboardingPage() {
   if (!user) redirect("/login");
 
   // Already onboarded? Send to the dashboard.
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from("host_onboarding")
     .select("id")
     .eq("profile_id", user.id)
     .maybeSingle();
 
-  if (existing) redirect("/host");
+  // If DB is flaky (error but not "no row"), redirect to /host.
+  // The dashboard layout's onboarding gate will surface the DB error properly
+  // rather than letting the user see the form (which could stomp their data on submit).
+  if (existingErr || existing) redirect("/host");
 
   return (
     <div className="min-h-[calc(100dvh-4rem)] flex items-start justify-center py-12 px-4">

@@ -26,9 +26,17 @@ export default async function HostDashboardLayout({
     .eq("profile_id", user.id)
     .maybeSingle();
 
-  if (onboardingErr && onboardingErr.code === "42P01") {
+  if (onboardingErr) {
+    if (onboardingErr.code === "42P01") {
+      throw new Error(
+        "host_onboarding table is missing. Apply migration 034_host_onboarding.sql in Supabase before loading the dashboard."
+      );
+    }
+    // Any other DB error (network, RLS timeout, etc.) — throw rather than
+    // silently treating it as "no row", which would bounce the user to
+    // onboarding even though they already completed it.
     throw new Error(
-      "host_onboarding table is missing. Apply migration 034_host_onboarding.sql in Supabase before loading the dashboard."
+      `host_onboarding query failed: ${onboardingErr.message} (code: ${onboardingErr.code})`
     );
   }
   if (!onboardingRow) redirect("/host/onboarding");

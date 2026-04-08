@@ -162,7 +162,13 @@ export function MindScanModal({
         return;
       }
 
-      if (data) onImported(data as Question[]);
+      if (data && data.length > 0) {
+        onImported(data as Question[]);
+      } else {
+        // Insert succeeded but select-back returned nothing (RLS or DB issue).
+        setError("Questions saved but could not be loaded back. Refresh the page to see them.");
+        return;
+      }
       onClose();
     } finally {
       setLoading(false);

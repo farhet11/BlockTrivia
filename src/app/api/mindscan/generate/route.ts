@@ -89,7 +89,12 @@ export async function POST(request: Request) {
   }
 
   // --- 2b. Rate limit --------------------------------------------------------
-  const rateLimitError = await checkAndLog(supabase, user.id, "generate");
+  const rateLimitError = await checkAndLog(
+    supabase,
+    user.id,
+    "generate",
+    count as number
+  );
   if (rateLimitError) {
     return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }

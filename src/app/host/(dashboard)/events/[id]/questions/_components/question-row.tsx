@@ -45,11 +45,16 @@ export function QuestionRow({
         {/* Q-number doubles as expand/collapse toggle */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-xs font-bold text-muted-foreground hover:text-primary mt-1 shrink-0 w-6 text-left transition-colors"
+          className="text-xs font-bold text-muted-foreground hover:text-primary mt-1 shrink-0 text-left transition-colors"
           title={expanded ? "Collapse" : "Expand"}
         >
           Q{index + 1}
         </button>
+        {question.ai_generated && (
+          <span className="mt-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1 py-px bg-primary/10 text-primary leading-none">
+            AI
+          </span>
+        )}
 
         <div className="flex-1 min-w-0">
           {expanded ? (

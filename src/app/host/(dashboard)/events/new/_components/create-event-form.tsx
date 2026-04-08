@@ -128,6 +128,12 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
   const [description, setDescription] = useState("");
   const [prizes, setPrizes] = useState("");
 
+  // Start mode: "now" jumps straight to questions; "schedule" sets a future
+  // start time and redirects to the share page so the host can distribute
+  // a pre-registration link.
+  const [startMode, setStartMode] = useState<"now" | "schedule">("now");
+  const [scheduledAt, setScheduledAt] = useState("");
+
   // Organizer typeahead state
   const [organizerName, setOrganizerName] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -427,6 +433,23 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
       return;
     }
 
+    // Validate scheduled-for-later mode
+    let scheduledAtIso: string | null = null;
+    if (startMode === "schedule") {
+      if (!scheduledAt) {
+        setError("Pick a date and time for your event.");
+        setLoading(false);
+        return;
+      }
+      const scheduled = new Date(scheduledAt);
+      if (scheduled.getTime() <= Date.now()) {
+        setError("Scheduled time must be in the future.");
+        setLoading(false);
+        return;
+      }
+      scheduledAtIso = scheduled.toISOString();
+    }
+
     const { data, error: insertError } = await supabase
       .from("events")
       .insert({
@@ -437,6 +460,7 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         format,
         access_mode: accessMode,
         created_by: userId,
+        ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
       })
       .select("id")
       .single();
@@ -512,7 +536,14 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
       await copyRoundsAndQuestions(fromEventId, data.id);
     }
 
-    router.push(`/host/events/${data.id}/questions`);
+    // Scheduled events land on the share page so the host can distribute the
+    // pre-registration link immediately. "Start now" jumps straight into the
+    // question builder as before.
+    if (startMode === "schedule") {
+      router.push(`/host/events/${data.id}/share`);
+    } else {
+      router.push(`/host/events/${data.id}/questions`);
+    }
   }
 
   const emailCount = getEmailCount();
@@ -527,6 +558,77 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Start mode picker */}
+      <div className="space-y-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setStartMode("now")}
+            className={`text-left border-2 px-4 py-4 transition-colors ${
+              startMode === "now"
+                ? "border-primary bg-primary/5"
+                : "border-border bg-surface hover:border-primary/50"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="size-4 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+              </svg>
+              <span className="font-heading font-semibold text-foreground">
+                Start now
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Jump straight to the question builder
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStartMode("schedule")}
+            className={`text-left border-2 px-4 py-4 transition-colors ${
+              startMode === "schedule"
+                ? "border-primary bg-primary/5"
+                : "border-border bg-surface hover:border-primary/50"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <svg className="size-4 text-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+              </svg>
+              <span className="font-heading font-semibold text-foreground">
+                Schedule for later
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Share a pre-registration link before game day
+            </p>
+          </button>
+        </div>
+
+        {startMode === "schedule" && (
+          <div className="space-y-1.5 pt-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              When does it start?
+            </label>
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+                .toISOString()
+                .slice(0, 16)}
+              required
+              className="w-full sm:w-auto h-9 bg-background border border-border px-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary"
+            />
+            <p className="text-xs text-muted-foreground">
+              Local time. We&rsquo;ll land you on the share page so you can
+              send out the pre-reg link.
+            </p>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Event Name
@@ -936,7 +1038,15 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
           disabled={loading}
           className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-medium"
         >
-          {loading ? (fromEventId ? "Duplicating..." : "Creating...") : (fromEventId ? "Duplicate Event" : "Create Event")}
+          {loading
+            ? fromEventId
+              ? "Duplicating..."
+              : "Creating..."
+            : fromEventId
+            ? "Duplicate Event"
+            : startMode === "schedule"
+            ? "Schedule Event"
+            : "Create Event"}
         </Button>
         <Button
           type="button"

@@ -30,6 +30,7 @@ export type Question = {
   correct_answer: number;
   sort_order: number;
   explanation?: string | null;
+  ai_generated?: boolean;
 };
 
 export function QuestionBuilder({
@@ -294,7 +295,7 @@ export function QuestionBuilder({
           disabled={rounds.length === 0}
           title={rounds.length === 0 ? "Add a round first" : undefined}
         >
-          Generate questions ✨
+          Generate questions
         </Button>
       </div>
 

@@ -2,10 +2,10 @@
 
 ## MindScan
 
-**Title:** Apply migration 035 to production Supabase
+**Title:** Apply migrations 034, 035, 036 to production Supabase
 **Priority:** P0
-**Why:** `mindscan_call_log` table powers the rate limiting added in v0.1.0.0. Rate limits fail open (don't block calls) until this migration is applied, but the table must exist for counting to work.
-**Action:** Run `supabase migration up` or apply `035_mindscan_rate_limit.sql` via the Supabase dashboard SQL editor.
+**Why:** `host_onboarding` and `mindscan_call_log` tables are needed for the onboarding flow and rate limiting. Migration 036 adds field-size constraints and `updated_at` tracking. Without these, the app will error on first use of any MindScan feature.
+**Action:** Run `supabase migration up` or apply `034_host_onboarding.sql`, `035_mindscan_rate_limit.sql`, `036_hardening.sql` via the Supabase dashboard SQL editor in order.
 
 ---
 
@@ -36,6 +36,19 @@
 **Why:** Hosts want to point at a URL and generate questions without copy-pasting. Planned in MindScan architecture.
 **Action:** New API route `/api/mindscan/fetch-content` that scrapes and returns plain text. Wire into the generate modal as a URL input option.
 
+**Title:** Apply true server-side OCC for onboarding auto-save
+**Priority:** P3
+**Why:** The current stale-save guard is client-side only. Two tabs editing simultaneously can still overwrite each other. True OCC requires a conditional UPDATE with `WHERE updated_at = $lastKnown` server-side.
+**Action:** Create a Supabase RPC `upsert_onboarding_if_unchanged(row, expected_updated_at)` that rejects writes if `updated_at` has changed since the client last read.
+
+---
+
 ## Completed
 
-*(none yet)*
+**Title:** MindScan Layer 1a + Layer 0 — complete implementation
+**Completed:** v0.2.0.0 (2026-04-08)
+- Layer 1a: content → AI questions modal in question builder
+- Layer 0: 4-step onboarding with Claude follow-up MCQs
+- Host context injection into generation
+- Onboarding gate, re-entry, auto-save, dashboard reminder banner
+- Security hardening (auth, XML escaping, rate limiting, DB constraints)

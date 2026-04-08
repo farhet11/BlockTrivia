@@ -2,6 +2,28 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.2.0.0] - 2026-04-08
+
+### Added
+- **MindScan Layer 1a** — hosts paste any content (whitepaper, blog post, docs) and Claude generates quiz questions targeting understanding, not memorization. "Generate questions ✨" button in the question builder opens a modal with content input, count (5/10/15), difficulty (easy/medium/hard), and a live preview before importing to a round.
+- **MindScan Layer 0 onboarding** — structured 4-step intake captures the host's role, community channels, event goal, and their biggest community misconception. Claude generates 2–3 diagnostic MCQs in Step 4 to help hosts pinpoint exactly which aspect is most misunderstood. The host's answers then sharpen AI question generation for their events.
+- **Host context injection** — when generating questions, the host's onboarding context (misconception, goal, follow-up answers) is automatically injected into the prompt. Questions skew toward known weak areas while staying grounded in the pasted content.
+- **Onboarding reminder banner** — hosts with incomplete onboarding see a circular progress ring on the dashboard (5 binary signals) with "Continue →" back to the re-entry flow.
+- **Onboarding re-entry** — hosts who skipped can return and pick up mid-flow. Form pre-populates and jumps to the first unfilled step. Auto-save on blur preserves every field.
+- **Dashboard onboarding gate** — `(dashboard)/layout.tsx` redirects hosts with no onboarding row to `/host/onboarding`. Skip inserts a partial row to prevent infinite redirect loops.
+- **MindScan security hardening** — XML injection prevention (escapeXmlText escapes `&`, `<`, `>`), host-role enforcement on both AI API routes (host + super_admin only), rate limiting with validation-first ordering, optimistic concurrency control for auto-save, and DB constraints on `host_onboarding` field sizes.
+- **44 unit tests** — prompt building, XML escaping, step derivation, completion signals, rate-limit window logic, T/F import validation, and stale-save guard.
+
+### Changed
+- **T/F import validation** — importing MCQ questions (4+ options) into a True/False round now shows a clear error instead of silently replacing options with ["True", "False"]. Validation runs before any DB mutations to prevent data loss in replace mode.
+- **Rate limit ordering** — both `/api/mindscan/*` routes now validate input before checking rate limits, so malformed requests don't burn hourly quota.
+- **PR format rule** — CLAUDE.md documents the tagged emoji format (`## ⚙️ DEV`, `## 🧠 MINDSCAN`, etc.) that feeds the Notion changelog GitHub Action.
+
+### Infrastructure
+- `supabase/migrations/034_host_onboarding.sql` — `host_onboarding` table with RLS
+- `supabase/migrations/035_mindscan_rate_limit.sql` — `mindscan_call_log` table for per-user rate limiting
+- `supabase/migrations/036_hardening.sql` — field-size constraints + `updated_at` trigger on `host_onboarding`
+
 ## [0.1.0.1] - 2026-04-08
 
 ### Added

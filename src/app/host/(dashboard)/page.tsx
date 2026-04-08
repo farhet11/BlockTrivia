@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EventList } from "./_components/event-list";
+import { OnboardingReminder } from "./_components/onboarding-reminder";
 
 export default async function HostDashboard() {
   const supabase = await createServerSupabaseClient();
@@ -9,18 +10,26 @@ export default async function HostDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: events }, { data: profile }] = await Promise.all([
-    supabase
-      .from("events")
-      .select("id, title, status, join_code, created_at")
-      .eq("created_by", user!.id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", user!.id)
-      .single(),
-  ]);
+  const [{ data: events }, { data: profile }, { data: onboarding }] =
+    await Promise.all([
+      supabase
+        .from("events")
+        .select("id, title, status, join_code, created_at")
+        .eq("created_by", user!.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user!.id)
+        .single(),
+      supabase
+        .from("host_onboarding")
+        .select(
+          "completed_at, role, community_channels, event_goal, biggest_misconception, ai_followup_answers"
+        )
+        .eq("profile_id", user!.id)
+        .maybeSingle(),
+    ]);
 
   // Resolve best display name — never show raw tg_ email prefixes
   const rawName = profile?.display_name ?? "";
@@ -62,6 +71,17 @@ export default async function HostDashboard() {
           </Button>
         </Link>
       </div>
+
+      {/* Onboarding reminder — shown only when row exists but not completed */}
+      {onboarding && !onboarding.completed_at && (
+        <OnboardingReminder
+          role={onboarding.role as string | null}
+          communityChannels={onboarding.community_channels as string[] | null}
+          eventGoal={onboarding.event_goal as string | null}
+          biggestMisconception={onboarding.biggest_misconception as string | null}
+          aiFollowupAnswers={onboarding.ai_followup_answers as string[] | null}
+        />
+      )}
 
       {/* Event list */}
       {!events || events.length === 0 ? (

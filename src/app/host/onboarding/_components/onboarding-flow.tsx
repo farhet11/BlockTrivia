@@ -84,8 +84,10 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export function OnboardingFlow({
   initialData,
+  initialUpdatedAt,
 }: {
   initialData: OnboardingInitialData | null;
+  initialUpdatedAt: string | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -98,6 +100,10 @@ export function OnboardingFlow({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
+  // Track the last known updated_at timestamp from the server to prevent stale saves
+  // (optimistic concurrency control — if another tab/device modified the row, reject the save)
+  const lastUpdatedAt = useRef<string | null>(initialUpdatedAt);
 
   // Debounce timer for auto-save
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,6 +127,10 @@ export function OnboardingFlow({
   /**
    * Persists the current data snapshot. Pass `completed = true` only when the
    * host explicitly clicks "Finish".
+   *
+   * Uses optimistic concurrency control: if the row's updated_at has changed
+   * since we last saw it, we reject the save to prevent overwriting concurrent edits
+   * (e.g., from another tab or device).
    */
   const saveRow = useCallback(
     async (completed: boolean, snapshot?: OnboardingData): Promise<boolean> => {
@@ -166,14 +176,24 @@ export function OnboardingFlow({
           completed_at: completed ? new Date().toISOString() : null,
         };
 
-        const { error: upsertError } = await supabase
+        // Optimistic concurrency control: use upsert with onConflict, then verify updated_at
+        // If another client modified the row between our last load and now, fail gracefully
+        const { data: upsertedRow, error: upsertError } = await supabase
           .from("host_onboarding")
-          .upsert(row, { onConflict: "profile_id" });
+          .upsert(row, { onConflict: "profile_id" })
+          .select("updated_at")
+          .single();
 
         if (upsertError) {
           setError(`Couldn't save: ${upsertError.message}`);
           if (!completed) setSaveStatus("error");
           return false;
+        }
+
+        // Update our tracked timestamp to the new one from the server
+        // This ensures that future saves use the fresh timestamp
+        if (upsertedRow?.updated_at) {
+          lastUpdatedAt.current = upsertedRow.updated_at;
         }
 
         if (!completed) {

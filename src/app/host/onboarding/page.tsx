@@ -25,7 +25,7 @@ export default async function HostOnboardingPage() {
   const { data: existing, error: existingErr } = await supabase
     .from("host_onboarding")
     .select(
-      "completed_at, role, community_channels, event_goal, biggest_misconception, project_website, twitter_handle, content_sources, ai_followup_questions, ai_followup_answers"
+      "completed_at, role, community_channels, event_goal, biggest_misconception, project_website, twitter_handle, content_sources, ai_followup_questions, ai_followup_answers, updated_at"
     )
     .eq("profile_id", user.id)
     .maybeSingle();
@@ -78,7 +78,10 @@ export default async function HostOnboardingPage() {
             Takes about 2 minutes. You can skip any step.
           </p>
         </div>
-        <OnboardingFlow initialData={initialData} />
+        <OnboardingFlow
+          initialData={initialData}
+          initialUpdatedAt={existing?.updated_at ?? null}
+        />
       </div>
     </div>
   );

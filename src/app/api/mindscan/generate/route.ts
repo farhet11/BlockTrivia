@@ -248,10 +248,10 @@ function validateQuestions(parsed: unknown): MindScanQuestion[] {
       typeof q.explanation === "string" ? q.explanation : undefined;
 
     valid.push({
-      body: q.body.trim(),
-      options: (q.options as string[]).map((o) => o.trim()),
+      body: q.body.trim().slice(0, 120),
+      options: (q.options as string[]).map((o) => o.trim().slice(0, 80)),
       correct_answer: q.correct_answer,
-      explanation,
+      explanation: explanation?.slice(0, 200),
     });
   }
   return valid;

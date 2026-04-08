@@ -64,7 +64,15 @@ RULES (non-negotiable):
    - easy   = surface-level concepts, clear right answer, distractors clearly related to the topic.
    - medium = requires synthesis across 2+ concepts, distractors include partially-true statements.
    - hard   = requires understanding of second-order consequences or subtle distinctions.
-8. Output VALID JSON ONLY. No markdown fences, no prose, no explanation outside the JSON.
+8. BREVITY (non-negotiable — this is a timed trivia game, not a reading test):
+   - Question body: 12 words maximum. Cut every word that doesn't carry meaning.
+     GOOD: "Why does BlockTrivia test understanding over memorization?"
+     BAD:  "Why does BlockTrivia focus on testing understanding rather than memorization when evaluating participants?"
+   - Each answer option: 7 words maximum. Noun phrases, not full sentences.
+     GOOD: "To filter out airdrop farmers"
+     BAD:  "To filter out airdrop farmers who may know surface-level facts without genuinely understanding a protocol"
+   - Explanation: 1 sentence, 20 words maximum.
+9. Output VALID JSON ONLY. No markdown fences, no prose, no explanation outside the JSON.
 
 Output format (must match exactly):
 {

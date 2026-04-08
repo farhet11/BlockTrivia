@@ -2,6 +2,18 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.1.0.1] - 2026-04-08
+
+### Added
+- **Onboarding re-entry** — hosts who skipped or partially completed onboarding can return to `/host/onboarding` and pick up where they left off. The form pre-populates all saved fields and jumps directly to the first unfilled step.
+- **Auto-save on field blur** — every onboarding field saves automatically 500ms after focus leaves it. A "Saved ✓" indicator confirms the write without interrupting the flow. No answers are lost if the browser is closed mid-step.
+- **Dashboard reminder banner** — hosts with an incomplete onboarding row see a compact banner between the welcome header and their event list. A circular progress ring shows completion % (based on 5 key signals: role, community channels, event goal, biggest misconception, and follow-up answers). "Continue →" links back to re-entry.
+- **13 new unit tests** — `deriveStartingStep` (6 tests) and `reminderCompletion` (7 tests) covering all branches including boundary cases (e.g., misconception < 15 chars, blank follow-up answers, empty channels array).
+
+### Fixed
+- **Hydration mismatch on event list** — `toLocaleDateString()` produced different output on server vs. client (locale-dependent). Replaced with `toLocaleDateString("en-US", { month, day, year })` for stable output across environments.
+- **Onboarding page compile error** — `onboarding/page.tsx` imported `OnboardingInitialData` from `onboarding-flow.tsx` before the type was exported, causing a silent compile failure that prevented the page from rendering. Type is now properly exported.
+
 ## [0.1.0.0] - 2026-04-08
 
 ### Added

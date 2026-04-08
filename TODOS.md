@@ -24,9 +24,10 @@
 ---
 
 **Title:** Onboarding re-entry from Settings
-**Priority:** P2
-**Why:** Hosts who skipped onboarding have no way to go back and complete it. The layout gate stops redirecting once any row exists (including skipped rows). A link in /host/settings would let them complete it later.
-**Action:** Add "Complete your MindScan profile" link in `/host/settings` that renders the onboarding flow or links to a reset endpoint.
+**Priority:** P3
+**Why:** Hosts can already return via the dashboard reminder banner (shipped v0.1.0.1). A settings link would be a secondary entry point for discoverability.
+**Action:** Add "Complete your MindScan profile" link in `/host/settings` pointing to `/host/onboarding`.
+**Completed:** v0.1.0.1 partial — dashboard reminder banner ships as the primary re-entry surface.
 
 ---
 

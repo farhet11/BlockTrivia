@@ -280,6 +280,23 @@ export function JsonImportModal({
       ? parsed
       : parsed.rounds;
 
+    // Pre-validate ALL rounds before any mutations (deletes or inserts).
+    // This prevents partial writes where a delete committed but an insert failed.
+    for (const r of importRounds) {
+      const roundType = r.round_type ?? r.type ?? "mcq";
+      if (roundType === "true_false") {
+        const mcqQuestions = (r.questions ?? []).filter(
+          (q) => Array.isArray(q.options) && q.options.length > 2
+        );
+        if (mcqQuestions.length > 0) {
+          setError(
+            `"${r.title ?? "Untitled round"}" is a True/False round, but ${mcqQuestions.length} question(s) have multiple options. Import to an MCQ round instead to preserve the options.`
+          );
+          return;
+        }
+      }
+    }
+
     // Replace mode: delete all existing rounds (cascade removes questions)
     if (importMode === "replace" && rounds.length > 0) {
       const { error: delErr } = await supabase
@@ -321,19 +338,6 @@ export function JsonImportModal({
       newRounds.push(roundData as Round);
 
       const isTrueFalse = roundType === "true_false";
-
-      // Validate: warn if importing MCQ questions into a True/False round
-      if (isTrueFalse) {
-        const mcqQuestions = (r.questions ?? []).filter(
-          (q) => Array.isArray(q.options) && q.options.length > 2
-        );
-        if (mcqQuestions.length > 0) {
-          setError(
-            `"${r.title}" is a True/False round, but ${mcqQuestions.length} question(s) have multiple options. Import to an MCQ round instead to preserve the options.`
-          );
-          return;
-        }
-      }
 
       const rows = (r.questions ?? []).map((q, qi) => ({
         round_id: roundData.id,

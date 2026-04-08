@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!profile || profile.role !== "host") {
+  if (!profile || !["host", "super_admin"].includes(profile.role)) {
     return NextResponse.json(
       { error: "Only hosts can generate questions" },
       { status: 403 }

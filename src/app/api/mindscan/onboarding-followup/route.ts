@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getAnthropicClient, MINDSCAN_MODEL } from "@/lib/anthropic";
 import { buildOnboardingFollowupPrompt } from "@/lib/mindscan/prompts";
+import { checkAndLog } from "@/lib/mindscan/rate-limit";
 import type { OnboardingFollowupQuestion } from "@/lib/mindscan/types";
 
 const MIN_CHARS = 15;
@@ -15,6 +16,12 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // --- 1b. Rate limit --------------------------------------------------------
+  const rateLimitError = await checkAndLog(supabase, user.id, "onboarding-followup");
+  if (rateLimitError) {
+    return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }
 
   // --- 2. Validate input -----------------------------------------------------

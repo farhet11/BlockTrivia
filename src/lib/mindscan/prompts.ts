@@ -72,10 +72,9 @@ Output format (must match exactly):
 
   const user = `${contextBlock}Generate ${count} ${difficulty} questions from the following content.
 
-Content:
-"""
+<content>
 ${content}
-"""`;
+</content>`;
 
   return { system, user };
 }
@@ -121,9 +120,9 @@ Output format (must match exactly):
 
   const user = `The host described this misconception:
 
-"""
+<misconception>
 ${misconception}
-"""
+</misconception>
 
 Generate 2 or 3 diagnostic multiple-choice questions.`;
 
@@ -154,8 +153,10 @@ function buildHostContextBlock(ctx: HostContext): string {
 
   if (parts.length === 0) return "";
 
-  return `Host context — use this to target questions at known weak areas. Weight questions toward the specific aspects the host flagged, but do NOT invent facts that aren't in the source content:
+  return `<host_context>
+Use this to target questions at known weak areas. Weight questions toward the specific aspects the host flagged, but do NOT invent facts that aren't in the source content.
 ${parts.join("\n")}
+</host_context>
 
 `;
 }

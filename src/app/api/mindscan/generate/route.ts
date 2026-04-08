@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getAnthropicClient, MINDSCAN_MODEL } from "@/lib/anthropic";
 import { buildLayer1aPrompt } from "@/lib/mindscan/prompts";
+import { checkAndLog } from "@/lib/mindscan/rate-limit";
 import type {
   HostContext,
   MindScanCount,
@@ -71,6 +72,12 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // --- 2b. Rate limit --------------------------------------------------------
+  const rateLimitError = await checkAndLog(supabase, user.id, "generate");
+  if (rateLimitError) {
+    return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }
 
   // --- 3. Load host context (optional — null is fine) ------------------------
@@ -143,7 +150,8 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ questions });
+  // Cap at the requested count — Claude sometimes returns more than asked.
+  return NextResponse.json({ questions: questions.slice(0, count as number) });
 }
 
 // -----------------------------------------------------------------------------

@@ -6,8 +6,10 @@ const MAX_BYTES = 500 * 1024; // 500 KB
 const MAX_CONTENT_CHARS = 30_000;
 const FETCH_TIMEOUT_MS = 10_000;
 
-// Private IP ranges and localhost — never fetch these
-const BLOCKED_HOSTS = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|0\.0\.0\.0|::1)/i;
+// Private IP ranges, localhost, and link-local — never fetch these.
+// 169.254.x.x covers AWS/GCP/Azure instance metadata endpoints (SSRF target).
+const BLOCKED_HOSTS =
+  /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|::1|fc00:|fd[0-9a-f]{2}:)/i;
 
 export function validateUrl(raw: string): string | null {
   let parsed: URL;
@@ -104,8 +106,8 @@ export async function POST(request: Request) {
 
     const response = await fetch(url.trim(), {
       signal: controller.signal,
+      redirect: "error", // never follow redirects — prevents SSRF via open redirects
       headers: {
-        // Polite scraper user-agent
         "User-Agent": "BlockTrivia-MindScan/1.0 (content analysis bot)",
         Accept: "text/html,application/xhtml+xml",
       },
@@ -154,6 +156,12 @@ export async function POST(request: Request) {
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json(
         { error: "The page took too long to load. Try again or paste the text directly." },
+        { status: 422 }
+      );
+    }
+    if (err instanceof TypeError && err.message.includes("redirect")) {
+      return NextResponse.json(
+        { error: "That URL redirects to another address. Paste the final URL directly." },
         { status: 422 }
       );
     }

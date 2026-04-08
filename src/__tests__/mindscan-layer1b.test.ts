@@ -129,19 +129,21 @@ describe("validateAudioFile", () => {
     expect(validateAudioFile(makeFile("a.m4a", "audio/x-m4a", MB))).toBeNull();
   });
 
-  it("accepts exactly 25 MB", () => {
-    expect(validateAudioFile(makeFile("a.mp3", "audio/mpeg", 25 * MB))).toBeNull();
+  it("accepts a valid WebM", () => {
+    expect(validateAudioFile(makeFile("a.webm", "audio/webm", MB))).toBeNull();
   });
 
-  it("rejects 25 MB + 1 byte", () => {
-    expect(
-      validateAudioFile(makeFile("a.mp3", "audio/mpeg", 25 * MB + 1))
-    ).not.toBeNull();
+  it("accepts video/mp4 (common audio-only container)", () => {
+    expect(validateAudioFile(makeFile("a.mp4", "video/mp4", MB))).toBeNull();
   });
 
-  it("rejects invalid MIME type (video/mp4)", () => {
+  it("accepts exactly 500 MB", () => {
+    expect(validateAudioFile(makeFile("a.mp3", "audio/mpeg", 500 * MB))).toBeNull();
+  });
+
+  it("rejects 500 MB + 1 byte", () => {
     expect(
-      validateAudioFile(makeFile("a.mp4", "video/mp4", MB))
+      validateAudioFile(makeFile("a.mp3", "audio/mpeg", 500 * MB + 1))
     ).not.toBeNull();
   });
 

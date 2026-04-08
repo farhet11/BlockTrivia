@@ -708,9 +708,13 @@ export function PlayView({
       {/* Revealing banner */}
       {phase === "revealing" && lastResult && !lastResult.didNotAnswer && (
         <div
-          className={`px-5 py-3 flex items-center justify-between ${
+          className={`reveal-anim px-5 py-3 flex items-center justify-between ${
             lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
           }`}
+          style={{ animation: lastResult.isCorrect
+            ? "reveal-banner 300ms cubic-bezier(0.34,1.56,0.64,1)"
+            : "reveal-banner 260ms ease-out"
+          }}
         >
           <span className={`font-bold text-sm flex items-center gap-1.5 ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
             {lastResult.isCorrect ? <Check size={16} strokeWidth={2.5} /> : <X size={16} strokeWidth={2.5} />}
@@ -820,6 +824,13 @@ export function PlayView({
                 disabled={hasAnswered || phase !== "playing" || isSubmitting || isTimedOut}
                 onClick={() => submitAnswer(i)}
                 className={cls}
+                style={
+                  isRevealing && isCorrectOption
+                    ? { animation: "correct-pulse 420ms ease-out" }
+                    : isRevealing && isSelected && !isCorrectOption
+                    ? { animation: "shake 480ms ease-in-out" }
+                    : undefined
+                }
                 aria-label={`Answer ${currentQuestion.options[i]}`}
               >
                 <span className={badgeCls}>
@@ -856,13 +867,19 @@ export function PlayView({
 
         {/* P5 — Result card (dopamine hit) */}
         {phase === "revealing" && (
-          <div className={`border p-4 flex items-center justify-between gap-4 ${
-            lastResult?.didNotAnswer || !lastResult
-              ? "border-border bg-muted/30"
-              : lastResult.isCorrect
-              ? "border-correct/30 bg-[#dcfce7] dark:bg-correct/10"
-              : "border-wrong/30 bg-[#fef2f2] dark:bg-wrong/10"
-          }`}>
+          <div
+            className={`reveal-anim border p-4 flex items-center justify-between gap-4 ${
+              lastResult?.didNotAnswer || !lastResult
+                ? "border-border bg-muted/30"
+                : lastResult.isCorrect
+                ? "border-correct/30 bg-[#dcfce7] dark:bg-correct/10"
+                : "border-wrong/30 bg-[#fef2f2] dark:bg-wrong/10"
+            }`}
+            style={{ animation: lastResult?.isCorrect
+              ? "result-spring 500ms cubic-bezier(0.34,1.56,0.64,1)"
+              : "result-spring 380ms ease-out"
+            }}
+          >
             <div className="space-y-1 min-w-0">
               <p className={`font-heading text-2xl font-bold tabular-nums ${
                 lastResult?.didNotAnswer || !lastResult

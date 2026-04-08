@@ -177,6 +177,54 @@ npm test        # Run Vitest test suite
 - When adding a conditional (if/else), write tests for BOTH paths
 - Never commit code that makes existing tests fail
 
+## Pull Request Format
+
+**Every PR must use the tagged section format below.** This structure is parsed by the Notion changelog GitHub Action, which auto-logs PRs with organized per-tag bullet points instead of generic summaries.
+
+**Template (copy and paste):**
+
+```markdown
+## What ships
+<One line: what does this PR deliver?>
+
+---
+
+## ⚙️ DEV
+- <Code changes, features, bug fixes — delete section if nothing here>
+
+## 🎨 UX
+- <Design, styling, components — delete section if nothing here>
+
+## 🏗️ INFRA
+- <DB migrations, CI/CD, config — delete section if nothing here>
+
+## 🧠 MINDSCAN
+- <AI / intelligence features — delete section if nothing here>
+
+## ✍️ COPY
+- <Text edits, content, copy changes — delete section if nothing here>
+
+---
+
+## DB migrations
+<List migration filenames or write "None">
+
+## Notion
+- [ ] Milestone Tracker updated
+- [ ] Changelog auto-logged via GitHub Actions
+```
+
+**Rules:**
+- Use emoji + tag exactly as shown (`## ⚙️ DEV`, not `## Dev`)
+- Delete empty sections entirely (don't leave a section with no bullets)
+- Write action-oriented bullets: "Add X", "Fix Y", "Refactor Z" — not "Added X", "Fixed Y"
+- Keep bullets concise (<100 chars) — details go in the commit message
+- Order bullets by importance (what the user cares about most first)
+- Fill every bullet with substance — no "Code cleanup" or "Bug fixes" without specifics
+
+**Why this matters:**
+This format is the bridge between git history and Notion changelog. Each bullet becomes a Notion entry, organized by tag (DEV / UX / INFRA / MINDSCAN / COPY). When someone reads the changelog, they see exactly what shipped and where.
+
 ## Skill routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill

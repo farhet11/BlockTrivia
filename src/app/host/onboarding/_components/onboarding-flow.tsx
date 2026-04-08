@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,9 @@ import type { OnboardingFollowupQuestion } from "@/lib/mindscan/types";
  *
  * Every step has a "Skip for now" button that writes whatever has been filled
  * so far (with completed_at = null) so the layout gate stops redirecting.
+ *
+ * Auto-save fires ~500 ms after any field loses focus (debounced). It never
+ * sets completed_at — that only happens on explicit "Finish".
  */
 
 const ROLES = [
@@ -54,6 +57,9 @@ type OnboardingData = {
   ai_followup_answers: string[];
 };
 
+/** Exported so onboarding/page.tsx can type the initialData it passes in. */
+export type OnboardingInitialData = OnboardingData;
+
 const EMPTY: OnboardingData = {
   role: "",
   community_channels: [],
@@ -66,15 +72,35 @@ const EMPTY: OnboardingData = {
   ai_followup_answers: [],
 };
 
-export function OnboardingFlow() {
+/** Returns the first step the host hasn't meaningfully completed. */
+function deriveStartingStep(d: OnboardingData): 1 | 2 | 3 | 4 {
+  if (d.ai_followup_questions.length > 0) return 4;
+  if (d.biggest_misconception.trim().length >= 15) return 3;
+  if (d.role || d.community_channels.length > 0 || d.event_goal) return 2;
+  return 1;
+}
+
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+export function OnboardingFlow({
+  initialData,
+}: {
+  initialData: OnboardingInitialData | null;
+}) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [data, setData] = useState<OnboardingData>(EMPTY);
+  const [data, setData] = useState<OnboardingData>(initialData ?? EMPTY);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(() =>
+    initialData ? deriveStartingStep(initialData) : 1
+  );
   const [loadingFollowups, setLoadingFollowups] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
+  // Debounce timer for auto-save
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function update<K extends keyof OnboardingData>(
     key: K,
@@ -92,59 +118,95 @@ export function OnboardingFlow() {
     }));
   }
 
-  async function saveRow(completed: boolean): Promise<boolean> {
-    setError(null);
-    setSubmitting(true);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setError("You're signed out. Refresh and try again.");
-        return false;
+  /**
+   * Persists the current data snapshot. Pass `completed = true` only when the
+   * host explicitly clicks "Finish".
+   */
+  const saveRow = useCallback(
+    async (completed: boolean, snapshot?: OnboardingData): Promise<boolean> => {
+      setError(null);
+      setSubmitting(completed); // only show global "Saving…" for explicit saves
+      if (!completed) setSaveStatus("saving");
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          setError("You're signed out. Refresh and try again.");
+          if (!completed) setSaveStatus("error");
+          return false;
+        }
+
+        const current = snapshot ?? data;
+        const content_sources = current.content_sources
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean);
+
+        const row = {
+          profile_id: user.id,
+          role: current.role || null,
+          community_channels:
+            current.community_channels.length > 0
+              ? current.community_channels
+              : null,
+          event_goal: current.event_goal || null,
+          biggest_misconception: current.biggest_misconception.trim() || null,
+          project_website: current.project_website.trim() || null,
+          twitter_handle: current.twitter_handle.trim() || null,
+          content_sources: content_sources.length > 0 ? content_sources : null,
+          ai_followup_questions:
+            current.ai_followup_questions.length > 0
+              ? current.ai_followup_questions
+              : null,
+          ai_followup_answers:
+            current.ai_followup_answers.length > 0
+              ? current.ai_followup_answers
+              : null,
+          completed_at: completed ? new Date().toISOString() : null,
+        };
+
+        const { error: upsertError } = await supabase
+          .from("host_onboarding")
+          .upsert(row, { onConflict: "profile_id" });
+
+        if (upsertError) {
+          setError(`Couldn't save: ${upsertError.message}`);
+          if (!completed) setSaveStatus("error");
+          return false;
+        }
+
+        if (!completed) {
+          setSaveStatus("saved");
+          // Reset back to idle after 3 s
+          setTimeout(() => setSaveStatus((s) => (s === "saved" ? "idle" : s)), 3000);
+        }
+        return true;
+      } finally {
+        if (completed) setSubmitting(false);
       }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [supabase, data]
+  );
 
-      const content_sources = data.content_sources
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
+  /**
+   * Schedules a debounced auto-save. Called from onBlur handlers on every
+   * field. The 500 ms debounce collapses rapid tab-throughs into a single save.
+   */
+  function scheduleAutoSave(snapshot: OnboardingData) {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      saveRow(false, snapshot);
+    }, 500);
+  }
 
-      const row = {
-        profile_id: user.id,
-        role: data.role || null,
-        community_channels:
-          data.community_channels.length > 0 ? data.community_channels : null,
-        event_goal: data.event_goal || null,
-        biggest_misconception: data.biggest_misconception.trim() || null,
-        project_website: data.project_website.trim() || null,
-        twitter_handle: data.twitter_handle.trim() || null,
-        content_sources: content_sources.length > 0 ? content_sources : null,
-        ai_followup_questions:
-          data.ai_followup_questions.length > 0
-            ? data.ai_followup_questions
-            : null,
-        ai_followup_answers:
-          data.ai_followup_answers.length > 0
-            ? data.ai_followup_answers
-            : null,
-        completed_at: completed ? new Date().toISOString() : null,
-      };
-
-      const { error: upsertError } = await supabase
-        .from("host_onboarding")
-        .upsert(row, { onConflict: "profile_id" });
-
-      if (upsertError) {
-        setError(`Couldn't save: ${upsertError.message}`);
-        return false;
-      }
-      return true;
-    } finally {
-      setSubmitting(false);
-    }
+  function handleBlur(snapshot?: OnboardingData) {
+    scheduleAutoSave(snapshot ?? data);
   }
 
   async function handleSkip() {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     const ok = await saveRow(false);
     if (ok) router.push("/host");
   }
@@ -175,8 +237,12 @@ export function OnboardingFlow() {
         setError("No follow-ups came back. You can skip this step.");
         return;
       }
-      update("ai_followup_questions", questions);
-      update("ai_followup_answers", questions.map(() => ""));
+      const updatedData = {
+        ...data,
+        ai_followup_questions: questions,
+        ai_followup_answers: questions.map(() => ""),
+      };
+      setData(updatedData);
       setStep(4);
     } catch {
       setError("Network error. Check your connection and try again.");
@@ -186,6 +252,7 @@ export function OnboardingFlow() {
   }
 
   async function handleFinish() {
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     const ok = await saveRow(true);
     if (ok) router.push("/host");
   }
@@ -222,6 +289,10 @@ export function OnboardingFlow() {
               <select
                 value={data.role}
                 onChange={(e) => update("role", e.target.value)}
+                onBlur={(e) => {
+                  const snap = { ...data, role: e.target.value };
+                  handleBlur(snap);
+                }}
                 className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Select a role…</option>
@@ -244,7 +315,14 @@ export function OnboardingFlow() {
                     <button
                       key={ch}
                       type="button"
-                      onClick={() => toggleChannel(ch)}
+                      onClick={() => {
+                        const next = data.community_channels.includes(ch)
+                          ? data.community_channels.filter((c) => c !== ch)
+                          : [...data.community_channels, ch];
+                        const snap = { ...data, community_channels: next };
+                        setData(snap);
+                        scheduleAutoSave(snap);
+                      }}
                       className={`px-3 py-1.5 text-sm border transition-colors ${
                         active
                           ? "border-primary bg-primary/10 text-primary"
@@ -265,6 +343,10 @@ export function OnboardingFlow() {
               <select
                 value={data.event_goal}
                 onChange={(e) => update("event_goal", e.target.value)}
+                onBlur={(e) => {
+                  const snap = { ...data, event_goal: e.target.value };
+                  handleBlur(snap);
+                }}
                 className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
               >
                 <option value="">Select a goal…</option>
@@ -284,6 +366,7 @@ export function OnboardingFlow() {
               onSkip={handleSkip}
               submitting={submitting}
               nextLabel="Next"
+              saveStatus={saveStatus}
             />
           </>
         )}
@@ -305,6 +388,10 @@ export function OnboardingFlow() {
                 update("biggest_misconception", e.target.value);
                 setError(null);
               }}
+              onBlur={(e) => {
+                const snap = { ...data, biggest_misconception: e.target.value };
+                handleBlur(snap);
+              }}
               rows={5}
               placeholder="e.g. Most people think our staking rewards come from inflation, but they actually come from protocol fees…"
               className="w-full bg-background border border-border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none"
@@ -319,6 +406,7 @@ export function OnboardingFlow() {
               submitting={submitting}
               nextLabel="Next"
               nextDisabled={data.biggest_misconception.trim().length < 15}
+              saveStatus={saveStatus}
             />
           </>
         )}
@@ -341,6 +429,10 @@ export function OnboardingFlow() {
                 type="url"
                 value={data.project_website}
                 onChange={(e) => update("project_website", e.target.value)}
+                onBlur={(e) => {
+                  const snap = { ...data, project_website: e.target.value };
+                  handleBlur(snap);
+                }}
                 placeholder="https://…"
                 className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
               />
@@ -354,6 +446,10 @@ export function OnboardingFlow() {
                 type="text"
                 value={data.twitter_handle}
                 onChange={(e) => update("twitter_handle", e.target.value)}
+                onBlur={(e) => {
+                  const snap = { ...data, twitter_handle: e.target.value };
+                  handleBlur(snap);
+                }}
                 placeholder="@yourproject"
                 className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
               />
@@ -366,6 +462,10 @@ export function OnboardingFlow() {
               <textarea
                 value={data.content_sources}
                 onChange={(e) => update("content_sources", e.target.value)}
+                onBlur={(e) => {
+                  const snap = { ...data, content_sources: e.target.value };
+                  handleBlur(snap);
+                }}
                 rows={3}
                 placeholder="https://docs.yourproject.xyz/whitepaper&#10;https://blog.yourproject.xyz/why-we-built-this"
                 className="w-full bg-background border border-border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none font-mono"
@@ -380,6 +480,7 @@ export function OnboardingFlow() {
               onSkip={handleSkip}
               submitting={submitting || loadingFollowups}
               nextLabel={loadingFollowups ? "Generating…" : "Next"}
+              saveStatus={saveStatus}
             />
           </>
         )}
@@ -414,7 +515,9 @@ export function OnboardingFlow() {
                           onClick={() => {
                             const next = [...data.ai_followup_answers];
                             next[i] = opt;
-                            update("ai_followup_answers", next);
+                            const snap = { ...data, ai_followup_answers: next };
+                            setData(snap);
+                            scheduleAutoSave(snap);
                           }}
                           className={`w-full text-left px-3 py-2 text-sm border transition-colors ${
                             chosen
@@ -444,6 +547,7 @@ export function OnboardingFlow() {
               onSkip={handleSkip}
               submitting={submitting}
               nextLabel={submitting ? "Saving…" : "Finish"}
+              saveStatus={saveStatus}
             />
           </>
         )}
@@ -459,6 +563,7 @@ function NavRow({
   submitting,
   nextLabel,
   nextDisabled,
+  saveStatus,
 }: {
   onBack: (() => void) | null;
   onNext: () => void;
@@ -466,17 +571,29 @@ function NavRow({
   submitting: boolean;
   nextLabel: string;
   nextDisabled?: boolean;
+  saveStatus: SaveStatus;
 }) {
   return (
     <div className="flex items-center justify-between pt-2">
-      <button
-        type="button"
-        onClick={onSkip}
-        disabled={submitting}
-        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
-      >
-        Skip for now
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={submitting}
+          className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+        >
+          Skip for now
+        </button>
+        {saveStatus === "saving" && (
+          <span className="text-xs text-muted-foreground">Saving…</span>
+        )}
+        {saveStatus === "saved" && (
+          <span className="text-xs text-muted-foreground">Saved ✓</span>
+        )}
+        {saveStatus === "error" && (
+          <span className="text-xs text-destructive">Save failed</span>
+        )}
+      </div>
       <div className="flex gap-2">
         {onBack && (
           <Button variant="outline" onClick={onBack} disabled={submitting}>

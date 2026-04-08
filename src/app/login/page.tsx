@@ -16,14 +16,17 @@ export default function LoginPage() {
   const [step, setStep] = useState<"email" | "otp">("email");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const supabase = useMemo(() => createClient(), []);
 
   async function handleGoogle() {
+    if (!termsAccepted) return;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        // Pass ?terms=1 so the callback can stamp terms_accepted_at
+        redirectTo: `${window.location.origin}/auth/callback?terms=1`,
         queryParams: { prompt: "select_account" },
       },
     });
@@ -32,6 +35,7 @@ export default function LoginPage() {
 
   const handleTelegramAuth = useCallback(
     async ({ token_hash }: TelegramAuthResult) => {
+      if (!termsAccepted) return;
       setError(null);
       setLoading(true);
       const { error: verifyError } = await supabase.auth.verifyOtp({
@@ -43,9 +47,18 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
+      // Stamp consent for Telegram (post-auth client-side update)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ terms_accepted_at: new Date().toISOString() })
+          .eq("id", user.id)
+          .is("terms_accepted_at", null);
+      }
       window.location.href = "/host";
     },
-    [supabase]
+    [supabase, termsAccepted]
   );
 
   async function handleSendOtp(e: React.FormEvent) {
@@ -76,6 +89,15 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
     } else {
+      // Stamp consent for email OTP flow
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({ terms_accepted_at: new Date().toISOString() })
+          .eq("id", user.id)
+          .is("terms_accepted_at", null);
+      }
       window.location.href = "/host";
     }
     setLoading(false);
@@ -100,14 +122,33 @@ export default function LoginPage() {
 
           {step === "email" ? (
             <div className="space-y-4">
+              {/* ToS consent */}
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 accent-primary cursor-pointer"
+                />
+                <span className="text-sm text-muted-foreground leading-snug">
+                  I have read and agree to the{" "}
+                  <a href="/terms" target="_blank" className="text-foreground underline underline-offset-2 hover:text-primary transition-colors">Terms of Service</a>
+                  {" "}and{" "}
+                  <a href="/privacy" target="_blank" className="text-foreground underline underline-offset-2 hover:text-primary transition-colors">Privacy Policy</a>.
+                </span>
+              </label>
+
               {/* Telegram — first for Web3 audience */}
-              <TelegramLoginButton onAuth={handleTelegramAuth} returnUrl={typeof window !== "undefined" ? `${window.location.origin}/host` : "/host"} />
+              <div className={!termsAccepted ? "opacity-40 pointer-events-none select-none" : ""}>
+                <TelegramLoginButton onAuth={handleTelegramAuth} returnUrl={typeof window !== "undefined" ? `${window.location.origin}/host` : "/host"} />
+              </div>
 
               {/* Google OAuth */}
               <Button
                 variant="outline"
                 className="w-full h-11 gap-3 font-medium"
                 onClick={handleGoogle}
+                disabled={!termsAccepted}
               >
                 <svg className="size-5 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -150,7 +191,7 @@ export default function LoginPage() {
 
                 <Button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !termsAccepted}
                   className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary-hover font-medium"
                 >
                   {loading ? "Sending..." : "Send Code"}

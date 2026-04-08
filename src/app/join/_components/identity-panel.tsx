@@ -111,6 +111,7 @@ export function IdentityPanel({
   const [isFirstTime, setIsFirstTime] = useState(true);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState("");
   const [otpStep, setOtpStep] = useState<"email" | "otp">("email");
@@ -410,11 +411,15 @@ export function IdentityPanel({
       }
     }
 
-    // Save username to profile if first-time or editing
+    // Save username + consent stamp for first-time users
     if (isFirstTime || editing) {
+      const profileUpdate: Record<string, unknown> = { username: username.trim() };
+      if (isFirstTime && termsAccepted) {
+        profileUpdate.terms_accepted_at = new Date().toISOString();
+      }
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ username: username.trim() })
+        .update(profileUpdate)
         .eq("id", user.id);
 
       if (updateError) {
@@ -847,9 +852,27 @@ export function IdentityPanel({
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
+          {/* ToS consent — only for first-time players */}
+          {isFirstTime && (
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 size-4 shrink-0 accent-primary cursor-pointer"
+              />
+              <span className="text-sm text-muted-foreground leading-snug">
+                I have read and agree to the{" "}
+                <a href="/terms" target="_blank" className="text-foreground underline underline-offset-2 hover:text-primary transition-colors">Terms of Service</a>
+                {" "}and{" "}
+                <a href="/privacy" target="_blank" className="text-foreground underline underline-offset-2 hover:text-primary transition-colors">Privacy Policy</a>.
+              </span>
+            </label>
+          )}
+
           <button
             onClick={handleJoinGame}
-            disabled={joining || !username.trim() || usernameStatus === "taken" || usernameStatus === "checking" || !!emailLinkStep}
+            disabled={joining || !username.trim() || usernameStatus === "taken" || usernameStatus === "checking" || !!emailLinkStep || (isFirstTime && !termsAccepted)}
             className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary-hover font-heading font-medium text-base disabled:opacity-50 transition-colors"
           >
             {joining ? "Joining..." : "Join Game"}

@@ -193,6 +193,14 @@ export function MindScanModal({
       return;
     }
 
+    const targetRound = rounds.find((r) => r.id === targetRoundId);
+    if (targetRound?.round_type === "true_false") {
+      setError(
+        "MindScan generates 4-option questions and can't be imported into a True/False round. Switch the target round to Multiple Choice or WipeOut."
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       // Find next sort_order for the target round.
@@ -204,23 +212,13 @@ export function MindScanModal({
         .limit(1);
       const startOrder = existing?.[0] ? existing[0].sort_order + 1 : 0;
 
-      const targetRound = rounds.find((r) => r.id === targetRoundId);
-      const isTrueFalse = targetRound?.round_type === "true_false";
-
-      // MindScan generates 4-option MCQs. If the host picked a true_false
-      // round, fall back to ["True","False"] like the JSON importer does —
-      // but the 0/1 correct_answer mapping here is lossy, so we just drop
-      // into the first two options. In practice the host should import
-      // into an mcq or wipeout round.
       const picks = [...selected].sort((a, b) => a - b).map((i) => generated[i]);
 
       const rows = picks.map((q, i) => ({
         round_id: targetRoundId,
         body: q.body,
-        options: isTrueFalse ? ["True", "False"] : q.options,
-        correct_answer: isTrueFalse
-          ? Math.min(q.correct_answer, 1)
-          : q.correct_answer,
+        options: q.options,
+        correct_answer: q.correct_answer,
         explanation: q.explanation ?? null,
         sort_order: startOrder + i,
         ai_generated: true,
@@ -248,9 +246,6 @@ export function MindScanModal({
       setLoading(false);
     }
   }
-
-  const targetIsTrueFalse =
-    rounds.find((r) => r.id === targetRoundId)?.round_type === "true_false";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm">
@@ -453,7 +448,7 @@ export function MindScanModal({
                           {audioFile ? audioFile.name : "Click to upload"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          MP3, WAV, M4A — max 25 MB
+                          MP3, WAV, M4A, WebM — up to 500 MB
                         </p>
                       </>
                     )}
@@ -540,11 +535,9 @@ export function MindScanModal({
               </div>
             </div>
 
-            {targetIsTrueFalse && (
-              <p className="text-xs text-muted-foreground italic">
-                Note: importing MCQ output into a True/False round will collapse
-                options to True/False only. Use an MCQ or WipeOut round for
-                best results.
+            {rounds.find((r) => r.id === targetRoundId)?.round_type === "true_false" && (
+              <p className="text-xs text-destructive">
+                MindScan generates 4-option questions. Switch the target round to Multiple Choice or WipeOut.
               </p>
             )}
 

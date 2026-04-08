@@ -51,12 +51,85 @@ export function MindScanModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Layer 1b: input source tabs
+  const [activeTab, setActiveTab] = useState<"paste" | "url" | "audio">(
+    "paste"
+  );
+  const [fetchUrl, setFetchUrl] = useState("");
+  const [fetchState, setFetchState] = useState<
+    "idle" | "loading" | "done" | "error"
+  >("idle");
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [transcribeState, setTranscribeState] = useState<
+    "idle" | "loading" | "done" | "error"
+  >("idle");
+  const [showFullPreview, setShowFullPreview] = useState(false);
+
   const [generated, setGenerated] = useState<MindScanQuestion[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const selectedCount = selected.size;
   const allSelected =
     generated.length > 0 && selectedCount === generated.length;
+
+  async function handleFetchUrl() {
+    setError(null);
+    if (!fetchUrl.trim()) {
+      setError("Enter a URL to fetch.");
+      return;
+    }
+    setFetchState("loading");
+    try {
+      const res = await fetch("/api/mindscan/fetch-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: fetchUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not fetch that URL.");
+        setFetchState("error");
+        return;
+      }
+      setContent(data.content);
+      setFetchState("done");
+      setShowFullPreview(false);
+    } catch {
+      setError("Network error. Check your connection and try again.");
+      setFetchState("error");
+    }
+  }
+
+  async function handleTranscribe(file: File) {
+    setError(null);
+    setAudioFile(file);
+    setTranscribeState("loading");
+    try {
+      const fd = new FormData();
+      fd.append("audio", file);
+      const res = await fetch("/api/mindscan/transcribe", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not transcribe that file.");
+        setTranscribeState("error");
+        return;
+      }
+      setContent(data.content);
+      setTranscribeState("done");
+      setShowFullPreview(false);
+    } catch {
+      setError("Network error. Check your connection and try again.");
+      setTranscribeState("error");
+    }
+  }
+
+  function switchTab(tab: "paste" | "url" | "audio") {
+    setActiveTab(tab);
+    setError(null);
+  }
 
   async function handleGenerate() {
     setError(null);
@@ -214,25 +287,167 @@ export function MindScanModal({
 
         {stage === "input" && (
           <>
-            {/* Content textarea */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Paste content
-              </label>
-              <textarea
-                value={content}
-                onChange={(e) => {
-                  setContent(e.target.value);
-                  setError(null);
-                }}
-                rows={10}
-                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary resize-none"
-                placeholder="Paste a whitepaper section, blog post, FAQ, or docs page here..."
-              />
-              <p className="text-xs text-muted-foreground">
-                {content.length.toLocaleString()} / 30,000 characters
-              </p>
+            {/* Tab switcher */}
+            <div className="flex gap-1 border-b border-border">
+              {(
+                [
+                  { id: "paste" as const, label: "📝 Paste" },
+                  { id: "url" as const, label: "🔗 URL" },
+                  { id: "audio" as const, label: "🎙 Audio" },
+                ]
+              ).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => switchTab(t.id)}
+                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                    activeTab === t.id
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
+
+            {/* Paste tab */}
+            {activeTab === "paste" && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Paste content
+                </label>
+                <textarea
+                  value={content}
+                  onChange={(e) => {
+                    setContent(e.target.value);
+                    setError(null);
+                  }}
+                  rows={10}
+                  className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary resize-none"
+                  placeholder="Paste a whitepaper section, blog post, FAQ, or docs page here..."
+                />
+                <p className="text-xs text-muted-foreground">
+                  {content.length.toLocaleString()} / 30,000 characters
+                </p>
+              </div>
+            )}
+
+            {/* URL tab */}
+            {activeTab === "url" && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Article URL
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={fetchUrl}
+                      onChange={(e) => {
+                        setFetchUrl(e.target.value);
+                        setError(null);
+                      }}
+                      placeholder="https://mirror.xyz/..."
+                      className="flex-1 h-9 bg-background border border-border px-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <Button
+                      onClick={handleFetchUrl}
+                      disabled={
+                        fetchState === "loading" || !fetchUrl.trim()
+                      }
+                      variant="outline"
+                    >
+                      {fetchState === "loading" ? "Fetching..." : "Fetch"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Works with whitepapers, blog posts, FAQs, docs. Max 500 KB.
+                  </p>
+                </div>
+
+                {fetchState === "done" && content && (
+                  <ContentPreview
+                    content={content}
+                    showFull={showFullPreview}
+                    onToggleFull={() => setShowFullPreview((v) => !v)}
+                    onContentChange={(v) => setContent(v)}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Audio tab */}
+            {activeTab === "audio" && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Audio file
+                  </label>
+                  <label
+                    className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed px-4 py-8 cursor-pointer transition-colors ${
+                      transcribeState === "loading"
+                        ? "border-primary bg-primary/5 cursor-wait"
+                        : "border-border hover:border-primary hover:bg-accent"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept=".mp3,.wav,.m4a,audio/*"
+                      disabled={transcribeState === "loading"}
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleTranscribe(f);
+                      }}
+                    />
+                    {transcribeState === "loading" ? (
+                      <>
+                        <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        <p className="text-sm text-muted-foreground">
+                          Transcribing {audioFile?.name}...
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="size-8 text-muted-foreground"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 4v12m-4-4l4 4 4-4M4 20h16"
+                          />
+                        </svg>
+                        <p className="text-sm text-foreground font-medium">
+                          {audioFile ? audioFile.name : "Click to upload"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          MP3, WAV, M4A — max 25 MB
+                        </p>
+                      </>
+                    )}
+                  </label>
+                  <p className="text-xs text-muted-foreground italic">
+                    💡 Recording a Twitter Space? Enable recording before you
+                    start, then download from your profile after it ends.
+                  </p>
+                </div>
+
+                {transcribeState === "done" && content && (
+                  <ContentPreview
+                    content={content}
+                    showFull={showFullPreview}
+                    onToggleFull={() => setShowFullPreview((v) => !v)}
+                    onContentChange={(v) => setContent(v)}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Settings row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -373,6 +588,49 @@ export function MindScanModal({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function ContentPreview({
+  content,
+  showFull,
+  onToggleFull,
+  onContentChange,
+}: {
+  content: string;
+  showFull: boolean;
+  onToggleFull: () => void;
+  onContentChange: (v: string) => void;
+}) {
+  return (
+    <div className="border border-green-500/30 bg-green-500/5 px-4 py-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-foreground flex items-center gap-1.5">
+          <span className="text-green-500">✓</span>
+          Content ready — {content.length.toLocaleString()} chars
+        </p>
+        <button
+          type="button"
+          onClick={onToggleFull}
+          className="text-xs font-medium text-primary hover:text-primary/80"
+        >
+          {showFull ? "Collapse" : "Edit"}
+        </button>
+      </div>
+      {showFull ? (
+        <textarea
+          value={content}
+          onChange={(e) => onContentChange(e.target.value)}
+          rows={8}
+          className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary resize-none"
+        />
+      ) : (
+        <p className="text-xs text-muted-foreground line-clamp-3">
+          {content.slice(0, 200)}
+          {content.length > 200 ? "..." : ""}
+        </p>
+      )}
     </div>
   );
 }

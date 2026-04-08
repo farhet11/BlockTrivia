@@ -9,6 +9,8 @@
  * Limits (per hour, per user):
  *   - generate:              20 calls
  *   - onboarding-followup:   10 calls
+ *   - fetch-url:             30 calls
+ *   - transcribe:             5 calls  ($0.006/min — Whisper cost)
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -16,6 +18,8 @@ import { SupabaseClient } from "@supabase/supabase-js";
 const LIMITS: Record<string, number> = {
   generate: 20,
   "onboarding-followup": 10,
+  "fetch-url": 30,
+  transcribe: 5,
 };
 
 const WINDOW_HOURS = 1;
@@ -39,7 +43,7 @@ const WINDOW_HOURS = 1;
 export async function checkAndLog(
   supabase: SupabaseClient,
   profileId: string,
-  endpoint: "generate" | "onboarding-followup"
+  endpoint: "generate" | "onboarding-followup" | "fetch-url" | "transcribe"
 ): Promise<string | null> {
   const limit = LIMITS[endpoint] ?? 20;
   const windowStart = new Date(
@@ -60,7 +64,15 @@ export async function checkAndLog(
   }
 
   if ((count ?? 0) >= limit) {
-    return `Rate limit reached. You can generate up to ${limit} ${endpoint === "generate" ? "question sets" : "follow-up sets"} per hour. Try again in a bit.`;
+    const noun =
+      endpoint === "generate"
+        ? "question sets"
+        : endpoint === "transcribe"
+        ? "transcriptions"
+        : endpoint === "fetch-url"
+        ? "URL fetches"
+        : "follow-up sets";
+    return `Rate limit reached. You can use this feature up to ${limit} ${noun} per hour. Try again in a bit.`;
   }
 
   // Phase 2: Log this call (best-effort — fail open).

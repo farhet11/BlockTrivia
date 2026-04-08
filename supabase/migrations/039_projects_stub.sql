@@ -39,7 +39,7 @@ alter table public.events
 -- updated_at trigger for projects.
 create trigger projects_updated_at
   before update on public.projects
-  for each row execute function public.handle_updated_at();
+  for each row execute function update_updated_at();
 
 -- RLS: hosts can read all projects they are members of; owners can update.
 alter table public.projects enable row level security;

@@ -42,6 +42,7 @@ jobs:
             -H "Notion-Version: 2022-06-28" \
             -H "Content-Type: application/json" \
             -d "{
+              \"after\": \"aa237aa4-f13f-4e7b-84a5-868dd6f9104b\",
               \"children\": [
                 {
                   \"object\": \"block\",

@@ -258,7 +258,7 @@ export function MindScanModal({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-heading text-lg font-semibold">
-              Generate questions ✨
+              Generate questions
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Paste your whitepaper, blog post, FAQ, or docs. We&rsquo;ll turn it
@@ -291,21 +291,46 @@ export function MindScanModal({
             <div className="flex gap-1 border-b border-border">
               {(
                 [
-                  { id: "paste" as const, label: "📝 Paste" },
-                  { id: "url" as const, label: "🔗 URL" },
-                  { id: "audio" as const, label: "🎙 Audio" },
+                  {
+                    id: "paste" as const,
+                    label: "Paste",
+                    icon: (
+                      <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    id: "url" as const,
+                    label: "URL",
+                    icon: (
+                      <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    id: "audio" as const,
+                    label: "Audio",
+                    icon: (
+                      <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                      </svg>
+                    ),
+                  },
                 ]
               ).map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => switchTab(t.id)}
-                  className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                     activeTab === t.id
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   }`}
                 >
+                  {t.icon}
                   {t.label}
                 </button>
               ))}
@@ -432,9 +457,11 @@ export function MindScanModal({
                       </>
                     )}
                   </label>
-                  <p className="text-xs text-muted-foreground italic">
-                    💡 Recording a Twitter Space? Enable recording before you
-                    start, then download from your profile after it ends.
+                  <p className="text-xs text-muted-foreground italic flex items-start gap-1.5">
+                    <svg className="size-3.5 mt-px shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Recording a Twitter Space? Enable recording before you start, then download from your profile after it ends.
                   </p>
                 </div>
 

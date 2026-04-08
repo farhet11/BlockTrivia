@@ -223,6 +223,7 @@ export function MindScanModal({
           : q.correct_answer,
         explanation: q.explanation ?? null,
         sort_order: startOrder + i,
+        ai_generated: true,
       }));
 
       const { data, error: insertError } = await supabase

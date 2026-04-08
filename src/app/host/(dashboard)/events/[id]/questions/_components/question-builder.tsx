@@ -30,6 +30,7 @@ export type Question = {
   correct_answer: number;
   sort_order: number;
   explanation?: string | null;
+  ai_generated?: boolean;
 };
 
 export function QuestionBuilder({

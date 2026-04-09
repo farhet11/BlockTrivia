@@ -147,9 +147,6 @@ async function getProject(rootdataId: string): Promise<RootDataProject> {
 
   const json = await res.json();
   const d = (json?.data ?? {}) as Record<string, unknown>;
-  console.log("[rootdata.getProject] keys:", Object.keys(d));
-  console.log("[rootdata.getProject] social_media:", JSON.stringify(d.social_media));
-  console.log("[rootdata.getProject] logo:", d.logo, "project_name:", d.project_name);
 
   // social_media is an object e.g. { website: "url", twitter: "url", X: "url" }
   const social = (d.social_media ?? {}) as Record<string, unknown>;

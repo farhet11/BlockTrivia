@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import type { OnboardingFollowupQuestion } from "@/lib/mindscan/types";
+import type { RootDataSearchResult } from "@/lib/rootdata";
 
 /**
  * Layer 0 hybrid onboarding flow.
@@ -100,6 +101,14 @@ export function OnboardingFlow({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
+  // RootData project search state (Step 3)
+  const [rdQuery, setRdQuery] = useState("");
+  const [rdResults, setRdResults] = useState<RootDataSearchResult[]>([]);
+  const [rdSearching, setRdSearching] = useState(false);
+  const [rdSelectedId, setRdSelectedId] = useState<string | null>(null);
+  const [rdLoading, setRdLoading] = useState(false);
+  const rdDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Track the last known updated_at timestamp from the server to prevent stale saves
   // (optimistic concurrency control — if another tab/device modified the row, reject the save)
@@ -238,6 +247,59 @@ export function OnboardingFlow({
 
   function handleBlur(snapshot?: OnboardingData) {
     scheduleAutoSave(snapshot ?? data);
+  }
+
+  function handleRdQueryChange(q: string) {
+    setRdQuery(q);
+    setRdResults([]);
+    if (rdDebounceRef.current) clearTimeout(rdDebounceRef.current);
+    if (!q.trim()) return;
+    rdDebounceRef.current = setTimeout(async () => {
+      setRdSearching(true);
+      try {
+        const res = await fetch("/api/rootdata/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q.trim() }),
+        });
+        const body = await res.json();
+        setRdResults(res.ok ? (body.results ?? []) : []);
+      } catch {
+        setRdResults([]);
+      } finally {
+        setRdSearching(false);
+      }
+    }, 400);
+  }
+
+  async function handleRdSelect(result: RootDataSearchResult) {
+    setRdSelectedId(String(result.project_id));
+    setRdResults([]);
+    setRdQuery(result.name);
+    setRdLoading(true);
+    try {
+      const res = await fetch("/api/rootdata/project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rootdata_id: String(result.project_id) }),
+      });
+      const body = await res.json();
+      if (res.ok && body.project) {
+        const p = body.project;
+        // Auto-populate project_website and twitter_handle from RootData
+        const snap = {
+          ...data,
+          project_website: p.website ?? data.project_website,
+          twitter_handle: p.twitter ?? data.twitter_handle,
+        };
+        setData(snap);
+        scheduleAutoSave(snap);
+      }
+    } catch {
+      // Non-fatal — host can fill in manually below
+    } finally {
+      setRdLoading(false);
+    }
   }
 
   async function handleSkip() {
@@ -449,12 +511,80 @@ export function OnboardingFlow({
         {step === 3 && (
           <>
             <h2 className="font-heading text-xl font-semibold">
-              Point us at your content (optional)
+              Point us at your project (optional)
             </h2>
             <p className="text-sm text-muted-foreground">
-              Stored as pointers only — nothing is crawled yet. You&rsquo;ll
-              paste content directly when you generate questions.
+              Search RootData to auto-fill your profile, or enter details manually below.
             </p>
+
+            {/* RootData project search */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Find your project on RootData
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={rdQuery}
+                  onChange={(e) => handleRdQueryChange(e.target.value)}
+                  placeholder="Search by project name…"
+                  className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary pr-20"
+                />
+                {rdSearching && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    Searching…
+                  </span>
+                )}
+                {rdLoading && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    Loading…
+                  </span>
+                )}
+              </div>
+
+              {/* Search results dropdown */}
+              {rdResults.length > 0 && (
+                <div className="border border-border bg-background divide-y divide-border max-h-56 overflow-y-auto">
+                  {rdResults.slice(0, 8).map((result) => (
+                    <button
+                      key={result.project_id}
+                      type="button"
+                      onClick={() => handleRdSelect(result)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-accent transition-colors"
+                    >
+                      {result.logo && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={result.logo}
+                          alt=""
+                          className="w-7 h-7 rounded object-contain flex-shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{result.name}</p>
+                        {result.one_liner && (
+                          <p className="text-xs text-muted-foreground truncate">{result.one_liner}</p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* No results feedback */}
+              {!rdSearching && rdQuery.trim().length > 1 && rdResults.length === 0 && !rdSelectedId && (
+                <p className="text-xs text-muted-foreground">
+                  Not found on RootData — fill in the details below manually.
+                </p>
+              )}
+
+              {/* Confirmed selection */}
+              {rdSelectedId && !rdLoading && (
+                <p className="text-xs text-primary">
+                  Project linked — website and Twitter auto-filled where available.
+                </p>
+              )}
+            </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

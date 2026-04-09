@@ -37,6 +37,7 @@ alter table public.events
   add column if not exists project_id uuid references public.projects(id) on delete set null;
 
 -- updated_at trigger for projects.
+drop trigger if exists projects_updated_at on public.projects;
 create trigger projects_updated_at
   before update on public.projects
   for each row execute function update_updated_at();
@@ -45,6 +46,7 @@ create trigger projects_updated_at
 alter table public.projects enable row level security;
 alter table public.host_projects enable row level security;
 
+drop policy if exists "hosts can view their projects" on public.projects;
 create policy "hosts can view their projects"
   on public.projects for select
   using (
@@ -54,6 +56,7 @@ create policy "hosts can view their projects"
     )
   );
 
+drop policy if exists "project owners can update" on public.projects;
 create policy "project owners can update"
   on public.projects for update
   using (
@@ -63,6 +66,7 @@ create policy "project owners can update"
     )
   );
 
+drop policy if exists "hosts can view their own memberships" on public.host_projects;
 create policy "hosts can view their own memberships"
   on public.host_projects for select
   using (profile_id = auth.uid());

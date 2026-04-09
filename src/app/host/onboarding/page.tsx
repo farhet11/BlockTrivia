@@ -25,7 +25,7 @@ export default async function HostOnboardingPage() {
   const { data: existing, error: existingErr } = await supabase
     .from("host_onboarding")
     .select(
-      "completed_at, role, community_channels, event_goal, biggest_misconception, project_website, twitter_handle, content_sources, ai_followup_questions, ai_followup_answers, updated_at"
+      "completed_at, role, community_channels, event_goal, biggest_misconception, project_website, twitter_handle, content_sources, ai_followup_questions, ai_followup_answers, linked_project_name, linked_rootdata_id, linked_project_logo, updated_at"
     )
     .eq("profile_id", user.id)
     .maybeSingle();
@@ -56,6 +56,9 @@ export default async function HostOnboardingPage() {
         ai_followup_answers: Array.isArray(existing.ai_followup_answers)
           ? (existing.ai_followup_answers as string[])
           : [],
+        linked_project_name: existing.linked_project_name ?? "",
+        linked_rootdata_id: existing.linked_rootdata_id ?? "",
+        linked_project_logo: existing.linked_project_logo ?? "",
       }
     : null;
 

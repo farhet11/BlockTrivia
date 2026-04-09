@@ -56,6 +56,9 @@ type OnboardingData = {
   content_sources: string; // newline-separated, split at save time
   ai_followup_questions: OnboardingFollowupQuestion[];
   ai_followup_answers: string[];
+  linked_project_name: string;
+  linked_rootdata_id: string;
+  linked_project_logo: string;
 };
 
 /** Exported so onboarding/page.tsx can type the initialData it passes in. */
@@ -71,6 +74,9 @@ const EMPTY: OnboardingData = {
   content_sources: "",
   ai_followup_questions: [],
   ai_followup_answers: [],
+  linked_project_name: "",
+  linked_rootdata_id: "",
+  linked_project_logo: "",
 };
 
 /** Returns the first step the host hasn't meaningfully completed. */
@@ -103,10 +109,10 @@ export function OnboardingFlow({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   // RootData project search state (Step 3)
-  const [rdQuery, setRdQuery] = useState("");
+  const [rdQuery, setRdQuery] = useState(initialData?.linked_project_name ?? "");
   const [rdResults, setRdResults] = useState<RootDataSearchResult[]>([]);
   const [rdSearching, setRdSearching] = useState(false);
-  const [rdSelectedId, setRdSelectedId] = useState<string | null>(null);
+  const [rdSelectedId, setRdSelectedId] = useState<string | null>(initialData?.linked_rootdata_id || null);
   const [rdLoading, setRdLoading] = useState(false);
   const rdDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -183,6 +189,9 @@ export function OnboardingFlow({
               ? current.ai_followup_answers
               : null,
           completed_at: completed ? new Date().toISOString() : null,
+          linked_project_name: current.linked_project_name || null,
+          linked_rootdata_id: current.linked_rootdata_id || null,
+          linked_project_logo: current.linked_project_logo || null,
         };
 
         // Client-side stale-save guard: after a successful save, update our
@@ -299,6 +308,9 @@ export function OnboardingFlow({
           project_website: p.website ?? data.project_website,
           twitter_handle: p.twitter ?? data.twitter_handle,
           content_sources: mergedUrls,
+          linked_project_name: result.name,
+          linked_rootdata_id: String(result.project_id),
+          linked_project_logo: p.logo_url ?? result.logo ?? "",
         };
         setData(snap);
         scheduleAutoSave(snap);

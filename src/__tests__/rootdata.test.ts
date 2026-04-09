@@ -44,17 +44,15 @@ describe("rootdata.search", () => {
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        data: {
-          project_list: [
-            {
-              project_id: 42,
-              name: "Uniswap",
-              one_liner: "Decentralized trading protocol",
-              logo: "https://example.com/uni.png",
-              tags: ["DeFi", "DEX"],
-            },
-          ],
-        },
+        data: [
+          {
+            project_id: 42,
+            name: "Uniswap",
+            one_liner: "Decentralized trading protocol",
+            logo: "https://example.com/uni.png",
+            tags: ["DeFi", "DEX"],
+          },
+        ],
       }),
     } as Response);
 
@@ -68,7 +66,7 @@ describe("rootdata.search", () => {
     expect(results[0].tags).toEqual(["DeFi", "DEX"]);
   });
 
-  it("returns empty array when project_list is missing", async () => {
+  it("returns empty array when data is not an array", async () => {
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => ({ data: {} }),

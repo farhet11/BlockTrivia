@@ -313,7 +313,11 @@ export function OnboardingFlow({
           linked_project_logo: p.logo_url ?? result.logo ?? "",
         };
         setData(snap);
-        scheduleAutoSave(snap);
+        // Save immediately — don't debounce. Linking a project is an explicit
+        // action and the new columns (linked_project_name, etc.) must not be
+        // dropped by a stale auto-save cancel or a PostgREST schema cache race.
+        if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+        saveRow(false, snap);
       }
     } catch {
       // Non-fatal — host can fill in manually below

@@ -6,15 +6,22 @@ import type { OnboardingInitialData } from "./_components/onboarding-flow";
 import { coerceFollowupAnswers } from "@/lib/mindscan/types";
 
 /**
- * MindScan Layer 0 — host onboarding.
+ * MindScan Layer 0 — host onboarding, which doubles as the "Diagnostic
+ * Profile Editor" for hosts who have already completed it.
  *
  * Lives OUTSIDE the `(dashboard)` route group so it doesn't inherit the
  * dashboard layout's onboarding redirect — otherwise we'd infinite-loop.
  * Auth still comes from the parent `src/app/host/layout.tsx`.
  *
- * Re-entry: hosts who skipped can return here and continue where they left
- * off. Only hosts who fully completed (`completed_at` is set) are bounced
- * back to the dashboard.
+ * Re-entry modes:
+ *   - New host (no row):         first-run wizard
+ *   - Skipped (row, not done):   resume where they left off
+ *   - Completed (completed_at):  edit mode — same UI, different framing
+ *
+ * Onboarding data directly shapes every quiz MindScan generates, so
+ * letting hosts update it is not optional — the project, misconception,
+ * and diagnostic answers are ALL inputs the host will want to revise
+ * as their community evolves.
  */
 export default async function HostOnboardingPage() {
   const supabase = await createServerSupabaseClient();
@@ -42,8 +49,7 @@ export default async function HostOnboardingPage() {
   // DB error — redirect to /host, the layout gate will surface it.
   if (existingErr) redirect("/host");
 
-  // Fully completed → no reason to be here.
-  if (existing?.completed_at) redirect("/host");
+  const isEditMode = Boolean(existing?.completed_at);
 
   const displayName =
     profile?.display_name ||
@@ -101,7 +107,12 @@ export default async function HostOnboardingPage() {
         <div className="w-full max-w-2xl">
           <div className="mb-8 text-center">
             <h1 className="font-heading text-3xl font-semibold tracking-tight">
-              {existing ? (
+              {isEditMode ? (
+                <>
+                  Edit your{" "}
+                  <span className="text-primary">diagnostic profile</span>
+                </>
+              ) : existing ? (
                 "Pick up where you left off"
               ) : (
                 <>
@@ -112,12 +123,15 @@ export default async function HostOnboardingPage() {
               )}
             </h1>
             <p className="text-sm text-muted-foreground mt-2">
-              Takes about 2 minutes. You can skip any step.
+              {isEditMode
+                ? "These answers shape every quiz MindScan generates for you. Update whatever you need — changes save automatically."
+                : "Takes about 2 minutes. You can skip any step."}
             </p>
           </div>
           <OnboardingFlow
             initialData={initialData}
             initialUpdatedAt={existing?.updated_at ?? null}
+            isEditMode={isEditMode}
           />
         </div>
       </div>

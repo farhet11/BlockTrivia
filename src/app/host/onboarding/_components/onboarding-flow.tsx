@@ -125,17 +125,29 @@ type SaveStatus = "idle" | "saving" | "saved" | "error";
 export function OnboardingFlow({
   initialData,
   initialUpdatedAt,
+  isEditMode = false,
 }: {
   initialData: OnboardingInitialData | null;
   initialUpdatedAt: string | null;
+  /**
+   * True when the host has already completed onboarding and is re-entering
+   * the flow to edit their diagnostic profile. Changes a few things:
+   *   - Initial step is 1 (top of form) instead of derived from progress
+   *   - "Finish" button reads "Save changes" and returns to dashboard
+   *   - "Skip for now" is hidden — already completed, no skip semantics
+   */
+  isEditMode?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   const [data, setData] = useState<OnboardingData>(initialData ?? EMPTY);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(() =>
-    initialData ? deriveStartingStep(initialData) : 1
-  );
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(() => {
+    // In edit mode, always start at step 1 so the host reviews from the top
+    // rather than being dropped at step 4 (the last step they touched).
+    if (isEditMode) return 1;
+    return initialData ? deriveStartingStep(initialData) : 1;
+  });
   const [loadingFollowups, setLoadingFollowups] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,12 +205,13 @@ export function OnboardingFlow({
   }
 
   /**
-   * Persists the current data snapshot. Pass `completed = true` only when the
-   * host explicitly clicks "Finish".
+   * Persists the current data snapshot. Pass `completed = true` only when
+   * the host explicitly clicks "Finish" on first-time onboarding.
    *
-   * Uses optimistic concurrency control: if the row's updated_at has changed
-   * since we last saw it, we reject the save to prevent overwriting concurrent edits
-   * (e.g., from another tab or device).
+   * Auto-saves (completed = false) NEVER touch completed_at — previously we
+   * wrote `completed_at: null` which would demote an already-completed host
+   * back to in-progress on every blur during edit mode. Now we simply omit
+   * the column from the upsert row when `completed === false`.
    */
   const saveRow = useCallback(
     async (completed: boolean, snapshot?: OnboardingData): Promise<boolean> => {
@@ -241,7 +254,9 @@ export function OnboardingFlow({
             current.ai_followup_answers.length > 0
               ? current.ai_followup_answers
               : null,
-          completed_at: completed ? new Date().toISOString() : null,
+          // Only set completed_at on an explicit Finish — auto-saves leave
+          // the existing value alone (see JSDoc on saveRow above).
+          ...(completed ? { completed_at: new Date().toISOString() } : {}),
           linked_project_name: current.linked_project_name || null,
           linked_rootdata_id: current.linked_rootdata_id || null,
           linked_project_logo: current.linked_project_logo || null,
@@ -381,6 +396,9 @@ export function OnboardingFlow({
 
   async function handleSkip() {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    // saveRow(false) no longer touches completed_at, so this is safe in
+    // both first-run ("skip for now") and edit-mode ("exit to dashboard")
+    // flows.
     const ok = await saveRow(false);
     if (ok) router.push("/host");
   }
@@ -685,6 +703,7 @@ export function OnboardingFlow({
               onBack={null}
               onNext={() => setStep(2)}
               onSkip={handleSkip}
+              skipLabel={isEditMode ? "Exit" : "Skip for now"}
               submitting={submitting}
               nextLabel="Next"
               saveStatus={saveStatus}
@@ -735,6 +754,7 @@ export function OnboardingFlow({
               onBack={() => setStep(2)}
               onNext={goToStep4}
               onSkip={handleSkip}
+              skipLabel={isEditMode ? "Exit" : "Skip for now"}
               submitting={submitting || loadingFollowups}
               nextLabel={loadingFollowups ? "Generating…" : "Next"}
               nextDisabled={data.biggest_misconception.trim().length < 15}
@@ -890,6 +910,7 @@ export function OnboardingFlow({
               onBack={() => setStep(1)}
               onNext={() => setStep(3)}
               onSkip={handleSkip}
+              skipLabel={isEditMode ? "Exit" : "Skip for now"}
               submitting={submitting}
               nextLabel="Next"
               saveStatus={saveStatus}
@@ -1073,6 +1094,7 @@ export function OnboardingFlow({
                 onBack={handleFollowupBack}
                 onNext={handleFollowupNext}
                 onSkip={handleSkip}
+                skipLabel={isEditMode ? "Exit" : "Skip for now"}
                 submitting={submitting || loadingFollowups}
                 nextLabel={
                   submitting
@@ -1080,7 +1102,9 @@ export function OnboardingFlow({
                     : loadingFollowups
                       ? "Generating…"
                       : isLast
-                        ? "Finish"
+                        ? isEditMode
+                          ? "Save changes"
+                          : "Finish"
                         : "Next question"
                 }
                 nextDisabled={!currentQuestion}
@@ -1117,6 +1141,7 @@ function NavRow({
   nextLabel,
   nextDisabled,
   saveStatus,
+  skipLabel = "Skip for now",
 }: {
   onBack: (() => void) | null;
   onNext: () => void;
@@ -1125,6 +1150,7 @@ function NavRow({
   nextLabel: string;
   nextDisabled?: boolean;
   saveStatus: SaveStatus;
+  skipLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between pt-2">
@@ -1135,7 +1161,7 @@ function NavRow({
           disabled={submitting}
           className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
         >
-          Skip for now
+          {skipLabel}
         </button>
         {saveStatus === "saving" && (
           <span className="text-xs text-muted-foreground">Saving…</span>

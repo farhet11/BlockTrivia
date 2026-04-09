@@ -50,25 +50,16 @@ export type RootDataSearchResult = {
 
 // ── Project detail types ───────────────────────────────────────────────────
 
-export type RootDataTeamMember = {
-  name: string;
-  role: string | null;
-  twitter: string | null;
-  linkedin: string | null;
-  avatar: string | null;
-};
-
 export type RootDataInvestor = {
   name: string;
   logo: string | null;
   type: string | null; // "VC", "Angel", etc.
 };
 
-export type RootDataFundingRound = {
-  round: string | null; // "Seed", "Series A", etc.
-  amount_usd: number | null;
-  date: string | null; // ISO date string
-  investors: string[]; // investor names
+export type RootDataSimilarProject = {
+  project_id: number | null;
+  name: string;
+  logo: string | null;
 };
 
 export type RootDataProject = {
@@ -80,10 +71,23 @@ export type RootDataProject = {
   website: string | null;
   twitter: string | null;
   gitbook: string | null;
-  team_members: RootDataTeamMember[];
   investors: RootDataInvestor[];
   ecosystem_tags: string[];
-  funding_history: RootDataFundingRound[];
+  /** Sister projects RootData groups together — useful for misconception contrast. */
+  similar_project: RootDataSimilarProject[];
+  /** Token ticker, e.g. "UNI". null = pre-token. */
+  token_symbol: string | null;
+  /** Free-text founding/launch date from RootData. */
+  establishment_date: string | null;
+  /** Total disclosed funding in USD. Silent context only — never surfaced in UI. */
+  total_funding: number | null;
+  /** Chains the project lives on, e.g. ["Ethereum", "Base"]. */
+  ecosystem: string[];
+  on_main_net: boolean | null;
+  plan_to_launch: boolean | null;
+  on_test_net: boolean | null;
+  /** Raw payload from RootData get_item — future-proofs new fields. */
+  raw: Record<string, unknown>;
 };
 
 // ── API methods ────────────────────────────────────────────────────────────
@@ -136,7 +140,7 @@ async function getProject(rootdataId: string): Promise<RootDataProject> {
     headers: headers(),
     body: JSON.stringify({
       project_id: Number(rootdataId),
-      include_team: 1,
+      // We are on the free tier — include_team is Pro-only and would be a no-op.
       include_investors: 1,
     }),
   });
@@ -148,21 +152,8 @@ async function getProject(rootdataId: string): Promise<RootDataProject> {
   const json = await res.json();
   const d = (json?.data ?? {}) as Record<string, unknown>;
 
-  // social_media is an object e.g. { website: "url", twitter: "url", X: "url" }
+  // social_media is an object e.g. { website: "url", X: "url", gitbook: "url" }
   const social = (d.social_media ?? {}) as Record<string, unknown>;
-
-  // Normalize team members — docs field: team_members[].name, .position, .twitter
-  const rawTeam = Array.isArray(d.team_members) ? d.team_members : [];
-  const teamMembers: RootDataTeamMember[] = rawTeam.map((m: unknown) => {
-    const member = m as Record<string, unknown>;
-    return {
-      name: String(member.name ?? ""),
-      role: member.position ? String(member.position) : null,
-      twitter: member.twitter ? String(member.twitter) : null,
-      linkedin: member.linkedin ? String(member.linkedin) : null,
-      avatar: member.avatar ? String(member.avatar) : null,
-    };
-  });
 
   // Normalize investors — docs field: investors[].name, .logo
   const rawInvestors = Array.isArray(d.investors) ? d.investors : [];
@@ -175,16 +166,59 @@ async function getProject(rootdataId: string): Promise<RootDataProject> {
     };
   });
 
-  // Normalize funding rounds — docs field: total_funding (no round list in free tier)
-  const fundingHistory: RootDataFundingRound[] = [];
-
   // Normalize tags — docs field: tags (string[] or {name}[])
   const rawTags = Array.isArray(d.tags) ? d.tags : [];
-  const ecosystemTags: string[] = rawTags.map((t: unknown) => {
-    if (typeof t === "string") return t;
-    const tag = t as Record<string, unknown>;
-    return String(tag.name ?? "");
-  });
+  const ecosystemTags: string[] = rawTags
+    .map((t: unknown) => {
+      if (typeof t === "string") return t;
+      const tag = t as Record<string, unknown>;
+      return String(tag.name ?? "");
+    })
+    .filter(Boolean);
+
+  // Normalize similar_project — docs field: similar_project[].project_id, .project_name, .logo
+  const rawSimilar = Array.isArray(d.similar_project) ? d.similar_project : [];
+  const similarProjects: RootDataSimilarProject[] = rawSimilar
+    .map((sp: unknown) => {
+      const s = sp as Record<string, unknown>;
+      return {
+        project_id: s.project_id != null ? Number(s.project_id) : null,
+        name: String(s.project_name ?? s.name ?? ""),
+        logo: s.logo ? String(s.logo) : null,
+      };
+    })
+    .filter((sp) => sp.name.length > 0);
+
+  // Normalize ecosystem — docs field: ecosystem (string[] or {name}[] depending on payload)
+  const rawEcosystem = Array.isArray(d.ecosystem) ? d.ecosystem : [];
+  const ecosystem: string[] = rawEcosystem
+    .map((e: unknown) => {
+      if (typeof e === "string") return e;
+      const obj = e as Record<string, unknown>;
+      return String(obj.name ?? obj.ecosystem_name ?? "");
+    })
+    .filter(Boolean);
+
+  // total_funding may be a number or numeric string
+  const rawFunding = d.total_funding;
+  let totalFunding: number | null = null;
+  if (typeof rawFunding === "number" && Number.isFinite(rawFunding)) {
+    totalFunding = rawFunding;
+  } else if (typeof rawFunding === "string" && rawFunding.trim() !== "") {
+    const n = Number(rawFunding);
+    if (Number.isFinite(n)) totalFunding = n;
+  }
+
+  // Booleans may come back as 1/0 or true/false
+  const toBool = (v: unknown): boolean | null => {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "number") return v !== 0;
+    if (typeof v === "string") {
+      if (v === "1" || v.toLowerCase() === "true") return true;
+      if (v === "0" || v.toLowerCase() === "false") return false;
+    }
+    return null;
+  };
 
   return {
     rootdata_id: rootdataId,
@@ -197,10 +231,17 @@ async function getProject(rootdataId: string): Promise<RootDataProject> {
     website: social.website ? String(social.website) : null,
     twitter: (social.twitter ?? social.X) ? String(social.twitter ?? social.X) : null,
     gitbook: social.gitbook ? String(social.gitbook) : null,
-    team_members: teamMembers,
     investors,
     ecosystem_tags: ecosystemTags,
-    funding_history: fundingHistory,
+    similar_project: similarProjects,
+    token_symbol: d.token_symbol ? String(d.token_symbol) : null,
+    establishment_date: d.establishment_date ? String(d.establishment_date) : null,
+    total_funding: totalFunding,
+    ecosystem,
+    on_main_net: toBool(d.on_main_net),
+    plan_to_launch: toBool(d.plan_to_launch),
+    on_test_net: toBool(d.on_test_net),
+    raw: d,
   };
 }
 

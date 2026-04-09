@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { coerceFollowupAnswers, isFollowupAnswered } from "@/lib/mindscan/types";
 
 /**
  * Banner shown on the host dashboard when onboarding has been started but
@@ -11,22 +12,24 @@ export function OnboardingReminder({
   eventGoal,
   biggestMisconception,
   aiFollowupAnswers,
+  aiFollowupQuestionCount,
 }: {
   role: string | null;
   communityChannels: string[] | null;
   eventGoal: string | null;
   biggestMisconception: string | null;
-  aiFollowupAnswers: string[] | null;
+  /** Raw jsonb from host_onboarding — may be legacy string[] or new FollowupAnswer[]. */
+  aiFollowupAnswers: unknown;
+  aiFollowupQuestionCount: number;
 }) {
+  const coerced = coerceFollowupAnswers(aiFollowupAnswers, aiFollowupQuestionCount);
   const signals = [
     Boolean(role),
     Array.isArray(communityChannels) && communityChannels.length > 0,
     Boolean(eventGoal),
     typeof biggestMisconception === "string" &&
       biggestMisconception.trim().length >= 15,
-    Array.isArray(aiFollowupAnswers) &&
-      aiFollowupAnswers.length > 0 &&
-      aiFollowupAnswers.every((a) => a && a.trim().length > 0),
+    coerced.length > 0 && coerced.every(isFollowupAnswered),
   ];
 
   const pct = Math.round((signals.filter(Boolean).length / signals.length) * 100);

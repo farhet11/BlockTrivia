@@ -44,7 +44,8 @@ describe("buildLayer1aPrompt", () => {
       followups: [
         {
           question: "Where do rewards actually come from?",
-          answer: "Protocol fees",
+          answers: ["Protocol fees", "Trading fees from AMM pools"],
+          extra: "Also MEV rebates in some rounds",
         },
       ],
     };
@@ -58,6 +59,8 @@ describe("buildLayer1aPrompt", () => {
     expect(user).toContain("Biggest community misconception");
     expect(user).toContain("People think staking rewards come from inflation");
     expect(user).toContain("Protocol fees");
+    expect(user).toContain("Trading fees from AMM pools");
+    expect(user).toContain("Host added: Also MEV rebates in some rounds");
   });
 
   it("omits host context block when no context provided", () => {
@@ -95,9 +98,49 @@ describe("buildOnboardingFollowupPrompt", () => {
     );
   });
 
-  it("requests 2 or 3 questions in the system prompt", () => {
+  it("requests EXACTLY ONE question per call in the system prompt", () => {
     const { system } = buildOnboardingFollowupPrompt("Some misconception");
-    expect(system).toMatch(/2 or 3/i);
+    expect(system).toMatch(/generate exactly one/i);
+  });
+
+  it("returns a single question shape (not wrapped in a questions array)", () => {
+    const { system } = buildOnboardingFollowupPrompt("misconception");
+    // The documented output shape should be a top-level question object.
+    expect(system).toMatch(/"question":/);
+    expect(system).toMatch(/exactly one question object/i);
+  });
+
+  it("starts in foundational mode when no previous answers provided", () => {
+    const { system, user } = buildOnboardingFollowupPrompt("misconception");
+    expect(system).toMatch(/foundational/i);
+    expect(user).not.toContain("<previous_answers>");
+  });
+
+  it("switches to drill-down mode when previous answers provided", () => {
+    const { system, user } = buildOnboardingFollowupPrompt("misconception", null, [
+      {
+        question: "What aspect confuses users most?",
+        answers: ["Token mechanics"],
+        extra: "especially around inflation",
+      },
+    ]);
+    expect(system).toMatch(/drill deeper/i);
+    expect(user).toContain("<previous_answers>");
+    expect(user).toContain("Token mechanics");
+    expect(user).toContain("especially around inflation");
+  });
+
+  it("advances turn counter as previous answers accumulate", () => {
+    const turn2 = buildOnboardingFollowupPrompt("misconception", null, [
+      { question: "q1", answers: ["a"] },
+    ]);
+    expect(turn2.system).toContain("turn: 2 of 3");
+
+    const turn3 = buildOnboardingFollowupPrompt("misconception", null, [
+      { question: "q1", answers: ["a"] },
+      { question: "q2", answers: ["b"] },
+    ]);
+    expect(turn3.system).toContain("turn: 3 of 3");
   });
 
   it("enforces JSON-only output", () => {

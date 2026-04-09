@@ -505,6 +505,28 @@ export function ProfileView({
           </div>
         </section>
 
+        {/* Host-only: Diagnostic profile editor */}
+        {(user.role === "host" || user.role === "super_admin") && (
+          <section className="mt-8">
+            <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
+              MindScan
+            </h2>
+            <Link
+              href="/host/onboarding"
+              className="flex items-center justify-between gap-3 w-full py-3 px-4 border border-border hover:bg-accent transition-colors"
+            >
+              <div className="min-w-0 text-left">
+                <p className="text-sm font-medium">Edit diagnostic profile</p>
+                <p className="text-xs text-muted-foreground">
+                  Update the project, misconception, and diagnostic answers
+                  that shape every quiz MindScan generates for you.
+                </p>
+              </div>
+              <ChevronRight size={16} strokeWidth={1.75} className="shrink-0 text-muted-foreground" />
+            </Link>
+          </section>
+        )}
+
         {/* Account Actions */}
         <div className="mt-8 border-t border-border">
           <button

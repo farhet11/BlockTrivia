@@ -55,6 +55,13 @@ const EVENT_GOALS = [
 /** Maximum diagnostic follow-ups generated per onboarding session. */
 const MAX_FOLLOWUPS = 3;
 
+/**
+ * How many times the host can wipe the diagnostic check and regenerate from
+ * Q1. Per-session (in-memory) counter; resets on page reload. Keeps the
+ * Claude credit exposure bounded without a migration.
+ */
+const MAX_REGENERATIONS = 2;
+
 type OnboardingData = {
   role: string;
   community_channels: string[];
@@ -141,6 +148,18 @@ export function OnboardingFlow({
     const loaded = initialData?.ai_followup_questions?.length ?? 0;
     return loaded > 0 ? loaded - 1 : 0;
   });
+
+  // In-session regeneration counter. Not persisted — refreshing the page
+  // resets it. Keeps Claude credit use bounded without a DB migration.
+  const [regenerationsUsed, setRegenerationsUsed] = useState(0);
+
+  // Snapshot the misconception text at the moment we generated the first
+  // follow-up. If the host later edits their misconception on Step 3, we
+  // can detect the drift and prompt them to regenerate so the diagnostic
+  // matches the new input.
+  const [generatedFromMisconception, setGeneratedFromMisconception] = useState<string>(
+    () => initialData?.biggest_misconception ?? ""
+  );
 
   // RootData project search state (Step 3)
   const [rdQuery, setRdQuery] = useState(initialData?.linked_project_name ?? "");
@@ -456,7 +475,49 @@ export function OnboardingFlow({
       const ok = await fetchFollowupAt(0, data);
       if (!ok) return;
       setFollowupIndex(0);
+      setGeneratedFromMisconception(data.biggest_misconception.trim());
       setStep(4);
+    } catch {
+      setError("Network error. Check your connection and try again.");
+    } finally {
+      setLoadingFollowups(false);
+    }
+  }
+
+  /**
+   * Wipes the diagnostic questions and starts over from Q1. Used when:
+   *   - Host manually clicks "Regenerate" on Step 4
+   *   - Host edited their misconception and wants the diagnostic to match
+   *
+   * Bounded by MAX_REGENERATIONS per session.
+   */
+  async function handleRegenerateFollowups() {
+    if (regenerationsUsed >= MAX_REGENERATIONS) {
+      setError("You've used all regenerations for this session.");
+      return;
+    }
+    if (data.biggest_misconception.trim().length < 15) {
+      setError("Your misconception needs at least 15 characters.");
+      return;
+    }
+    setError(null);
+
+    // Reset state BEFORE fetching so the UI shows the loading card, not
+    // the stale Q1.
+    const cleared: OnboardingData = {
+      ...data,
+      ai_followup_questions: [],
+      ai_followup_answers: [],
+    };
+    setData(cleared);
+    setFollowupIndex(0);
+    setLoadingFollowups(true);
+
+    try {
+      const ok = await fetchFollowupAt(0, cleared);
+      if (!ok) return;
+      setRegenerationsUsed((n) => n + 1);
+      setGeneratedFromMisconception(cleared.biggest_misconception.trim());
     } catch {
       setError("Network error. Check your connection and try again.");
     } finally {
@@ -842,6 +903,10 @@ export function OnboardingFlow({
             data.ai_followup_answers[followupIndex] ?? { choices: [], extra: "" };
           const isLast = followupIndex >= MAX_FOLLOWUPS - 1;
           const isFetchingCurrent = loadingFollowups && !currentQuestion;
+          const regenerationsLeft = MAX_REGENERATIONS - regenerationsUsed;
+          const misconceptionEdited =
+            generatedFromMisconception.trim().length > 0 &&
+            data.biggest_misconception.trim() !== generatedFromMisconception.trim();
 
           return (
             <>
@@ -859,6 +924,25 @@ export function OnboardingFlow({
                 that apply, or add your own context below. We use this to
                 target every quiz we generate for you.
               </p>
+
+              {misconceptionEdited && regenerationsLeft > 0 && (
+                <div className="border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-foreground flex items-start gap-2">
+                  <span className="text-amber-500 font-semibold shrink-0">⚠</span>
+                  <div className="min-w-0 flex-1">
+                    You edited your misconception — the current questions
+                    were generated from the earlier version.{" "}
+                    <button
+                      type="button"
+                      onClick={handleRegenerateFollowups}
+                      disabled={loadingFollowups}
+                      className="font-medium text-primary hover:underline underline-offset-2 disabled:opacity-50"
+                    >
+                      Regenerate the diagnostic
+                    </button>{" "}
+                    to match the new input.
+                  </div>
+                </div>
+              )}
 
               {/* Progress bar */}
               <div className="flex gap-1.5">
@@ -1002,6 +1086,21 @@ export function OnboardingFlow({
                 nextDisabled={!currentQuestion}
                 saveStatus={saveStatus}
               />
+
+              {data.ai_followup_questions.length > 0 && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={handleRegenerateFollowups}
+                    disabled={loadingFollowups || regenerationsLeft === 0}
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-50 disabled:no-underline disabled:cursor-not-allowed"
+                  >
+                    {regenerationsLeft > 0
+                      ? `Regenerate all questions (${regenerationsLeft} left)`
+                      : "Regeneration limit reached for this session"}
+                  </button>
+                </div>
+              )}
             </>
           );
         })()}

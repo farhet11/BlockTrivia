@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EventList } from "./_components/event-list";
@@ -10,24 +11,32 @@ export default async function HostDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Defensive null check — the (dashboard) layout also validates auth, but
+  // in Next.js 16 the layout and page run in parallel so a transient
+  // network failure in one getUser() call can still reach this code with
+  // user === null. Redirect to login instead of crashing on user.id.
+  if (!user) {
+    redirect("/login?next=/host");
+  }
+
   const [{ data: events }, { data: profile }, { data: onboarding }] =
     await Promise.all([
       supabase
         .from("events")
         .select("id, title, status, join_code, created_at")
-        .eq("created_by", user!.id)
+        .eq("created_by", user.id)
         .order("created_at", { ascending: false }),
       supabase
         .from("profiles")
         .select("display_name")
-        .eq("id", user!.id)
+        .eq("id", user.id)
         .single(),
       supabase
         .from("host_onboarding")
         .select(
           "completed_at, role, community_channels, event_goal, biggest_misconception, ai_followup_questions, ai_followup_answers"
         )
-        .eq("profile_id", user!.id)
+        .eq("profile_id", user.id)
         .maybeSingle(),
     ]);
 
@@ -35,10 +44,10 @@ export default async function HostDashboard() {
   const rawName = profile?.display_name ?? "";
   const isTgPrefix = rawName.startsWith("tg_") && !rawName.includes(" ");
   const metaName: string =
-    user!.user_metadata?.full_name ||
-    user!.user_metadata?.name ||
-    (user!.user_metadata?.telegram_username
-      ? `@${user!.user_metadata.telegram_username}`
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    (user.user_metadata?.telegram_username
+      ? `@${user.user_metadata.telegram_username}`
       : "");
   const displayName = isTgPrefix
     ? metaName.split(" ")[0] || "Host"

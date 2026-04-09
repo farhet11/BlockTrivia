@@ -93,14 +93,43 @@ ${escapeXmlText(content)}
 }
 
 /**
- * Build the Layer 0 follow-up prompt. Given a host's description of their
- * community's biggest misconception, generate 2–3 diagnostic MCQs that help
- * the host clarify which aspect is most misunderstood.
+ * Optional silent project context the followup prompt can use to tailor
+ * questions to the specific project's domain. None of these fields are
+ * displayed to the host — they only feed Claude's prompt.
+ *
+ * Mirrors the shape of `host_onboarding.linked_project_context` so the
+ * followup route can pass DB rows in directly.
  */
-export function buildOnboardingFollowupPrompt(misconception: string): {
-  system: string;
-  user: string;
-} {
+export type OnboardingFollowupProjectContext = {
+  name?: string | null;
+  description?: string | null;
+  one_liner?: string | null;
+  ecosystem_tags?: string[];
+  ecosystem?: string[];
+  similar_project?: Array<{ name?: string | null } | string>;
+  token_symbol?: string | null;
+  establishment_date?: string | null;
+  total_funding?: number | null;
+  on_main_net?: boolean | null;
+  plan_to_launch?: boolean | null;
+  on_test_net?: boolean | null;
+};
+
+/**
+ * Build the Layer 0 follow-up prompt. Given a host's description of their
+ * community's biggest misconception (and optionally project context from
+ * RootData), generate 2–3 diagnostic MCQs that help the host clarify
+ * which aspect is most misunderstood.
+ *
+ * When project context is supplied, Claude can ground the diagnostic
+ * questions in the project's actual domain, similar projects, ecosystem,
+ * and token status — dramatically improving relevance over the
+ * misconception-only prompt.
+ */
+export function buildOnboardingFollowupPrompt(
+  misconception: string,
+  projectContext?: OnboardingFollowupProjectContext | null
+): { system: string; user: string } {
   const system = `You are MindScan, BlockTrivia's knowledge gap detection engine.
 A Web3 project host has described a misconception their community has about their project.
 Generate 2 or 3 targeted multiple-choice questions that help the host clarify:
@@ -114,7 +143,10 @@ RULES:
 1. Each question has exactly 4 options.
 2. No obvious right answer — the host should have to think.
 3. Keep questions short and concrete.
-4. Output VALID JSON ONLY. No markdown, no prose.
+4. If <project_context> is provided, ground questions in that project's actual domain. Use ecosystem tags, similar projects, and token status to make distractors plausible. Reference concepts a knowledgeable user of THIS specific project would recognize.
+5. NEVER mention funding amounts, investor names, or specific dollar figures in question text or options. They are background context for you, not user-facing content.
+6. NEVER reveal the project's establishment date or treat the project as new/old based on it — that's metadata only.
+7. Output VALID JSON ONLY. No markdown, no prose.
 
 Output format (must match exactly):
 {
@@ -131,7 +163,11 @@ Output format (must match exactly):
 - "options" must be an array of exactly 4 strings.
 - "purpose" is short — one sentence max.`;
 
-  const user = `The host described this misconception:
+  const contextBlock = projectContext
+    ? buildProjectContextBlock(projectContext) + "\n\n"
+    : "";
+
+  const user = `${contextBlock}The host described this misconception:
 
 <misconception>
 ${escapeXmlText(misconception)}
@@ -140,6 +176,66 @@ ${escapeXmlText(misconception)}
 Generate 2 or 3 diagnostic multiple-choice questions.`;
 
   return { system, user };
+}
+
+/**
+ * Renders the silent project context as a tagged XML block. Tagged blocks
+ * (vs. prose concatenation) measurably improve Claude's ability to keep
+ * different sources of context separated and to follow per-source rules.
+ *
+ * Returns an empty string if no useful fields are present, so the caller
+ * doesn't have to short-circuit.
+ */
+function buildProjectContextBlock(ctx: OnboardingFollowupProjectContext): string {
+  const lines: string[] = [];
+
+  if (ctx.name) lines.push(`Name: ${escapeXmlText(ctx.name)}`);
+  if (ctx.one_liner) lines.push(`Tagline: ${escapeXmlText(ctx.one_liner)}`);
+  if (ctx.description) {
+    // Cap description to keep prompt small — first ~600 chars covers positioning.
+    const trimmed = ctx.description.length > 600
+      ? ctx.description.slice(0, 600).trim() + "…"
+      : ctx.description;
+    lines.push(`Description: ${escapeXmlText(trimmed)}`);
+  }
+
+  if (ctx.ecosystem_tags && ctx.ecosystem_tags.length > 0) {
+    lines.push(`Categories/tags: ${ctx.ecosystem_tags.map(escapeXmlText).join(", ")}`);
+  }
+  if (ctx.ecosystem && ctx.ecosystem.length > 0) {
+    lines.push(`Chains/ecosystem: ${ctx.ecosystem.map(escapeXmlText).join(", ")}`);
+  }
+
+  if (ctx.similar_project && ctx.similar_project.length > 0) {
+    const names = ctx.similar_project
+      .map((sp) => (typeof sp === "string" ? sp : sp?.name ?? ""))
+      .filter((s): s is string => !!s && s.length > 0)
+      .slice(0, 6);
+    if (names.length > 0) {
+      lines.push(`Similar projects: ${names.map(escapeXmlText).join(", ")}`);
+    }
+  }
+
+  if (ctx.token_symbol) {
+    lines.push(`Token: ${escapeXmlText(ctx.token_symbol)} (already launched)`);
+  } else if (ctx.plan_to_launch === true) {
+    lines.push(`Token status: Pre-token, plans to launch`);
+  } else if (ctx.plan_to_launch === false) {
+    lines.push(`Token status: No token, no plans to launch`);
+  }
+
+  const networkBits: string[] = [];
+  if (ctx.on_main_net === true) networkBits.push("mainnet");
+  if (ctx.on_test_net === true) networkBits.push("testnet");
+  if (networkBits.length > 0) {
+    lines.push(`Currently live on: ${networkBits.join(", ")}`);
+  }
+
+  if (lines.length === 0) return "";
+
+  return `<project_context>
+${lines.join("\n")}
+</project_context>`;
 }
 
 function buildHostContextBlock(ctx: HostContext): string {

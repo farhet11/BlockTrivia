@@ -45,9 +45,12 @@ export async function POST(request: Request) {
   }
 
   // --- Check cache ---
+  const SELECT_FIELDS =
+    "id, name, one_liner, description, logo_url, website, twitter, investors, ecosystem_tags, similar_project, token_symbol, establishment_date, total_funding, ecosystem, on_main_net, plan_to_launch, on_test_net, rootdata_synced_at";
+
   const { data: existingProject } = await supabase
     .from("projects")
-    .select("id, rootdata_synced_at, name, one_liner, logo_url, website, twitter, team_members, investors, ecosystem_tags, funding_history")
+    .select(`id, rootdata_synced_at, ${SELECT_FIELDS}`)
     .eq("rootdata_id", rootdataId.trim())
     .single();
 
@@ -71,7 +74,26 @@ export async function POST(request: Request) {
     }
 
     const syncedAt = new Date().toISOString();
-    const selectFields = "id, name, one_liner, logo_url, website, twitter, team_members, investors, ecosystem_tags, funding_history, rootdata_synced_at";
+    const insertOrUpdatePayload = {
+      name: fetched.name,
+      one_liner: fetched.one_liner,
+      description: fetched.description,
+      logo_url: fetched.logo_url,
+      website: fetched.website,
+      twitter: fetched.twitter,
+      investors: fetched.investors,
+      ecosystem_tags: fetched.ecosystem_tags,
+      similar_project: fetched.similar_project,
+      token_symbol: fetched.token_symbol,
+      establishment_date: fetched.establishment_date,
+      total_funding: fetched.total_funding,
+      ecosystem: fetched.ecosystem,
+      on_main_net: fetched.on_main_net,
+      plan_to_launch: fetched.plan_to_launch,
+      on_test_net: fetched.on_test_net,
+      rootdata_raw: fetched.raw,
+      rootdata_synced_at: syncedAt,
+    };
 
     let dbError;
     if (!existingProject) {
@@ -80,20 +102,10 @@ export async function POST(request: Request) {
         .from("projects")
         .insert({
           rootdata_id: fetched.rootdata_id,
-          name: fetched.name,
-          one_liner: fetched.one_liner,
-          description: fetched.description,
-          logo_url: fetched.logo_url,
-          website: fetched.website,
-          twitter: fetched.twitter,
-          team_members: fetched.team_members,
-          investors: fetched.investors,
-          ecosystem_tags: fetched.ecosystem_tags,
-          funding_history: fetched.funding_history,
-          rootdata_synced_at: syncedAt,
           created_by: user.id,
+          ...insertOrUpdatePayload,
         })
-        .select(selectFields)
+        .select(SELECT_FIELDS)
         .single();
       projectRow = inserted;
       dbError = error;
@@ -101,21 +113,9 @@ export async function POST(request: Request) {
       // Stale cache — UPDATE by ID (UPDATE policy: owner in host_projects)
       const { data: updated, error } = await supabase
         .from("projects")
-        .update({
-          name: fetched.name,
-          one_liner: fetched.one_liner,
-          description: fetched.description,
-          logo_url: fetched.logo_url,
-          website: fetched.website,
-          twitter: fetched.twitter,
-          team_members: fetched.team_members,
-          investors: fetched.investors,
-          ecosystem_tags: fetched.ecosystem_tags,
-          funding_history: fetched.funding_history,
-          rootdata_synced_at: syncedAt,
-        })
+        .update(insertOrUpdatePayload)
         .eq("id", existingProject.id)
-        .select(selectFields)
+        .select(SELECT_FIELDS)
         .single();
       projectRow = updated;
       dbError = error;
@@ -123,31 +123,29 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error("projects save error:", dbError);
-      // Still persist the link in host_onboarding even if projects caching fails
-      if (fetched.name) {
-        await supabase
-          .from("host_onboarding")
-          .update({
-            linked_project_name: fetched.name,
-            linked_rootdata_id: rootdataId.trim(),
-            linked_project_logo: fetched.logo_url ?? null,
-          })
-          .eq("profile_id", user.id);
-      }
-      // Return fetched data anyway so auto-fill works even if caching fails
+      // Still persist the link + silent context in host_onboarding even if
+      // projects caching fails — the followup endpoint reads from here.
+      await writeOnboardingLink(
+        supabase,
+        user.id,
+        rootdataId.trim(),
+        fetched.name,
+        fetched.logo_url,
+        buildLinkedProjectContext(fetched)
+      );
+      // Return fetched data anyway so the client form auto-fills.
       return NextResponse.json({
         project: {
           id: null,
           name: fetched.name,
           one_liner: fetched.one_liner,
+          description: fetched.description,
           logo_url: fetched.logo_url,
           website: fetched.website,
           twitter: fetched.twitter,
           gitbook: fetched.gitbook,
-          team_members: fetched.team_members,
           investors: fetched.investors,
           ecosystem_tags: fetched.ecosystem_tags,
-          funding_history: fetched.funding_history,
           rootdata_synced_at: null,
         },
       });
@@ -168,21 +166,86 @@ export async function POST(request: Request) {
       );
   }
 
-  // Persist the linked project identity into host_onboarding so Step 3
-  // rehydrates correctly after a page refresh — done server-side so it's
-  // committed before the API response is sent, avoiding client-side race conditions.
+  // Persist the linked project identity AND silent prompt context into
+  // host_onboarding. Done server-side so it commits before the API response
+  // returns — avoids client-side race conditions on refresh.
   const projectName = projectRow.name ?? null;
-  const projectLogo = projectRow.logo_url ?? null;
   if (projectName) {
-    await supabase
-      .from("host_onboarding")
-      .update({
-        linked_project_name: projectName,
-        linked_rootdata_id: rootdataId.trim(),
-        linked_project_logo: projectLogo,
-      })
-      .eq("profile_id", user.id);
+    await writeOnboardingLink(
+      supabase,
+      user.id,
+      rootdataId.trim(),
+      projectName,
+      projectRow.logo_url ?? null,
+      buildLinkedProjectContext(projectRow)
+    );
   }
 
   return NextResponse.json({ project: projectRow });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Snapshot of the silent RootData fields the MindScan followup prompt needs.
+ * Mirrored into host_onboarding.linked_project_context so the followup endpoint
+ * can read everything in a single query without depending on the projects
+ * cache (which can fail silently for hosts not yet linked via host_projects).
+ *
+ * Accepts either a freshly-fetched RootData payload or a cached projects row,
+ * since both expose the same shape after migration 044.
+ */
+type LinkedProjectContext = {
+  description: string | null;
+  one_liner: string | null;
+  ecosystem_tags: string[];
+  ecosystem: string[];
+  similar_project: unknown[];
+  token_symbol: string | null;
+  establishment_date: string | null;
+  total_funding: number | null;
+  on_main_net: boolean | null;
+  plan_to_launch: boolean | null;
+  on_test_net: boolean | null;
+};
+
+function buildLinkedProjectContext(src: unknown): LinkedProjectContext {
+  const obj = (src ?? {}) as Record<string, unknown>;
+  const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+  return {
+    description: typeof obj.description === "string" ? obj.description : null,
+    one_liner: typeof obj.one_liner === "string" ? obj.one_liner : null,
+    ecosystem_tags: arr(obj.ecosystem_tags).filter((x): x is string => typeof x === "string"),
+    ecosystem: arr(obj.ecosystem).filter((x): x is string => typeof x === "string"),
+    similar_project: arr(obj.similar_project),
+    token_symbol: typeof obj.token_symbol === "string" ? obj.token_symbol : null,
+    establishment_date:
+      typeof obj.establishment_date === "string" ? obj.establishment_date : null,
+    total_funding: typeof obj.total_funding === "number" ? obj.total_funding : null,
+    on_main_net: typeof obj.on_main_net === "boolean" ? obj.on_main_net : null,
+    plan_to_launch: typeof obj.plan_to_launch === "boolean" ? obj.plan_to_launch : null,
+    on_test_net: typeof obj.on_test_net === "boolean" ? obj.on_test_net : null,
+  };
+}
+
+async function writeOnboardingLink(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string,
+  rootdataId: string,
+  projectName: string | null,
+  projectLogo: string | null,
+  context: LinkedProjectContext
+) {
+  if (!projectName) return;
+  await supabase
+    .from("host_onboarding")
+    .update({
+      linked_project_name: projectName,
+      linked_rootdata_id: rootdataId,
+      linked_project_logo: projectLogo,
+      linked_project_context: context,
+    })
+    .eq("profile_id", userId);
 }

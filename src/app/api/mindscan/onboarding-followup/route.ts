@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getAnthropicClient, MINDSCAN_MODEL } from "@/lib/anthropic";
-import { buildOnboardingFollowupPrompt } from "@/lib/mindscan/prompts";
+import {
+  buildOnboardingFollowupPrompt,
+  type OnboardingFollowupProjectContext,
+} from "@/lib/mindscan/prompts";
 import { checkAndLog } from "@/lib/mindscan/rate-limit";
 import type { OnboardingFollowupQuestion } from "@/lib/mindscan/types";
 
@@ -66,9 +69,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: rateLimitError }, { status: 429 });
   }
 
+  // --- 2c. Pull silent project context for the prompt ----------------------
+  // Stored on host_onboarding by /api/rootdata/project at link time so we
+  // don't need a second RootData fetch (which would cost credits and depend
+  // on the projects-cache RLS path).
+  const projectContext = await loadProjectContext(supabase, user.id);
+
   // --- 3. Call Claude --------------------------------------------------------
   const { system, user: userMsg } = buildOnboardingFollowupPrompt(
-    misconception.trim()
+    misconception.trim(),
+    projectContext
   );
 
   let rawText: string;
@@ -128,6 +138,39 @@ function extractJson(raw: string): unknown {
   } catch {
     return null;
   }
+}
+
+/**
+ * Load the silent project context the prompt uses, sourced from
+ * `host_onboarding.linked_project_context` (written at project-link time
+ * by /api/rootdata/project). Returns null if the host hasn't linked a
+ * project yet — the prompt will fall back to misconception-only mode.
+ */
+async function loadProjectContext(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string
+): Promise<OnboardingFollowupProjectContext | null> {
+  const { data, error } = await supabase
+    .from("host_onboarding")
+    .select("linked_project_name, linked_project_context")
+    .eq("profile_id", userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const ctx = data.linked_project_context;
+  if (!ctx || typeof ctx !== "object") {
+    // Host linked a name but no enriched context (legacy row, or RootData
+    // returned an empty payload). Still pass the name through if available.
+    return data.linked_project_name
+      ? { name: data.linked_project_name }
+      : null;
+  }
+
+  return {
+    name: data.linked_project_name ?? null,
+    ...(ctx as Omit<OnboardingFollowupProjectContext, "name">),
+  };
 }
 
 function validateQuestions(parsed: unknown): OnboardingFollowupQuestion[] {

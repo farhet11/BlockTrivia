@@ -102,27 +102,31 @@ describe("rootdata.getProject", () => {
       ok: true,
       json: async () => ({
         data: {
-          name: "Aave",
+          project_id: 123,
+          project_name: "Aave",
           one_liner: "Lending protocol",
           description: "Open source liquidity protocol",
           logo: "https://example.com/aave.png",
-          website: "https://aave.com",
-          twitter: "@AaveAave",
-          team: [
-            { name: "Stani", position: "CEO", twitter: "@StaniKulechov", linkedin: null, avatar: null },
-          ],
+          social_media: {
+            website: "https://aave.com",
+            X: "https://x.com/AaveAave",
+            gitbook: "https://docs.aave.com",
+          },
           investors: [
             { name: "Framework Ventures", logo: null, type: "VC" },
           ],
           tags: [{ name: "DeFi" }, { name: "Lending" }],
-          funding_list: [
-            {
-              round: "Series A",
-              amount: 25000000,
-              date: "2020-07-01",
-              investors: [{ name: "Framework Ventures" }],
-            },
+          similar_project: [
+            { project_id: 7, project_name: "Compound", logo: null },
+            { project_id: 11, project_name: "MakerDAO", logo: null },
           ],
+          token_symbol: "AAVE",
+          establishment_date: "2017",
+          total_funding: 49000000,
+          ecosystem: ["Ethereum", "Polygon"],
+          on_main_net: true,
+          plan_to_launch: false,
+          on_test_net: false,
         },
       }),
     } as Response);
@@ -132,13 +136,23 @@ describe("rootdata.getProject", () => {
 
     expect(project.rootdata_id).toBe("123");
     expect(project.name).toBe("Aave");
-    expect(project.team_members).toHaveLength(1);
-    expect(project.team_members[0].name).toBe("Stani");
-    expect(project.team_members[0].role).toBe("CEO");
+    expect(project.description).toBe("Open source liquidity protocol");
+    expect(project.website).toBe("https://aave.com");
+    expect(project.twitter).toBe("https://x.com/AaveAave");
+    expect(project.gitbook).toBe("https://docs.aave.com");
     expect(project.investors).toHaveLength(1);
+    expect(project.investors[0].name).toBe("Framework Ventures");
     expect(project.ecosystem_tags).toEqual(["DeFi", "Lending"]);
-    expect(project.funding_history[0].round).toBe("Series A");
-    expect(project.funding_history[0].amount_usd).toBe(25000000);
+    expect(project.similar_project).toHaveLength(2);
+    expect(project.similar_project[0].name).toBe("Compound");
+    expect(project.token_symbol).toBe("AAVE");
+    expect(project.establishment_date).toBe("2017");
+    expect(project.total_funding).toBe(49000000);
+    expect(project.ecosystem).toEqual(["Ethereum", "Polygon"]);
+    expect(project.on_main_net).toBe(true);
+    expect(project.plan_to_launch).toBe(false);
+    expect(project.on_test_net).toBe(false);
+    expect(project.raw).toBeDefined();
   });
 
   it("handles missing optional fields gracefully", async () => {
@@ -146,8 +160,8 @@ describe("rootdata.getProject", () => {
       ok: true,
       json: async () => ({
         data: {
-          name: "Minimal Project",
-          // no team, investors, tags, funding, one_liner, etc.
+          project_name: "Minimal Project",
+          // no investors, tags, social_media, one_liner, etc.
         },
       }),
     } as Response);
@@ -156,12 +170,59 @@ describe("rootdata.getProject", () => {
     const project = await rootdata.getProject("999");
 
     expect(project.name).toBe("Minimal Project");
-    expect(project.team_members).toEqual([]);
     expect(project.investors).toEqual([]);
     expect(project.ecosystem_tags).toEqual([]);
-    expect(project.funding_history).toEqual([]);
+    expect(project.similar_project).toEqual([]);
+    expect(project.ecosystem).toEqual([]);
     expect(project.one_liner).toBeNull();
     expect(project.logo_url).toBeNull();
+    expect(project.website).toBeNull();
+    expect(project.twitter).toBeNull();
+    expect(project.gitbook).toBeNull();
+    expect(project.token_symbol).toBeNull();
+    expect(project.establishment_date).toBeNull();
+    expect(project.total_funding).toBeNull();
+    expect(project.on_main_net).toBeNull();
+    expect(project.plan_to_launch).toBeNull();
+    expect(project.on_test_net).toBeNull();
+  });
+
+  it("coerces 1/0 booleans for network status flags", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: {
+          project_name: "Boolean Coercion",
+          on_main_net: 1,
+          plan_to_launch: 0,
+          on_test_net: "true",
+        },
+      }),
+    } as Response);
+
+    const { rootdata } = await import("@/lib/rootdata");
+    const project = await rootdata.getProject("1");
+
+    expect(project.on_main_net).toBe(true);
+    expect(project.plan_to_launch).toBe(false);
+    expect(project.on_test_net).toBe(true);
+  });
+
+  it("parses total_funding from numeric string", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: {
+          project_name: "String Funding",
+          total_funding: "15000000",
+        },
+      }),
+    } as Response);
+
+    const { rootdata } = await import("@/lib/rootdata");
+    const project = await rootdata.getProject("1");
+
+    expect(project.total_funding).toBe(15000000);
   });
 
   it("throws on non-ok response", async () => {

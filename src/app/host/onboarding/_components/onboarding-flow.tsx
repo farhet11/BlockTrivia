@@ -79,10 +79,27 @@ const EMPTY: OnboardingData = {
   linked_project_logo: "",
 };
 
-/** Returns the first step the host hasn't meaningfully completed. */
+/**
+ * Returns the first step the host hasn't meaningfully completed.
+ *
+ * Order after the v0.4 swap:
+ *   1 = role / channels / goal
+ *   2 = project info (RootData)        — was step 3
+ *   3 = biggest misconception          — was step 2
+ *   4 = AI diagnostic follow-ups
+ *
+ * Step 2 (project) is optional, so we advance past it if ANY project field
+ * is filled OR if step 3 (misconception) has been started.
+ */
 function deriveStartingStep(d: OnboardingData): 1 | 2 | 3 | 4 {
   if (d.ai_followup_questions.length > 0) return 4;
-  if (d.biggest_misconception.trim().length >= 15) return 3;
+  if (d.biggest_misconception.trim().length >= 15) return 4;
+  const projectStarted =
+    !!d.linked_project_name ||
+    d.project_website.trim().length > 0 ||
+    d.twitter_handle.trim().length > 0 ||
+    d.content_sources.trim().length > 0;
+  if (projectStarted) return 3;
   if (d.role || d.community_channels.length > 0 || d.event_goal) return 2;
   return 1;
 }
@@ -492,15 +509,26 @@ export function OnboardingFlow({
           </>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <>
             <h2 className="font-heading text-xl font-semibold">
               The one question that matters
             </h2>
             <p className="text-sm text-muted-foreground">
-              What&rsquo;s the biggest misconception your community has about
-              your project? Be specific — this is the context we use to target
-              every quiz we generate for you.
+              {data.linked_project_name ? (
+                <>
+                  What&rsquo;s the biggest misconception your community has
+                  about <span className="text-foreground font-medium">{data.linked_project_name}</span>?
+                  Be specific — this is the context we use to target every
+                  quiz we generate for you.
+                </>
+              ) : (
+                <>
+                  What&rsquo;s the biggest misconception your community has
+                  about your project? Be specific — this is the context we
+                  use to target every quiz we generate for you.
+                </>
+              )}
             </p>
 
             <textarea
@@ -521,18 +549,18 @@ export function OnboardingFlow({
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <NavRow
-              onBack={() => setStep(1)}
-              onNext={() => setStep(3)}
+              onBack={() => setStep(2)}
+              onNext={goToStep4}
               onSkip={handleSkip}
-              submitting={submitting}
-              nextLabel="Next"
+              submitting={submitting || loadingFollowups}
+              nextLabel={loadingFollowups ? "Generating…" : "Next"}
               nextDisabled={data.biggest_misconception.trim().length < 15}
               saveStatus={saveStatus}
             />
           </>
         )}
 
-        {step === 3 && (
+        {step === 2 && (
           <>
             <h2 className="font-heading text-xl font-semibold">
               Point us at your project (optional)
@@ -547,12 +575,22 @@ export function OnboardingFlow({
                 Find your project on RootData
               </label>
               <div className="relative">
+                {rdSelectedId && data.linked_project_logo && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={data.linked_project_logo}
+                    alt={data.linked_project_name || "Project logo"}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded object-contain pointer-events-none"
+                  />
+                )}
                 <input
                   type="text"
                   value={rdQuery}
                   onChange={(e) => handleRdQueryChange(e.target.value)}
                   placeholder="Search by project name…"
-                  className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary pr-20"
+                  className={`w-full h-10 bg-background border border-border text-sm outline-none focus:ring-1 focus:ring-primary pr-20 ${
+                    rdSelectedId && data.linked_project_logo ? "pl-10" : "px-3"
+                  }`}
                 />
                 {rdSearching && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
@@ -610,38 +648,40 @@ export function OnboardingFlow({
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Project website / docs
-              </label>
-              <input
-                type="url"
-                value={data.project_website}
-                onChange={(e) => update("project_website", e.target.value)}
-                onBlur={(e) => {
-                  const snap = { ...data, project_website: e.target.value };
-                  handleBlur(snap);
-                }}
-                placeholder="https://…"
-                className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Project website / docs
+                </label>
+                <input
+                  type="url"
+                  value={data.project_website}
+                  onChange={(e) => update("project_website", e.target.value)}
+                  onBlur={(e) => {
+                    const snap = { ...data, project_website: e.target.value };
+                    handleBlur(snap);
+                  }}
+                  placeholder="https://…"
+                  className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Twitter / X handle
-              </label>
-              <input
-                type="text"
-                value={data.twitter_handle}
-                onChange={(e) => update("twitter_handle", e.target.value)}
-                onBlur={(e) => {
-                  const snap = { ...data, twitter_handle: e.target.value };
-                  handleBlur(snap);
-                }}
-                placeholder="@yourproject"
-                className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-              />
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Twitter / X handle
+                </label>
+                <input
+                  type="text"
+                  value={data.twitter_handle}
+                  onChange={(e) => update("twitter_handle", e.target.value)}
+                  onBlur={(e) => {
+                    const snap = { ...data, twitter_handle: e.target.value };
+                    handleBlur(snap);
+                  }}
+                  placeholder="@yourproject"
+                  className="w-full h-10 bg-background border border-border px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -664,11 +704,11 @@ export function OnboardingFlow({
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <NavRow
-              onBack={() => setStep(2)}
-              onNext={goToStep4}
+              onBack={() => setStep(1)}
+              onNext={() => setStep(3)}
               onSkip={handleSkip}
-              submitting={submitting || loadingFollowups}
-              nextLabel={loadingFollowups ? "Generating…" : "Next"}
+              submitting={submitting}
+              nextLabel="Next"
               saveStatus={saveStatus}
             />
           </>

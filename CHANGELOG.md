@@ -2,6 +2,20 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.3.0.0] - 2026-04-09
+
+### Added
+- **RootData project intelligence** — hosts can search the RootData blockchain project database by name during onboarding (Step 3) to auto-populate their project website and Twitter handle. No manual entry required for indexed projects.
+- **Project linking on event creation** — event creation form now includes a "Link a project" search widget. Selecting a project sets `events.project_id`, enabling future cross-event analytics scoped to a protocol or community.
+- **RootData API client** (`src/lib/rootdata.ts`) — server-only singleton with 7-day credit-protecting cache. `search()` is free/unlimited. `getProject()` costs 2 credits and skips the API call entirely if fresh data exists in the local DB.
+- **Disambiguation UI** — RootData search returns up to 8 candidates with logo and one-liner. Host selects the right project. Zero-results state shows a fallback message and keeps manual entry available.
+- **Shared SSRF guard** (`src/lib/ssrf-guard.ts`) — extracted URL validation and private-IP blocklist from the MindScan `fetch-url` route into a shared module, ready for reuse by the upcoming Smart Paste endpoint.
+- **11 unit tests** — `isCacheStale` (5 paths including boundary), `rootdata.search` (happy path, empty, error), `rootdata.getProject` (full normalization, missing fields, error).
+
+### Infrastructure
+- `supabase/migrations/040_projects_rootdata_enrichment.sql` — adds `rootdata_id`, `one_liner`, `logo_url`, `team_members` (jsonb), `investors` (jsonb), `ecosystem_tags` (jsonb), `funding_history` (jsonb), and `rootdata_synced_at` to the `projects` table. Also adds the previously missing INSERT RLS policies on `projects` and `host_projects`.
+- `ROOTDATA_API_KEY` environment variable required (server-side only).
+
 ## [0.2.0.0] - 2026-04-08
 
 ### Added

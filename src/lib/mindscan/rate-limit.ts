@@ -17,6 +17,7 @@
  *   - transcribe:            5 calls     / 24h (calls mode)
  *   - fetch-url:            30 calls     /  1h (calls mode)
  *   - onboarding-followup:  10 calls     /  1h (calls mode)
+ *   - luma-import:          30 calls     /  1h (calls mode)
  */
 
 import { SupabaseClient } from "@supabase/supabase-js";
@@ -25,7 +26,8 @@ type Endpoint =
   | "generate"
   | "onboarding-followup"
   | "fetch-url"
-  | "transcribe";
+  | "transcribe"
+  | "luma-import";
 
 type EndpointConfig = {
   limit: number;
@@ -38,6 +40,10 @@ const CONFIG: Record<Endpoint, EndpointConfig> = {
   "onboarding-followup": { limit: 10, windowHours: 1, costMode: "calls" },
   "fetch-url": { limit: 30, windowHours: 1, costMode: "calls" },
   transcribe: { limit: 5, windowHours: 24, costMode: "calls" },
+  // Luma OG scrape on Create Event. Cheap server-side fetch, but gate
+  // per host so a pathological paste loop can't hammer lu.ma and get
+  // our IP throttled.
+  "luma-import": { limit: 30, windowHours: 1, costMode: "calls" },
 };
 
 // Exported for test coverage.
@@ -46,6 +52,7 @@ export const LIMITS: Record<Endpoint, number> = {
   "onboarding-followup": CONFIG["onboarding-followup"].limit,
   "fetch-url": CONFIG["fetch-url"].limit,
   transcribe: CONFIG.transcribe.limit,
+  "luma-import": CONFIG["luma-import"].limit,
 };
 
 function errorMessage(
@@ -63,6 +70,8 @@ function errorMessage(
       return `Rate limit reached (${limit} URL fetches per ${window}). Try again in a bit.`;
     case "onboarding-followup":
       return `Rate limit reached (${limit} follow-up sets per ${window}). Try again in a bit.`;
+    case "luma-import":
+      return `Rate limit reached (${limit} Luma imports per ${window}). Try again in a bit.`;
   }
 }
 

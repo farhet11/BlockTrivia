@@ -286,11 +286,19 @@ export function OnboardingFlow({
       const body = await res.json();
       if (res.ok && body.project) {
         const p = body.project;
-        // Auto-populate project_website and twitter_handle from RootData
+        // Auto-populate project_website, twitter_handle, and gitbook from RootData
+        const existingUrls = data.content_sources.trim();
+        const gitbook = p.gitbook ?? null;
+        const mergedUrls = gitbook
+          ? existingUrls
+            ? `${existingUrls}\n${gitbook}`
+            : gitbook
+          : existingUrls;
         const snap = {
           ...data,
           project_website: p.website ?? data.project_website,
           twitter_handle: p.twitter ?? data.twitter_handle,
+          content_sources: mergedUrls,
         };
         setData(snap);
         scheduleAutoSave(snap);

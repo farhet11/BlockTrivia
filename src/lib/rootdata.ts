@@ -79,6 +79,7 @@ export type RootDataProject = {
   logo_url: string | null;
   website: string | null;
   twitter: string | null;
+  gitbook: string | null;
   team_members: RootDataTeamMember[];
   investors: RootDataInvestor[];
   ecosystem_tags: string[];
@@ -104,13 +105,19 @@ async function search(query: string): Promise<RootDataSearchResult[]> {
 
   const json = await res.json();
 
-  // RootData returns { ok: true, data: { project_list: [...] } }
-  const list: unknown[] = json?.data?.project_list ?? [];
+  // RootData returns { data: [...] } — a direct array, not nested under project_list
+  const list: unknown[] = Array.isArray(json?.data) ? json.data : [];
 
   return list.map((item) => {
     const p = item as Record<string, unknown>;
+    // project_id may come as a direct field or be encoded in rootdataurl (?k=base64)
+    let pid = Number(p.project_id ?? p.id ?? 0);
+    if (!pid && typeof p.rootdataurl === "string") {
+      const m = p.rootdataurl.match(/[?&]k=([A-Za-z0-9+/=]+)/);
+      if (m) pid = Number(atob(m[1]));
+    }
     return {
-      project_id: Number(p.project_id ?? p.id ?? 0),
+      project_id: pid,
       name: String(p.name ?? ""),
       one_liner: p.one_liner ? String(p.one_liner) : null,
       logo: p.logo ? String(p.logo) : null,
@@ -124,7 +131,7 @@ async function search(query: string): Promise<RootDataSearchResult[]> {
  * Costs 2 credits — only call when the caller has confirmed the project ID.
  */
 async function getProject(rootdataId: string): Promise<RootDataProject> {
-  const res = await fetch(`${BASE_URL}/pro_det`, {
+  const res = await fetch(`${BASE_URL}/get_item`, {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
@@ -140,9 +147,15 @@ async function getProject(rootdataId: string): Promise<RootDataProject> {
 
   const json = await res.json();
   const d = (json?.data ?? {}) as Record<string, unknown>;
+  console.log("[rootdata.getProject] keys:", Object.keys(d));
+  console.log("[rootdata.getProject] social_media:", JSON.stringify(d.social_media));
+  console.log("[rootdata.getProject] logo:", d.logo, "project_name:", d.project_name);
 
-  // Normalize team members
-  const rawTeam = Array.isArray(d.team) ? d.team : [];
+  // social_media is an object e.g. { website: "url", twitter: "url", X: "url" }
+  const social = (d.social_media ?? {}) as Record<string, unknown>;
+
+  // Normalize team members — docs field: team_members[].name, .position, .twitter
+  const rawTeam = Array.isArray(d.team_members) ? d.team_members : [];
   const teamMembers: RootDataTeamMember[] = rawTeam.map((m: unknown) => {
     const member = m as Record<string, unknown>;
     return {
@@ -154,47 +167,39 @@ async function getProject(rootdataId: string): Promise<RootDataProject> {
     };
   });
 
-  // Normalize investors
+  // Normalize investors — docs field: investors[].name, .logo
   const rawInvestors = Array.isArray(d.investors) ? d.investors : [];
   const investors: RootDataInvestor[] = rawInvestors.map((inv: unknown) => {
     const i = inv as Record<string, unknown>;
     return {
-      name: String(i.name ?? ""),
+      name: String(i.name ?? i.org_name ?? ""),
       logo: i.logo ? String(i.logo) : null,
       type: i.type ? String(i.type) : null,
     };
   });
 
-  // Normalize funding rounds
-  const rawFunding = Array.isArray(d.funding_list) ? d.funding_list : [];
-  const fundingHistory: RootDataFundingRound[] = rawFunding.map((r: unknown) => {
-    const f = r as Record<string, unknown>;
-    const fundInvestors: string[] = Array.isArray(f.investors)
-      ? (f.investors as Record<string, unknown>[]).map((i) => String(i.name ?? ""))
-      : [];
-    return {
-      round: f.round ? String(f.round) : null,
-      amount_usd: f.amount ? Number(f.amount) : null,
-      date: f.date ? String(f.date) : null,
-      investors: fundInvestors,
-    };
-  });
+  // Normalize funding rounds — docs field: total_funding (no round list in free tier)
+  const fundingHistory: RootDataFundingRound[] = [];
 
-  // Normalize tags
+  // Normalize tags — docs field: tags (string[] or {name}[])
   const rawTags = Array.isArray(d.tags) ? d.tags : [];
   const ecosystemTags: string[] = rawTags.map((t: unknown) => {
+    if (typeof t === "string") return t;
     const tag = t as Record<string, unknown>;
-    return String(tag.name ?? tag ?? "");
+    return String(tag.name ?? "");
   });
 
   return {
     rootdata_id: rootdataId,
-    name: String(d.name ?? ""),
+    // docs: project_name (not name)
+    name: String(d.project_name ?? d.name ?? ""),
     one_liner: d.one_liner ? String(d.one_liner) : null,
     description: d.description ? String(d.description) : null,
     logo_url: d.logo ? String(d.logo) : null,
-    website: d.website ? String(d.website) : null,
-    twitter: d.twitter ? String(d.twitter) : null,
+    // docs: website and twitter live inside social_media; twitter keyed as X
+    website: social.website ? String(social.website) : null,
+    twitter: (social.twitter ?? social.X) ? String(social.twitter ?? social.X) : null,
+    gitbook: social.gitbook ? String(social.gitbook) : null,
     team_members: teamMembers,
     investors,
     ecosystem_tags: ecosystemTags,

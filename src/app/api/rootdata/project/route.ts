@@ -70,38 +70,77 @@ export async function POST(request: Request) {
       );
     }
 
-    // Upsert into projects table
-    const upsertPayload = {
-      rootdata_id: fetched.rootdata_id,
-      name: fetched.name,
-      one_liner: fetched.one_liner,
-      description: fetched.description,
-      logo_url: fetched.logo_url,
-      website: fetched.website,
-      twitter: fetched.twitter,
-      team_members: fetched.team_members,
-      investors: fetched.investors,
-      ecosystem_tags: fetched.ecosystem_tags,
-      funding_history: fetched.funding_history,
-      rootdata_synced_at: new Date().toISOString(),
-      created_by: user.id,
-    };
+    const syncedAt = new Date().toISOString();
+    const selectFields = "id, name, one_liner, logo_url, website, twitter, team_members, investors, ecosystem_tags, funding_history, rootdata_synced_at";
 
-    const { data: upserted, error: upsertError } = await supabase
-      .from("projects")
-      .upsert(upsertPayload, { onConflict: "rootdata_id" })
-      .select("id, name, one_liner, logo_url, website, twitter, team_members, investors, ecosystem_tags, funding_history, rootdata_synced_at")
-      .single();
-
-    if (upsertError) {
-      console.error("projects upsert error:", upsertError);
-      return NextResponse.json(
-        { error: "Failed to save project data." },
-        { status: 500 }
-      );
+    let dbError;
+    if (!existingProject) {
+      // New project — INSERT (INSERT policy: auth.uid() is not null)
+      const { data: inserted, error } = await supabase
+        .from("projects")
+        .insert({
+          rootdata_id: fetched.rootdata_id,
+          name: fetched.name,
+          one_liner: fetched.one_liner,
+          description: fetched.description,
+          logo_url: fetched.logo_url,
+          website: fetched.website,
+          twitter: fetched.twitter,
+          team_members: fetched.team_members,
+          investors: fetched.investors,
+          ecosystem_tags: fetched.ecosystem_tags,
+          funding_history: fetched.funding_history,
+          rootdata_synced_at: syncedAt,
+          created_by: user.id,
+        })
+        .select(selectFields)
+        .single();
+      projectRow = inserted;
+      dbError = error;
+    } else {
+      // Stale cache — UPDATE by ID (UPDATE policy: owner in host_projects)
+      const { data: updated, error } = await supabase
+        .from("projects")
+        .update({
+          name: fetched.name,
+          one_liner: fetched.one_liner,
+          description: fetched.description,
+          logo_url: fetched.logo_url,
+          website: fetched.website,
+          twitter: fetched.twitter,
+          team_members: fetched.team_members,
+          investors: fetched.investors,
+          ecosystem_tags: fetched.ecosystem_tags,
+          funding_history: fetched.funding_history,
+          rootdata_synced_at: syncedAt,
+        })
+        .eq("id", existingProject.id)
+        .select(selectFields)
+        .single();
+      projectRow = updated;
+      dbError = error;
     }
 
-    projectRow = upserted;
+    if (dbError) {
+      console.error("projects save error:", dbError);
+      // Return fetched data anyway so auto-fill works even if caching fails
+      return NextResponse.json({
+        project: {
+          id: null,
+          name: fetched.name,
+          one_liner: fetched.one_liner,
+          logo_url: fetched.logo_url,
+          website: fetched.website,
+          twitter: fetched.twitter,
+          gitbook: fetched.gitbook,
+          team_members: fetched.team_members,
+          investors: fetched.investors,
+          ecosystem_tags: fetched.ecosystem_tags,
+          funding_history: fetched.funding_history,
+          rootdata_synced_at: null,
+        },
+      });
+    }
   }
 
   if (!projectRow) {

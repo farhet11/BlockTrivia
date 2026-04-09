@@ -142,6 +142,14 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
+  // Project link (RootData) state
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectSelectedName, setProjectSelectedName] = useState<string | null>(null);
+  const [projectQuery, setProjectQuery] = useState("");
+  const [projectResults, setProjectResults] = useState<{ project_id: number; name: string; one_liner: string | null; logo: string | null }[]>([]);
+  const [projectSearching, setProjectSearching] = useState(false);
+  const projectDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+
   // Fetch authenticated user on mount
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -413,6 +421,52 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
     }
   }
 
+  function handleProjectQueryChange(q: string) {
+    setProjectQuery(q);
+    setProjectResults([]);
+    if (q.trim() === "") {
+      setProjectId(null);
+      setProjectSelectedName(null);
+    }
+    if (projectDebounceRef.current) clearTimeout(projectDebounceRef.current);
+    if (!q.trim()) return;
+    projectDebounceRef.current = setTimeout(async () => {
+      setProjectSearching(true);
+      try {
+        const res = await fetch("/api/rootdata/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: q.trim() }),
+        });
+        const body = await res.json();
+        setProjectResults(res.ok ? (body.results ?? []) : []);
+      } catch {
+        setProjectResults([]);
+      } finally {
+        setProjectSearching(false);
+      }
+    }, 400);
+  }
+
+  async function handleProjectSelect(result: { project_id: number; name: string; one_liner: string | null; logo: string | null }) {
+    setProjectResults([]);
+    setProjectQuery(result.name);
+    setProjectSelectedName(result.name);
+    try {
+      const res = await fetch("/api/rootdata/project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rootdata_id: String(result.project_id) }),
+      });
+      const body = await res.json();
+      if (res.ok && body.project?.id) {
+        setProjectId(body.project.id);
+      }
+    } catch {
+      // Non-fatal — project_id stays null, event still creates fine
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -460,6 +514,7 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         format,
         access_mode: accessMode,
         created_by: userId,
+        ...(projectId ? { project_id: projectId } : {}),
         ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
       })
       .select("id")
@@ -695,6 +750,74 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
 
         <p className="text-[11px] text-muted-foreground">
           Shown on the public results page. Defaults to your profile name if left blank.
+        </p>
+      </div>
+
+      {/* Project link */}
+      <div className="space-y-1.5 relative">
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Link a project <span className="text-muted-foreground/50">(optional)</span>
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            value={projectSelectedName ?? projectQuery}
+            onChange={(e) => {
+              setProjectSelectedName(null);
+              handleProjectQueryChange(e.target.value);
+            }}
+            placeholder="Search by project name…"
+            autoComplete="off"
+            className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors pr-24"
+          />
+          {projectSearching && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              Searching…
+            </span>
+          )}
+          {projectSelectedName && projectId && (
+            <button
+              type="button"
+              onClick={() => {
+                setProjectId(null);
+                setProjectSelectedName(null);
+                setProjectQuery("");
+                setProjectResults([]);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {projectResults.length > 0 && (
+          <div className="absolute z-10 left-0 right-0 top-full mt-1 border border-border bg-surface max-h-48 overflow-y-auto shadow-sm">
+            {projectResults.slice(0, 6).map((r) => (
+              <button
+                key={r.project_id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleProjectSelect(r)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors text-left"
+              >
+                {r.logo && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={r.logo} alt="" className="size-5 object-contain shrink-0 rounded" />
+                )}
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{r.name}</p>
+                  {r.one_liner && (
+                    <p className="truncate text-xs text-muted-foreground">{r.one_liner}</p>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <p className="text-[11px] text-muted-foreground">
+          Tags this event to a project for cross-event analytics. Powered by RootData.
         </p>
       </div>
 

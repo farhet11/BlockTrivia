@@ -1,31 +1,14 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { checkAndLog } from "@/lib/mindscan/rate-limit";
+import { validateUrl } from "@/lib/ssrf-guard";
+
+// Re-export so existing tests and callers that imported from this path still work.
+export { validateUrl } from "@/lib/ssrf-guard";
 
 const MAX_BYTES = 500 * 1024; // 500 KB
 const MAX_CONTENT_CHARS = 30_000;
 const FETCH_TIMEOUT_MS = 10_000;
-
-// Private IP ranges, localhost, and link-local — never fetch these.
-// 169.254.x.x covers AWS/GCP/Azure instance metadata endpoints (SSRF target).
-const BLOCKED_HOSTS =
-  /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|0\.0\.0\.0|::1|fc00:|fd[0-9a-f]{2}:)/i;
-
-export function validateUrl(raw: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    return "Invalid URL — must start with http:// or https://";
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return "Only http:// and https:// URLs are supported";
-  }
-  if (BLOCKED_HOSTS.test(parsed.hostname)) {
-    return "That URL is not accessible";
-  }
-  return null; // valid
-}
 
 export function stripHtml(html: string): string {
   // Remove <script>, <style>, and their contents first

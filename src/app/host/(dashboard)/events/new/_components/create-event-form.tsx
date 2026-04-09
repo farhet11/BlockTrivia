@@ -145,10 +145,28 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
   // Project link (RootData) state
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectSelectedName, setProjectSelectedName] = useState<string | null>(null);
+  // Small round favicon shown INSIDE the Organizer input field. Always
+  // sourced from RootData (not the website logo extractor) — the inline
+  // 24px slot is exactly what RootData's favicon-style logos look good
+  // at, and we want it independent from the larger Organizer / Host Logo
+  // upload preview below, which only takes the full brand mark.
+  const [inlineOrganizerLogo, setInlineOrganizerLogo] = useState<string | null>(null);
   const [projectQuery, setProjectQuery] = useState("");
   const [projectResults, setProjectResults] = useState<{ project_id: number; name: string; one_liner: string | null; logo: string | null }[]>([]);
   const [projectSearching, setProjectSearching] = useState(false);
   const projectDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
+  // Refs mirror state so the async site-logo upgrade can read the
+  // *latest* values inside its .then() without re-running on every state
+  // change. Without these the upgrade stomps a custom file upload that
+  // happens between handleProjectSelect and the site-logo response.
+  const projectSelectedNameRef = useRef<string | null>(null);
+  const logoFileRef = useRef<File | null>(null);
+  useEffect(() => {
+    projectSelectedNameRef.current = projectSelectedName;
+  }, [projectSelectedName]);
+  useEffect(() => {
+    logoFileRef.current = logoFile;
+  }, [logoFile]);
 
   // Luma import state — when the host pastes a Luma URL into the title
   // field, we detect it, fetch the OG metadata, and show a preview they
@@ -164,6 +182,16 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
   );
   const [lumaError, setLumaError] = useState<string | null>(null);
 
+  // Carried-over provenance from a duplicated event. Kept separate from
+  // `lumaImport` so we don't accidentally show the Luma preview card on
+  // a plain duplicate — it just rides through to the new row's
+  // source_url / source_provider / cover_image_url at submit time.
+  const [carriedProvenance, setCarriedProvenance] = useState<{
+    sourceUrl: string | null;
+    sourceProvider: string | null;
+    coverImageUrl: string | null;
+  } | null>(null);
+
   // Fetch authenticated user on mount
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -176,7 +204,7 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
     if (!fromEventId) return;
     supabase
       .from("events")
-      .select("title, description, prizes, organizer_name, format, access_mode, logo_url, logo_dark_url")
+      .select("title, description, prizes, organizer_name, format, access_mode, logo_url, logo_dark_url, source_url, source_provider, cover_image_url")
       .eq("id", fromEventId)
       .single()
       .then(({ data }) => {
@@ -198,6 +226,15 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
           setHasDarkLogo(true);
         }
         if (data.prizes) setShowMore(true);
+        // Carry the original event's import provenance through to the
+        // duplicate so analytics still attributes it to the right source.
+        if (data.source_url || data.source_provider || data.cover_image_url) {
+          setCarriedProvenance({
+            sourceUrl: data.source_url ?? null,
+            sourceProvider: data.source_provider ?? null,
+            coverImageUrl: data.cover_image_url ?? null,
+          });
+        }
       });
   }, [fromEventId, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -553,17 +590,19 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
     setProjectQuery(result.name);
     setProjectSelectedName(result.name);
 
-    // Auto-fill organizer identity from the linked project. The host can
-    // still edit the organizer name once the field is revealed, and can
-    // replace the logo via the upload flow below.
+    // Auto-fill organizer identity from the linked project.
     setOrganizerName(result.name);
-    if (result.logo) {
-      // Only overwrite the logo if the host hasn't uploaded their own
-      // file yet. If they already have a logoFile staged, we respect it.
-      if (!logoFile) {
-        setLogoPreview(result.logo);
-        setLogoUrl(result.logo);
-      }
+    // Inline organizer-field icon → RootData favicon (small, round, fine).
+    // This is intentionally separate from the Organizer / Host Logo upload
+    // section below, which only takes a full website brand logo.
+    setInlineOrganizerLogo(result.logo);
+    // Clear any stale upload-section preview (e.g. carried over from
+    // a duplicated event) so it doesn't sit alongside a freshly selected
+    // project. The site-logo upgrade below will repopulate it if it
+    // finds a real brand mark; otherwise the host uploads manually.
+    if (!logoFile) {
+      setLogoPreview(null);
+      setLogoUrl(null);
     }
 
     try {
@@ -576,16 +615,53 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
       if (res.ok && body.project?.id) {
         setProjectId(body.project.id);
       }
-      // The full project fetch may include a richer logo_url (from the
-      // projects-table cache) than the search result's thumbnail — prefer
-      // it if we don't have a user upload yet.
-      if (res.ok && body.project?.logo_url && !logoFile) {
-        setLogoPreview(body.project.logo_url);
-        setLogoUrl(body.project.logo_url);
+      // Prefer the cached logo_url for the inline icon if it differs from
+      // the search-result thumbnail (sometimes higher-res but still round).
+      if (res.ok && body.project?.logo_url) {
+        setInlineOrganizerLogo(body.project.logo_url);
+      }
+
+      // Background-fetch the FULL brand logo from the project's marketing
+      // site for the Organizer / Host Logo upload preview. RootData only
+      // ships round favicons, which look wrong at large sizes — the site's
+      // own header logo is the right asset for share cards, leaderboards,
+      // and the upload preview. If no full logo is found, the upload field
+      // stays empty so the host can drop in their own.
+      const websiteUrl = body.project?.website;
+      if (res.ok && typeof websiteUrl === "string" && websiteUrl.trim()) {
+        upgradeLogoFromSite(websiteUrl.trim());
       }
     } catch {
       // Non-fatal — project_id stays null, event still creates fine
     }
+  }
+
+  /**
+   * Fire-and-forget logo upgrade from a project's marketing website.
+   * Bails if the host has staged a custom upload, or if a different
+   * project has been selected by the time the response lands.
+   */
+  function upgradeLogoFromSite(websiteUrl: string) {
+    // Capture the project name we're upgrading FOR — if the host
+    // switches projects mid-flight, the response is stale and we
+    // discard it instead of stomping the new selection.
+    const upgradeFor = projectSelectedNameRef.current;
+    fetch("/api/projects/site-logo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: websiteUrl }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.logoUrl) return;
+        if (logoFileRef.current) return; // host uploaded their own
+        if (projectSelectedNameRef.current !== upgradeFor) return; // selection changed
+        setLogoPreview(data.logoUrl);
+        setLogoUrl(data.logoUrl);
+      })
+      .catch(() => {
+        // Silent fallback — RootData logo stays in place.
+      });
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -625,6 +701,18 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
       scheduledAtIso = scheduled.toISOString();
     }
 
+    // Import provenance — captured at submit time so the super-admin
+    // analytics dashboard can answer "how many events came from Luma vs
+    // were hand-typed". An active Luma import wins over carried-over
+    // provenance from a duplicated event (host can repaste a new link).
+    const sourceProvider: string =
+      lumaImport
+        ? "luma"
+        : carriedProvenance?.sourceProvider ?? "manual";
+    const sourceUrl = lumaImport?.url ?? carriedProvenance?.sourceUrl ?? null;
+    const coverImageUrl =
+      lumaImport?.imageUrl ?? carriedProvenance?.coverImageUrl ?? null;
+
     const { data, error: insertError } = await supabase
       .from("events")
       .insert({
@@ -635,6 +723,9 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         format,
         access_mode: accessMode,
         created_by: userId,
+        source_provider: sourceProvider,
+        source_url: sourceUrl,
+        cover_image_url: coverImageUrl,
         ...(projectId ? { project_id: projectId } : {}),
         ...(scheduledAtIso ? { scheduled_at: scheduledAtIso } : {}),
       })
@@ -908,6 +999,14 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
           Organizer <span className="text-muted-foreground/50">(optional)</span>
         </label>
         <div className="relative">
+          {inlineOrganizerLogo && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={inlineOrganizerLogo}
+              alt={organizerName || "Project logo"}
+              className="absolute left-3 top-1/2 -translate-y-1/2 size-6 object-contain rounded pointer-events-none"
+            />
+          )}
           <input
             type="text"
             name="organizer_name"
@@ -916,11 +1015,13 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
               const v = e.target.value;
               setOrganizerName(v);
               // Editing the field invalidates any previously linked
-              // project. Clear its ID + auto-filled logo (unless the
-              // host already uploaded a custom file).
-              if (projectId) {
+              // project. Clear its ID, the inline RootData icon, and the
+              // auto-filled upload logo (unless the host already uploaded
+              // their own file, which we always respect).
+              if (projectId || inlineOrganizerLogo) {
                 setProjectId(null);
                 setProjectSelectedName(null);
+                setInlineOrganizerLogo(null);
                 if (!logoFile) {
                   setLogoPreview(null);
                   setLogoUrl(null);
@@ -936,14 +1037,16 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
             placeholder="Search RootData or type a name (e.g. Uniswap, your community)"
             autoComplete="off"
             maxLength={60}
-            className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors pr-24"
+            className={`w-full h-11 bg-surface border border-border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors pr-24 ${
+              inlineOrganizerLogo ? "pl-11" : "px-4"
+            }`}
           />
           {projectSearching && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
               Searching…
             </span>
           )}
-          {projectId && !projectSearching && (
+          {(projectId || inlineOrganizerLogo) && !projectSearching && (
             <button
               type="button"
               onClick={() => {
@@ -952,6 +1055,7 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
                 setProjectQuery("");
                 setProjectResults([]);
                 setOrganizerName("");
+                setInlineOrganizerLogo(null);
                 if (!logoFile) {
                   setLogoPreview(null);
                   setLogoUrl(null);
@@ -974,9 +1078,11 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
                 onClick={() => handleProjectSelect(r)}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors text-left"
               >
-                {r.logo && (
+                {r.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={r.logo} alt="" className="size-5 object-contain shrink-0 rounded" />
+                ) : (
+                  <span className="size-5 shrink-0 rounded bg-muted/40" aria-hidden />
                 )}
                 <div className="min-w-0">
                   <p className="truncate font-medium">{r.name}</p>

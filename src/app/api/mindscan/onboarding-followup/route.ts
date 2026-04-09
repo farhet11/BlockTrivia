@@ -43,8 +43,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const misconception = (body as { misconception?: unknown } | null)
-    ?.misconception;
+  const bodyObj = (body ?? {}) as Record<string, unknown>;
+  const misconception = bodyObj.misconception;
   if (
     typeof misconception !== "string" ||
     misconception.trim().length < MIN_CHARS
@@ -63,6 +63,9 @@ export async function POST(request: Request) {
     );
   }
 
+  // Parse previous Q&A (optional — only present on 2nd+ fetch in adaptive mode)
+  const previous = parsePreviousFollowups(bodyObj.previous);
+
   // --- 2b. Rate limit (AFTER validation) -----------------------------------
   const rateLimitError = await checkAndLog(supabase, user.id, "onboarding-followup");
   if (rateLimitError) {
@@ -78,7 +81,8 @@ export async function POST(request: Request) {
   // --- 3. Call Claude --------------------------------------------------------
   const { system, user: userMsg } = buildOnboardingFollowupPrompt(
     misconception.trim(),
-    projectContext
+    projectContext,
+    previous
   );
 
   let rawText: string;
@@ -114,15 +118,15 @@ export async function POST(request: Request) {
 
   // --- 4. Parse + validate ---------------------------------------------------
   const parsed = extractJson(rawText);
-  const questions = validateQuestions(parsed);
-  if (questions.length === 0) {
+  const question = validateSingleQuestion(parsed);
+  if (!question) {
     return NextResponse.json(
-      { error: "No valid follow-up questions came back. Try regenerating." },
+      { error: "No valid follow-up question came back. Try regenerating." },
       { status: 502 }
     );
   }
 
-  return NextResponse.json({ questions });
+  return NextResponse.json({ question });
 }
 
 // -----------------------------------------------------------------------------
@@ -173,26 +177,71 @@ async function loadProjectContext(
   };
 }
 
-function validateQuestions(parsed: unknown): OnboardingFollowupQuestion[] {
-  if (!parsed || typeof parsed !== "object") return [];
-  const rawList = (parsed as { questions?: unknown }).questions;
-  if (!Array.isArray(rawList)) return [];
+/**
+ * Validates that Claude returned a single well-formed follow-up question.
+ * Accepts two shapes for resilience:
+ *   - { question: string, options: [...], purpose?: string }    (preferred)
+ *   - { questions: [{ question, options, purpose }] }            (fallback)
+ */
+function validateSingleQuestion(parsed: unknown): OnboardingFollowupQuestion | null {
+  if (!parsed || typeof parsed !== "object") return null;
+  const obj = parsed as Record<string, unknown>;
 
-  const valid: OnboardingFollowupQuestion[] = [];
-  for (const item of rawList) {
-    if (!item || typeof item !== "object") continue;
-    const q = item as Record<string, unknown>;
-    if (typeof q.question !== "string" || q.question.trim().length === 0)
-      continue;
-    if (!Array.isArray(q.options) || q.options.length !== 4) continue;
-    if (!q.options.every((o) => typeof o === "string" && o.trim().length > 0))
-      continue;
-    valid.push({
-      question: q.question.trim(),
-      options: (q.options as string[]).map((o) => o.trim()),
-      purpose: typeof q.purpose === "string" ? q.purpose : undefined,
-    });
+  // Preferred shape — top-level question fields
+  if (typeof obj.question === "string" && Array.isArray(obj.options)) {
+    return normalizeQuestion(obj);
   }
-  // Plan says 2–3 follow-ups; cap at 3 if Claude overshoots.
-  return valid.slice(0, 3);
+
+  // Fallback — Claude may still wrap in { questions: [...] } despite the prompt
+  if (Array.isArray(obj.questions) && obj.questions.length > 0) {
+    const first = obj.questions[0];
+    if (first && typeof first === "object") {
+      return normalizeQuestion(first as Record<string, unknown>);
+    }
+  }
+
+  return null;
+}
+
+function normalizeQuestion(
+  q: Record<string, unknown>
+): OnboardingFollowupQuestion | null {
+  if (typeof q.question !== "string" || q.question.trim().length === 0) return null;
+  if (!Array.isArray(q.options) || q.options.length !== 4) return null;
+  if (!q.options.every((o) => typeof o === "string" && o.trim().length > 0)) return null;
+  return {
+    question: q.question.trim(),
+    options: (q.options as string[]).map((o) => o.trim()),
+    purpose: typeof q.purpose === "string" ? q.purpose : undefined,
+  };
+}
+
+/**
+ * Parses and sanitizes the optional `previous` field from the request body.
+ * Each entry represents a question the host has already answered in this
+ * onboarding session, used by Claude to drill deeper in the next question.
+ *
+ * Defensive: silently drops entries that don't match the shape.
+ */
+function parsePreviousFollowups(
+  raw: unknown
+): Array<{ question: string; answers: string[]; extra?: string }> | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: Array<{ question: string; answers: string[]; extra?: string }> = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const it = item as Record<string, unknown>;
+    if (typeof it.question !== "string" || it.question.trim().length === 0) continue;
+    const answers = Array.isArray(it.answers)
+      ? it.answers.filter((a): a is string => typeof a === "string" && a.length > 0)
+      : [];
+    const extra =
+      typeof it.extra === "string" && it.extra.trim().length > 0
+        ? it.extra.trim()
+        : undefined;
+    // Skip entries with no signal — nothing useful to send Claude.
+    if (answers.length === 0 && !extra) continue;
+    out.push({ question: it.question.trim(), answers, extra });
+  }
+  return out.length > 0 ? out : undefined;
 }

@@ -116,50 +116,73 @@ export type OnboardingFollowupProjectContext = {
 };
 
 /**
- * Build the Layer 0 follow-up prompt. Given a host's description of their
- * community's biggest misconception (and optionally project context from
- * RootData), generate 2–3 diagnostic MCQs that help the host clarify
- * which aspect is most misunderstood.
+ * A single previously-answered follow-up in an adaptive onboarding session.
+ * Passed as the "previous" parameter so Claude can drill deeper on each turn.
+ */
+export type OnboardingFollowupPrevious = {
+  question: string;
+  answers: string[];
+  extra?: string;
+};
+
+/**
+ * Build the Layer 0 follow-up prompt — single-question adaptive mode.
  *
- * When project context is supplied, Claude can ground the diagnostic
- * questions in the project's actual domain, similar projects, ecosystem,
- * and token status — dramatically improving relevance over the
- * misconception-only prompt.
+ * Each call generates ONE diagnostic question. On the first call, `previous`
+ * is empty and Claude generates a foundational question exploring the stated
+ * misconception. On subsequent calls, `previous` contains the host's answers
+ * so far; Claude uses them to drill into the specific angle the host has
+ * revealed, producing a more targeted next question than a batch generator
+ * ever could.
+ *
+ * When project context is supplied, Claude grounds the question in the
+ * project's actual domain (ecosystem, similar projects, token status) for
+ * distractors that feel native to a knowledgeable user of that specific
+ * project.
  */
 export function buildOnboardingFollowupPrompt(
   misconception: string,
-  projectContext?: OnboardingFollowupProjectContext | null
+  projectContext?: OnboardingFollowupProjectContext | null,
+  previous?: OnboardingFollowupPrevious[]
 ): { system: string; user: string } {
+  const hasPrevious = Array.isArray(previous) && previous.length > 0;
+  const turnNumber = (previous?.length ?? 0) + 1;
+
   const system = `You are MindScan, BlockTrivia's knowledge gap detection engine.
 A Web3 project host has described a misconception their community has about their project.
-Generate 2 or 3 targeted multiple-choice questions that help the host clarify:
-  - Which specific aspect of this topic is most misunderstood
-  - How severe the knowledge gap is
-  - What the correct understanding should be
 
-These questions will be shown back to the HOST (not the community) to help them diagnose the gap more precisely. The host's answers then seed the context for future quiz generation.
+Your job is to run an adaptive diagnostic conversation. On each turn you generate EXACTLY ONE multiple-choice question. The host answers it (multi-select allowed), and the next turn you drill deeper based on what they revealed.
+
+Current turn: ${turnNumber} of 3 (max 3 turns per diagnostic).
+
+Your goal across turns is to help the host identify:
+  - Which specific aspect of the misconception is most misunderstood
+  - How severe the gap is
+  - Which angle quiz questions should attack first
+
+These questions are shown to the HOST (not the community) — they're a tool to sharpen the host's own mental model of the gap before quiz generation begins.
 
 RULES:
-1. Each question has exactly 4 options.
-2. No obvious right answer — the host should have to think.
-3. Keep questions short and concrete.
-4. If <project_context> is provided, ground questions in that project's actual domain. Use ecosystem tags, similar projects, and token status to make distractors plausible. Reference concepts a knowledgeable user of THIS specific project would recognize.
-5. NEVER mention funding amounts, investor names, or specific dollar figures in question text or options. They are background context for you, not user-facing content.
-6. NEVER reveal the project's establishment date or treat the project as new/old based on it — that's metadata only.
-7. Output VALID JSON ONLY. No markdown, no prose.
+1. Generate EXACTLY ONE question per call. Do not return multiple questions.
+2. The question must have exactly 4 options.
+3. No obvious right answer — the host should have to think.
+4. Keep the question short and concrete.
+5. ${hasPrevious
+    ? "DRILL DEEPER based on what the host has already answered. Don't repeat or paraphrase prior questions — advance the investigation. If their prior picks revealed an angle (e.g., technical architecture vs. branding), narrow in on that angle."
+    : "Start with a FOUNDATIONAL question that helps isolate which category of misunderstanding dominates (technical architecture, value proposition, branding/positioning, tokenomics, etc.)."}
+6. If <project_context> is provided, ground the question in that project's actual domain. Use ecosystem tags, similar projects, and token status to make distractors plausible. Reference concepts a knowledgeable user of THIS specific project would recognize.
+7. NEVER mention funding amounts, investor names, or specific dollar figures in question text or options. They are background context for you, not user-facing content.
+8. NEVER reveal the project's establishment date or treat the project as new/old based on it — that's metadata only.
+9. Output VALID JSON ONLY. No markdown, no prose.
 
 Output format (must match exactly):
 {
-  "questions": [
-    {
-      "question": "diagnostic question text",
-      "options": ["option A", "option B", "option C", "option D"],
-      "purpose": "one sentence explaining what this question diagnoses"
-    }
-  ]
+  "question": "diagnostic question text",
+  "options": ["option A", "option B", "option C", "option D"],
+  "purpose": "one sentence explaining what this question diagnoses"
 }
 
-- 2 or 3 questions total.
+- Exactly ONE question object at the top level (not wrapped in "questions": [...]).
 - "options" must be an array of exactly 4 strings.
 - "purpose" is short — one sentence max.`;
 
@@ -167,15 +190,45 @@ Output format (must match exactly):
     ? buildProjectContextBlock(projectContext) + "\n\n"
     : "";
 
-  const user = `${contextBlock}The host described this misconception:
+  const previousBlock = hasPrevious
+    ? buildPreviousFollowupsBlock(previous!) + "\n\n"
+    : "";
+
+  const instruction = hasPrevious
+    ? `Generate ONE follow-up question that drills deeper based on the host's previous answers above. Do not repeat any prior question.`
+    : `Generate ONE initial diagnostic question that helps identify which aspect of this misconception is most critical.`;
+
+  const user = `${contextBlock}${previousBlock}The host described this misconception:
 
 <misconception>
 ${escapeXmlText(misconception)}
 </misconception>
 
-Generate 2 or 3 diagnostic multiple-choice questions.`;
+${instruction}`;
 
   return { system, user };
+}
+
+/**
+ * Renders the host's prior answers as an XML block for the adaptive prompt.
+ * Each entry shows the question, the host's multi-select picks, and any
+ * free-text context they added.
+ */
+function buildPreviousFollowupsBlock(previous: OnboardingFollowupPrevious[]): string {
+  const lines: string[] = [];
+  previous.forEach((p, i) => {
+    lines.push(`  ${i + 1}. Q: ${escapeXmlText(p.question)}`);
+    if (p.answers.length > 0) {
+      lines.push(`     Host picked: ${p.answers.map(escapeXmlText).join(" | ")}`);
+    }
+    if (p.extra && p.extra.trim().length > 0) {
+      lines.push(`     Host added: ${escapeXmlText(p.extra.trim())}`);
+    }
+  });
+  return `<previous_answers>
+The host has already answered the following diagnostic questions in this session:
+${lines.join("\n")}
+</previous_answers>`;
 }
 
 /**

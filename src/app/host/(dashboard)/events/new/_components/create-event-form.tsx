@@ -150,6 +150,20 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
   const [projectSearching, setProjectSearching] = useState(false);
   const projectDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
+  // Luma import state — when the host pastes a Luma URL into the title
+  // field, we detect it, fetch the OG metadata, and show a preview they
+  // can apply (which pre-fills title + description).
+  const [lumaImport, setLumaImport] = useState<{
+    url: string;
+    title: string | null;
+    description: string | null;
+    imageUrl: string | null;
+  } | null>(null);
+  const [lumaStatus, setLumaStatus] = useState<"idle" | "fetching" | "error">(
+    "idle"
+  );
+  const [lumaError, setLumaError] = useState<string | null>(null);
+
   // Fetch authenticated user on mount
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -186,6 +200,92 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         if (data.prizes) setShowMore(true);
       });
   }, [fromEventId, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Luma link detection + import ──────────────────────────────────────
+  // Regex matches any lu.ma or luma.com URL so we detect the link whether
+  // the host pastes it alone, types around it, or drops it mid-string.
+  const lumaUrlRegex = useMemo(
+    () => /https?:\/\/(?:lu\.ma|(?:www\.)?luma\.com)\/\S+/i,
+    []
+  );
+  const lumaFetchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastLumaFetchedRef = useRef<string | null>(null);
+
+  const fetchLumaImport = useCallback(async (url: string) => {
+    setLumaStatus("fetching");
+    setLumaError(null);
+    try {
+      const res = await fetch("/api/luma/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const body = await res.json();
+      if (!res.ok) {
+        setLumaStatus("error");
+        setLumaError(body?.error ?? "Couldn't import that Luma event.");
+        return;
+      }
+      setLumaImport({
+        url: body.canonicalUrl ?? url,
+        title: body.title ?? null,
+        description: body.description ?? null,
+        imageUrl: body.imageUrl ?? null,
+      });
+      setLumaStatus("idle");
+    } catch {
+      setLumaStatus("error");
+      setLumaError("Network error fetching Luma event.");
+    }
+  }, []);
+
+  function handleTitleChange(value: string) {
+    setTitle(value);
+
+    // Reset any stale error/preview the moment the host starts editing
+    // away from the detected URL so the UX doesn't feel frozen.
+    if (lumaError) setLumaError(null);
+
+    const match = value.match(lumaUrlRegex);
+    if (!match) {
+      // No URL in the field anymore → cancel any pending fetch so we
+      // don't pop a preview for a URL the host already removed.
+      if (lumaFetchRef.current) {
+        clearTimeout(lumaFetchRef.current);
+        lumaFetchRef.current = null;
+      }
+      lastLumaFetchedRef.current = null;
+      return;
+    }
+
+    const url = match[0];
+    // Don't re-fetch the same URL the host has already imported.
+    if (url === lastLumaFetchedRef.current) return;
+    if (lumaImport && lumaImport.url === url) return;
+
+    if (lumaFetchRef.current) clearTimeout(lumaFetchRef.current);
+    lumaFetchRef.current = setTimeout(() => {
+      lastLumaFetchedRef.current = url;
+      void fetchLumaImport(url);
+    }, 450);
+  }
+
+  /** Applies the imported Luma data to the form fields. */
+  function applyLumaImport() {
+    if (!lumaImport) return;
+    if (lumaImport.title) setTitle(lumaImport.title);
+    if (lumaImport.description) setDescription(lumaImport.description);
+    // Keep the preview card visible after apply so the host knows which
+    // event it came from; clear via the X button if they change their mind.
+  }
+
+  /** Dismisses the preview card and resets detection so they can paste a new URL. */
+  function clearLumaImport() {
+    setLumaImport(null);
+    setLumaStatus("idle");
+    setLumaError(null);
+    lastLumaFetchedRef.current = null;
+  }
 
   // Debounced organizer name search
   const searchOrganizers = useCallback(
@@ -688,18 +788,86 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Event Name
         </label>
-        <input
-          name="title"
-          required
-          maxLength={100}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
-          placeholder="e.g. ETH Denver 2026 - Main Stage Trivia"
-        />
+        <div className="relative">
+          <input
+            name="title"
+            required
+            maxLength={200}
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            className="w-full h-11 bg-surface border border-border px-4 pr-28 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+            placeholder="Type your event name or paste a Luma link (https://lu.ma/…)"
+          />
+          {lumaStatus === "fetching" && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground">
+              Fetching Luma…
+            </span>
+          )}
+        </div>
         <p className="text-[11px] text-muted-foreground">
           Keep it under 60 characters for clean display on leaderboards and share cards.
         </p>
+
+        {lumaError && (
+          <p className="text-[11px] text-destructive">{lumaError}</p>
+        )}
+
+        {lumaImport && (
+          <div className="mt-2 border border-primary/30 bg-primary/5 p-3 flex gap-3 items-start">
+            {lumaImport.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={lumaImport.imageUrl}
+                alt=""
+                className="w-16 h-16 object-cover flex-shrink-0 border border-border"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-background border border-border flex items-center justify-center text-muted-foreground text-[10px] flex-shrink-0">
+                Luma
+              </div>
+            )}
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+                  Imported from Luma
+                </p>
+                <button
+                  type="button"
+                  onClick={clearLumaImport}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  aria-label="Dismiss Luma import"
+                >
+                  ✕
+                </button>
+              </div>
+              {lumaImport.title && (
+                <p className="text-sm font-medium truncate">{lumaImport.title}</p>
+              )}
+              {lumaImport.description && (
+                <p className="text-xs text-muted-foreground line-clamp-2">
+                  {lumaImport.description}
+                </p>
+              )}
+              <div className="pt-1 flex gap-3">
+                <button
+                  type="button"
+                  onClick={applyLumaImport}
+                  className="text-xs font-medium text-primary hover:underline underline-offset-2"
+                >
+                  Use these details →
+                </button>
+                <a
+                  href={lumaImport.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                >
+                  View on Luma
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5 relative">

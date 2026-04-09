@@ -123,6 +123,17 @@ export async function POST(request: Request) {
 
     if (dbError) {
       console.error("projects save error:", dbError);
+      // Still persist the link in host_onboarding even if projects caching fails
+      if (fetched.name) {
+        await supabase
+          .from("host_onboarding")
+          .update({
+            linked_project_name: fetched.name,
+            linked_rootdata_id: rootdataId.trim(),
+            linked_project_logo: fetched.logo_url ?? null,
+          })
+          .eq("profile_id", user.id);
+      }
       // Return fetched data anyway so auto-fill works even if caching fails
       return NextResponse.json({
         project: {
@@ -148,12 +159,30 @@ export async function POST(request: Request) {
   }
 
   // Link host to project via host_projects (owner role, idempotent)
-  await supabase
-    .from("host_projects")
-    .upsert(
-      { profile_id: user.id, project_id: projectRow.id, role: "owner" },
-      { onConflict: "profile_id,project_id" }
-    );
+  if (projectRow.id) {
+    await supabase
+      .from("host_projects")
+      .upsert(
+        { profile_id: user.id, project_id: projectRow.id, role: "owner" },
+        { onConflict: "profile_id,project_id" }
+      );
+  }
+
+  // Persist the linked project identity into host_onboarding so Step 3
+  // rehydrates correctly after a page refresh — done server-side so it's
+  // committed before the API response is sent, avoiding client-side race conditions.
+  const projectName = projectRow.name ?? null;
+  const projectLogo = projectRow.logo_url ?? null;
+  if (projectName) {
+    await supabase
+      .from("host_onboarding")
+      .update({
+        linked_project_name: projectName,
+        linked_rootdata_id: rootdataId.trim(),
+        linked_project_logo: projectLogo,
+      })
+      .eq("profile_id", user.id);
+  }
 
   return NextResponse.json({ project: projectRow });
 }

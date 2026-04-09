@@ -156,4 +156,19 @@ describe("parseOgTags", () => {
     `;
     expect(parseOgTags(html).title).toBe("First");
   });
+
+  it("strips trailing ' · Luma' branding from imported titles", () => {
+    const html = `<meta property="og:title" content="MANCER CAMPUS TOUR - UNTAR · Luma">`;
+    expect(parseOgTags(html).title).toBe("MANCER CAMPUS TOUR - UNTAR");
+  });
+
+  it("strips trailing ' | Luma' variant", () => {
+    const html = `<meta property="og:title" content="DeFi Summit Berlin | Luma">`;
+    expect(parseOgTags(html).title).toBe("DeFi Summit Berlin");
+  });
+
+  it("does NOT strip 'Luma' when it appears mid-title", () => {
+    const html = `<meta property="og:title" content="Build on Luma: Partner Workshop">`;
+    expect(parseOgTags(html).title).toBe("Build on Luma: Partner Workshop");
+  });
 });

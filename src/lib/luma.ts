@@ -108,8 +108,9 @@ export function parseOgTags(html: string): LumaImport {
   };
 
   // Title: og:title → twitter:title → <title>
-  const title =
+  const rawTitle =
     pickMeta("og:title") ?? pickMeta("twitter:title") ?? pickTitleTag();
+  const title = rawTitle ? stripLumaSuffix(rawTitle) : null;
 
   // Description: og:description → twitter:description → meta description
   const descriptionRaw =
@@ -202,6 +203,23 @@ export async function fetchLumaEvent(url: string): Promise<LumaImport> {
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Strips Luma's trailing branding from an og:title. Luma appends
+ * " · Luma" (or occasionally " | Luma") to every event title in their
+ * metadata, which feels out of place once the event is imported into
+ * BlockTrivia. We drop the suffix at the parser level so every consumer
+ * gets a clean name without needing its own sanitization.
+ *
+ * Only strips the suffix when it appears as the FINAL segment with a
+ * separator — we don't want to remove a legitimate "Luma" from the
+ * middle of an event name like "Build on Luma: Partner Workshop".
+ */
+function stripLumaSuffix(title: string): string {
+  return title
+    .replace(/\s*[·|\-–—]\s*Luma\s*$/i, "")
+    .trim();
 }
 
 /**

@@ -552,6 +552,20 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
     setProjectResults([]);
     setProjectQuery(result.name);
     setProjectSelectedName(result.name);
+
+    // Auto-fill organizer identity from the linked project. The host can
+    // still edit the organizer name once the field is revealed, and can
+    // replace the logo via the upload flow below.
+    setOrganizerName(result.name);
+    if (result.logo) {
+      // Only overwrite the logo if the host hasn't uploaded their own
+      // file yet. If they already have a logoFile staged, we respect it.
+      if (!logoFile) {
+        setLogoPreview(result.logo);
+        setLogoUrl(result.logo);
+      }
+    }
+
     try {
       const res = await fetch("/api/rootdata/project", {
         method: "POST",
@@ -561,6 +575,13 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
       const body = await res.json();
       if (res.ok && body.project?.id) {
         setProjectId(body.project.id);
+      }
+      // The full project fetch may include a richer logo_url (from the
+      // projects-table cache) than the search result's thumbnail — prefer
+      // it if we don't have a user upload yet.
+      if (res.ok && body.project?.logo_url && !logoFile) {
+        setLogoPreview(body.project.logo_url);
+        setLogoUrl(body.project.logo_url);
       }
     } catch {
       // Non-fatal — project_id stays null, event still creates fine
@@ -870,61 +891,71 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         )}
       </div>
 
+      {/*
+        Organizer Name field — shown only when no RootData project is
+        linked. When a project IS linked, the project name + logo become
+        the organizer identity automatically (see handleProjectSelect).
+        This keeps the form concise without losing the manual-entry
+        fallback for events that don't have a RootData project.
+      */}
+      {!projectId && (
+        <div className="space-y-1.5 relative">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Organizer Name <span className="text-muted-foreground/50">(optional)</span>
+          </label>
+          <input
+            name="organizer_name"
+            value={organizerName}
+            onChange={handleOrganizerChange}
+            onBlur={handleOrganizerBlur}
+            onFocus={handleOrganizerFocus}
+            maxLength={60}
+            autoComplete="off"
+            className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
+            placeholder="e.g. Uniswap, Aave, your project name"
+          />
+
+          {/* Organizer suggestions dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-10 left-0 right-0 top-full mt-1 border border-border bg-surface max-h-48 overflow-y-auto shadow-sm">
+              {suggestions.map((s) => (
+                <button
+                  key={s.organizer_name}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelectSuggestion(s)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors text-left"
+                >
+                  {s.logo_url ? (
+                    <img
+                      src={s.logo_url}
+                      alt=""
+                      className="size-5 object-contain shrink-0"
+                    />
+                  ) : (
+                    <div className="size-5 bg-muted/30 shrink-0 flex items-center justify-center">
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {s.organizer_name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <span className="truncate">{s.organizer_name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <p className="text-[11px] text-muted-foreground">
+            Or link a project below to auto-fill this from RootData.
+          </p>
+        </div>
+      )}
+
+      {/* Project link — also sets the organizer identity (name + logo)
+          when a project is selected. */}
       <div className="space-y-1.5 relative">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Organizer Name <span className="text-muted-foreground/50">(optional)</span>
-        </label>
-        <input
-          name="organizer_name"
-          value={organizerName}
-          onChange={handleOrganizerChange}
-          onBlur={handleOrganizerBlur}
-          onFocus={handleOrganizerFocus}
-          maxLength={60}
-          autoComplete="off"
-          className="w-full h-11 bg-surface border border-border px-4 text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-colors"
-          placeholder="e.g. Uniswap, Aave, your project name"
-        />
-
-        {/* Organizer suggestions dropdown */}
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-10 left-0 right-0 top-full mt-1 border border-border bg-surface max-h-48 overflow-y-auto shadow-sm">
-            {suggestions.map((s) => (
-              <button
-                key={s.organizer_name}
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleSelectSuggestion(s)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors text-left"
-              >
-                {s.logo_url ? (
-                  <img
-                    src={s.logo_url}
-                    alt=""
-                    className="size-5 object-contain shrink-0"
-                  />
-                ) : (
-                  <div className="size-5 bg-muted/30 shrink-0 flex items-center justify-center">
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {s.organizer_name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                <span className="truncate">{s.organizer_name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        <p className="text-[11px] text-muted-foreground">
-          Shown on the public results page. Defaults to your profile name if left blank.
-        </p>
-      </div>
-
-      {/* Project link */}
-      <div className="space-y-1.5 relative">
-        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Link a project <span className="text-muted-foreground/50">(optional)</span>
+          Organizer / Project <span className="text-muted-foreground/50">(optional)</span>
         </label>
         <div className="relative">
           <input
@@ -951,6 +982,14 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
                 setProjectSelectedName(null);
                 setProjectQuery("");
                 setProjectResults([]);
+                // Clear auto-filled organizer identity too. If the host
+                // has uploaded their own logo file, keep it — they've
+                // explicitly chosen that asset.
+                setOrganizerName("");
+                if (!logoFile) {
+                  setLogoPreview(null);
+                  setLogoUrl(null);
+                }
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
             >
@@ -985,7 +1024,7 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         )}
 
         <p className="text-[11px] text-muted-foreground">
-          Tags this event to a project for cross-event analytics. Powered by RootData.
+          Auto-fills organizer name + logo from RootData, and tags this event for cross-event analytics.
         </p>
       </div>
 
@@ -1075,10 +1114,12 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
         </div>
       </div>
 
-      {/* Event logo upload */}
+      {/* Organizer / Host logo upload — auto-populated from the linked
+          RootData project when available; hosts can always replace it
+          with a custom file for a specific event branding. */}
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Event Logo <span className="text-muted-foreground/50">(optional)</span>
+          Organizer / Host Logo <span className="text-muted-foreground/50">(optional)</span>
         </label>
 
         {logoPreview ? (

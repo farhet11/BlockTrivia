@@ -252,10 +252,20 @@ function buildHostContextBlock(ctx: HostContext): string {
     parts.push(
       "- Host's diagnostic answers:\n" +
         ctx.followups
-          .map(
-            (f, i) =>
-              `  ${i + 1}. Q: ${escapeXmlText(f.question)}\n     Host picked: ${escapeXmlText(f.answer)}`
-          )
+          .map((f, i) => {
+            const lines: string[] = [
+              `  ${i + 1}. Q: ${escapeXmlText(f.question)}`,
+            ];
+            if (f.answers.length > 0) {
+              lines.push(
+                `     Host picked: ${f.answers.map(escapeXmlText).join(" | ")}`
+              );
+            }
+            if (f.extra && f.extra.trim().length > 0) {
+              lines.push(`     Host added: ${escapeXmlText(f.extra.trim())}`);
+            }
+            return lines.join("\n");
+          })
           .join("\n")
     );
   }

@@ -4,11 +4,13 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { getAnthropicClient, MINDSCAN_MODEL } from "@/lib/anthropic";
 import { buildLayer1aPrompt } from "@/lib/mindscan/prompts";
 import { checkAndLog } from "@/lib/mindscan/rate-limit";
-import type {
-  HostContext,
-  MindScanCount,
-  MindScanDifficulty,
-  MindScanQuestion,
+import {
+  coerceFollowupAnswers,
+  isFollowupAnswered,
+  type HostContext,
+  type MindScanCount,
+  type MindScanDifficulty,
+  type MindScanQuestion,
 } from "@/lib/mindscan/types";
 
 const MAX_CONTENT_CHARS = 30_000;
@@ -187,23 +189,32 @@ function buildFollowups(
   questions: unknown,
   answers: unknown
 ): HostContext["followups"] {
-  if (!Array.isArray(questions) || !Array.isArray(answers)) return null;
+  if (!Array.isArray(questions)) return null;
+
+  // Normalize answers once — coerceFollowupAnswers handles legacy string[]
+  // rows and pads to questions.length so the indices line up.
+  const coerced = coerceFollowupAnswers(answers, questions.length);
+
   const out: NonNullable<HostContext["followups"]> = [];
   for (let i = 0; i < questions.length; i++) {
     const q = questions[i];
-    const a = answers[i];
     if (
-      q &&
-      typeof q === "object" &&
-      "question" in q &&
-      typeof (q as { question: unknown }).question === "string" &&
-      typeof a === "string"
+      !q ||
+      typeof q !== "object" ||
+      !("question" in q) ||
+      typeof (q as { question: unknown }).question !== "string"
     ) {
-      out.push({
-        question: (q as { question: string }).question,
-        answer: a,
-      });
+      continue;
     }
+    const answer = coerced[i];
+    // Skip questions the host never touched — no signal to add.
+    if (!isFollowupAnswered(answer)) continue;
+
+    out.push({
+      question: (q as { question: string }).question,
+      answers: answer.choices,
+      extra: answer.extra && answer.extra.trim().length > 0 ? answer.extra.trim() : null,
+    });
   }
   return out.length > 0 ? out : null;
 }

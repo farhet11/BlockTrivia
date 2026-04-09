@@ -44,7 +44,8 @@ describe("buildLayer1aPrompt", () => {
       followups: [
         {
           question: "Where do rewards actually come from?",
-          answer: "Protocol fees",
+          answers: ["Protocol fees", "Trading fees from AMM pools"],
+          extra: "Also MEV rebates in some rounds",
         },
       ],
     };
@@ -58,6 +59,8 @@ describe("buildLayer1aPrompt", () => {
     expect(user).toContain("Biggest community misconception");
     expect(user).toContain("People think staking rewards come from inflation");
     expect(user).toContain("Protocol fees");
+    expect(user).toContain("Trading fees from AMM pools");
+    expect(user).toContain("Host added: Also MEV rebates in some rounds");
   });
 
   it("omits host context block when no context provided", () => {

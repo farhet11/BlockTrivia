@@ -4,7 +4,12 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import type { OnboardingFollowupQuestion } from "@/lib/mindscan/types";
+import {
+  coerceFollowupAnswers,
+  isFollowupAnswered,
+  type FollowupAnswer,
+  type OnboardingFollowupQuestion,
+} from "@/lib/mindscan/types";
 import type { RootDataSearchResult } from "@/lib/rootdata";
 
 /**
@@ -26,6 +31,7 @@ import type { RootDataSearchResult } from "@/lib/rootdata";
 const ROLES = [
   "Founder",
   "CMO / Head of Marketing",
+  "Business Development",
   "Community Manager",
   "Developer Advocate",
   "Other",
@@ -55,7 +61,7 @@ type OnboardingData = {
   twitter_handle: string;
   content_sources: string; // newline-separated, split at save time
   ai_followup_questions: OnboardingFollowupQuestion[];
-  ai_followup_answers: string[];
+  ai_followup_answers: FollowupAnswer[];
   linked_project_name: string;
   linked_rootdata_id: string;
   linked_project_logo: string;
@@ -378,7 +384,10 @@ export function OnboardingFlow({
       const updatedData = {
         ...data,
         ai_followup_questions: questions,
-        ai_followup_answers: questions.map(() => ""),
+        ai_followup_answers: questions.map<FollowupAnswer>(() => ({
+          choices: [],
+          extra: "",
+        })),
       };
       setData(updatedData);
       setStep(4);
@@ -725,47 +734,110 @@ export function OnboardingFlow({
               these answers to target quizzes more precisely.
             </p>
 
+            <p className="text-xs text-muted-foreground -mt-2">
+              Pick any that apply — you can select multiple options or add
+              your own context below each question.
+            </p>
+
             <div className="space-y-4">
-              {data.ai_followup_questions.map((q, i) => (
-                <div
-                  key={i}
-                  className="border border-border p-4 space-y-2 bg-background"
-                >
-                  <p className="text-sm font-medium">
-                    {i + 1}. {q.question}
-                  </p>
-                  <div className="space-y-1.5">
-                    {q.options.map((opt) => {
-                      const chosen = data.ai_followup_answers[i] === opt;
-                      return (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => {
-                            const next = [...data.ai_followup_answers];
-                            next[i] = opt;
-                            const snap = { ...data, ai_followup_answers: next };
-                            setData(snap);
-                            scheduleAutoSave(snap);
-                          }}
-                          className={`w-full text-left px-3 py-2 text-sm border transition-colors ${
-                            chosen
-                              ? "border-primary bg-primary/10 text-foreground"
-                              : "border-border hover:bg-accent"
-                          }`}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {q.purpose && (
-                    <p className="text-xs text-muted-foreground italic">
-                      Why we ask: {q.purpose}
+              {data.ai_followup_questions.map((q, i) => {
+                const answer: FollowupAnswer = data.ai_followup_answers[i] ?? {
+                  choices: [],
+                  extra: "",
+                };
+                return (
+                  <div
+                    key={i}
+                    className="border border-border p-4 space-y-3 bg-background"
+                  >
+                    <p className="text-sm font-medium">
+                      {i + 1}. {q.question}
                     </p>
-                  )}
-                </div>
-              ))}
+                    <div className="space-y-1.5">
+                      {q.options.map((opt) => {
+                        const checked = answer.choices.includes(opt);
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => {
+                              const nextChoices = checked
+                                ? answer.choices.filter((c) => c !== opt)
+                                : [...answer.choices, opt];
+                              const nextAnswers = [...data.ai_followup_answers];
+                              nextAnswers[i] = { ...answer, choices: nextChoices };
+                              const snap = {
+                                ...data,
+                                ai_followup_answers: nextAnswers,
+                              };
+                              setData(snap);
+                              scheduleAutoSave(snap);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm border transition-colors flex items-start gap-2 ${
+                              checked
+                                ? "border-primary bg-primary/10 text-foreground"
+                                : "border-border hover:bg-accent"
+                            }`}
+                          >
+                            <span
+                              aria-hidden
+                              className={`mt-0.5 flex-shrink-0 w-4 h-4 border flex items-center justify-center transition-colors ${
+                                checked
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background"
+                              }`}
+                            >
+                              {checked && (
+                                <svg
+                                  viewBox="0 0 16 16"
+                                  fill="none"
+                                  className="w-3 h-3"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                >
+                                  <path
+                                    d="M3 8l3.5 3.5L13 5"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </span>
+                            <span className="min-w-0">{opt}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                        Anything else? (optional)
+                      </label>
+                      <textarea
+                        value={answer.extra ?? ""}
+                        onChange={(e) => {
+                          const nextAnswers = [...data.ai_followup_answers];
+                          nextAnswers[i] = { ...answer, extra: e.target.value };
+                          setData((d) => ({ ...d, ai_followup_answers: nextAnswers }));
+                        }}
+                        onBlur={() => {
+                          scheduleAutoSave(data);
+                        }}
+                        rows={2}
+                        placeholder="Add context the options don't capture…"
+                        className="w-full bg-background border border-border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none"
+                      />
+                    </div>
+
+                    {q.purpose && (
+                      <p className="text-xs text-muted-foreground italic">
+                        Why we ask: {q.purpose}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

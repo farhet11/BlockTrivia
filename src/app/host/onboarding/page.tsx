@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 import { OnboardingFlow } from "./_components/onboarding-flow";
 import type { OnboardingInitialData } from "./_components/onboarding-flow";
+import { coerceFollowupAnswers } from "@/lib/mindscan/types";
 
 /**
  * MindScan Layer 0 — host onboarding.
@@ -53,9 +54,13 @@ export default async function HostOnboardingPage() {
         ai_followup_questions: Array.isArray(existing.ai_followup_questions)
           ? (existing.ai_followup_questions as OnboardingInitialData["ai_followup_questions"])
           : [],
-        ai_followup_answers: Array.isArray(existing.ai_followup_answers)
-          ? (existing.ai_followup_answers as string[])
-          : [],
+        // coerceFollowupAnswers handles legacy string[] rows + pads to question length
+        ai_followup_answers: coerceFollowupAnswers(
+          existing.ai_followup_answers,
+          Array.isArray(existing.ai_followup_questions)
+            ? (existing.ai_followup_questions as unknown[]).length
+            : 0
+        ),
         linked_project_name: existing.linked_project_name ?? "",
         linked_rootdata_id: existing.linked_rootdata_id ?? "",
         linked_project_logo: existing.linked_project_logo ?? "",

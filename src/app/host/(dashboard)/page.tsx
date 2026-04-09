@@ -25,7 +25,7 @@ export default async function HostDashboard() {
       supabase
         .from("host_onboarding")
         .select(
-          "completed_at, role, community_channels, event_goal, biggest_misconception, ai_followup_answers"
+          "completed_at, role, community_channels, event_goal, biggest_misconception, ai_followup_questions, ai_followup_answers"
         )
         .eq("profile_id", user!.id)
         .maybeSingle(),
@@ -79,7 +79,12 @@ export default async function HostDashboard() {
           communityChannels={onboarding.community_channels as string[] | null}
           eventGoal={onboarding.event_goal as string | null}
           biggestMisconception={onboarding.biggest_misconception as string | null}
-          aiFollowupAnswers={onboarding.ai_followup_answers as string[] | null}
+          aiFollowupAnswers={onboarding.ai_followup_answers}
+          aiFollowupQuestionCount={
+            Array.isArray(onboarding.ai_followup_questions)
+              ? (onboarding.ai_followup_questions as unknown[]).length
+              : 0
+          }
         />
       )}
 

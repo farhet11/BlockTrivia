@@ -30,3 +30,25 @@ export function validateUrl(raw: string): string | null {
   }
   return null; // valid
 }
+
+/**
+ * Checks that a Response's final URL (after redirects) is not a blocked host.
+ * Use this after any `fetch(..., { redirect: "follow" })` call to guard
+ * against SSRF via open redirect — an input URL could 301 to an internal
+ * metadata endpoint even when the original input passed validateUrl().
+ *
+ * Throws if the final destination is blocked.
+ */
+export function assertSafeRedirectDestination(res: Response): void {
+  let finalUrl: URL;
+  try {
+    finalUrl = new URL(res.url);
+  } catch {
+    // res.url is empty or unparseable — safer to block than silently allow.
+    // An empty res.url can indicate fetch interception or runtime differences.
+    throw new Error("Could not verify redirect destination — request blocked for safety");
+  }
+  if (BLOCKED_HOSTS.test(finalUrl.hostname)) {
+    throw new Error(`Redirect destination blocked: ${finalUrl.hostname}`);
+  }
+}

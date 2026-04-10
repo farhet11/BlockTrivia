@@ -28,7 +28,7 @@
  */
 
 import "server-only";
-import { validateUrl } from "./ssrf-guard";
+import { validateUrl, assertSafeRedirectDestination } from "./ssrf-guard";
 
 const FETCH_TIMEOUT_MS = 6_000;
 const MAX_HTML_BYTES = 384 * 1024; // header logos sometimes live a bit further into the body than meta tags
@@ -195,12 +195,15 @@ function pickHomepageInlineSvg(html: string): string | null {
   return null;
 }
 
-function svgToDataUri(svg: string): string {
+function svgToDataUri(svg: string): string | null {
   // Ensure xmlns is present — some sites strip it from inline SVG since
   // it's optional in HTML, but it's required when rendered via <img src>.
   const withNs = /\bxmlns\s*=/.test(svg)
     ? svg
     : svg.replace(/<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+  // Guard: reject SVGs that would produce a data URI larger than 50 KB.
+  // Complex SVGs from hostile sites should not be stored as logo_url.
+  if (withNs.length > 50_000) return null;
   const encoded = encodeURIComponent(withNs)
     // Save bytes — these chars are safe inline in a data URI without
     // percent-encoding and most browsers handle them.
@@ -251,6 +254,8 @@ async function fetchHtml(url: string): Promise<string> {
   } finally {
     clearTimeout(timeoutId);
   }
+  // Guard against SSRF via open redirect — validate the final destination URL.
+  assertSafeRedirectDestination(res);
   if (!res.ok) throw new Error(`Site returned ${res.status}`);
   const contentType = res.headers.get("content-type") ?? "";
   if (!contentType.includes("text/html") && !contentType.includes("xhtml")) {

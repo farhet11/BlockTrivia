@@ -114,6 +114,7 @@ export interface RoundModule {
 
 import { MCQPlayerView } from "@/rounds/mcq/player-view";
 import { WipeOutPlayerView } from "@/rounds/wipeout/player-view";
+import { ReversalPlayerView } from "@/rounds/reversal/player-view";
 
 const modules: RoundModule[] = [
   {
@@ -151,15 +152,20 @@ const modules: RoundModule[] = [
       eventTypes: ["irl", "virtual", "hybrid"],
     },
   },
+  {
+    type: "reversal",
+    displayName: "Reversal",
+    description:
+      "4 statements shown — 3 are true, 1 is false. Players identify the false one. " +
+      "Mark the false statement as the correct answer in the builder.",
+    PlayerView: ReversalPlayerView,
+    mindScanAutoGen: true,
+    constraints: {
+      minPlayers: 1,
+      eventTypes: ["irl", "virtual", "hybrid"],
+    },
+  },
   // ─── Add new round modules here ──────────────────────────────────────────
-  // {
-  //   type: "reversal",
-  //   displayName: "Reversal",
-  //   description: "4 statements shown. 3 are true. Find the 1 that's false.",
-  //   PlayerView: ReversalPlayerView,
-  //   mindScanAutoGen: true,
-  //   constraints: { minPlayers: 1, eventTypes: ["irl", "virtual", "hybrid"] },
-  // },
 ];
 
 /** The registry — the engine's single source of truth for round modules. */

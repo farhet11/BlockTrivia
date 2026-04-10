@@ -2,6 +2,13 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.5.1.0] - 2026-04-10
+
+### Added
+- **Reversal round (Phase 4a)** — new round type: 4 statements shown, 3 are true, 1 is false. Players identify the false one. `correct_answer` = index of the FALSE statement — same MCQ scoring path, zero new DB migrations needed. Registered in the round registry with `mindScanAutoGen: true`.
+- **ReversalPlayerView** — distinct component with "🔄 Find the statement that is FALSE" instruction pill, 2×2 option grid, and dedicated reveal UX: false statement gets green border (correct pick) + red "FALSE" badge, avoiding confusion between "correct pick" and "true statement."
+- **19 unit tests** — registry registration, governance constraints, scoring contract (mirrors MCQ ELSE branch), and mechanic invariants including PlayerView distinctness from MCQ.
+
 ## [0.5.0.0] - 2026-04-10
 
 ### Added

@@ -171,7 +171,14 @@ export function QuestionBuilder({
 
   async function deleteRound(roundId: string) {
     markSaving();
-    // Delete questions first (no CASCADE on FK), then modifier, then round
+    // game_state.current_question_id / current_round_id reference questions / rounds
+    // WITHOUT CASCADE — clear them first so FK doesn't block the delete.
+    await supabase
+      .from("game_state")
+      .update({ current_question_id: null, current_round_id: null })
+      .eq("event_id", eventId)
+      .or(`current_round_id.eq.${roundId}`);
+    // Delete questions (cascades to responses), then modifier, then round
     await supabase.from("questions").delete().eq("round_id", roundId);
     await supabase.from("round_modifiers").delete().eq("round_id", roundId);
     const { error } = await supabase.from("rounds").delete().eq("id", roundId);

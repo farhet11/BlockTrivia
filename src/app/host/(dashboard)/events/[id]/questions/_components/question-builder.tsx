@@ -11,15 +11,20 @@ import Link from "next/link";
 export type Round = {
   id: string;
   event_id: string;
-  round_type: "mcq" | "true_false" | "wipeout";
+  /** text, not a union — validated by round registry */
+  round_type: string;
   title: string | null;
   sort_order: number;
   time_limit_seconds: number;
   base_points: number;
   time_bonus_enabled: boolean;
-  wipeout_min_leverage: number | null;
-  wipeout_max_leverage: number | null;
+  /** Round-specific config JSONB (e.g. minWagerPct/maxWagerPct for WipeOut). */
+  config: Record<string, unknown>;
   interstitial_text?: string | null;
+  /** Active modifier on this round, or null. Populated from round_modifiers join. */
+  modifier_type: string | null;
+  /** Modifier config JSONB — multiplier, etc. */
+  modifier_config: Record<string, unknown>;
 };
 
 export type Question = {
@@ -85,8 +90,7 @@ export function QuestionBuilder({
           time_limit_seconds: round.time_limit_seconds,
           base_points: round.base_points,
           time_bonus_enabled: round.time_bonus_enabled,
-          wipeout_min_leverage: round.wipeout_min_leverage,
-          wipeout_max_leverage: round.wipeout_max_leverage,
+          config: round.config ?? {},
           interstitial_text: round.interstitial_text ?? null,
         })
         .select("id")
@@ -176,6 +180,55 @@ export function QuestionBuilder({
     if (!error) {
       setRounds(rounds.map((r) => (r.id === roundId ? { ...r, ...updates } : r)));
       markSaved();
+    }
+  }
+
+  /**
+   * Set or clear the scoring modifier on a round.
+   * - modifierType = null   → removes any existing modifier (DELETE from round_modifiers)
+   * - modifierType = string → upserts a row with default config
+   */
+  async function setModifier(roundId: string, modifierType: string | null) {
+    markSaving();
+    if (modifierType === null) {
+      // Clear modifier
+      const { error } = await supabase
+        .from("round_modifiers")
+        .delete()
+        .eq("round_id", roundId);
+
+      if (!error) {
+        setRounds(
+          rounds.map((r) =>
+            r.id === roundId
+              ? { ...r, modifier_type: null, modifier_config: {} }
+              : r
+          )
+        );
+        markSaved();
+      }
+    } else {
+      // Upsert modifier — rely on UNIQUE(round_id) constraint with ON CONFLICT
+      const defaultConfig: Record<string, unknown> =
+        modifierType === "jackpot" ? { multiplier: 5 } : {};
+
+      const { error } = await supabase
+        .from("round_modifiers")
+        .upsert(
+          { round_id: roundId, modifier_type: modifierType, config: defaultConfig },
+          { onConflict: "round_id" }
+        );
+
+      if (!error) {
+        setRounds(
+          rounds.map((r) =>
+            r.id === roundId
+              ? { ...r, modifier_type: modifierType, modifier_config: defaultConfig }
+              : r
+          )
+        );
+        markSaved();
+      }
     }
   }
 
@@ -322,6 +375,7 @@ export function QuestionBuilder({
                 onUpdateQuestion={updateQuestion}
                 onDeleteQuestion={deleteQuestion}
                 onMoveQuestion={moveQuestion}
+                onSetModifier={setModifier}
               />
             ))}
         </div>

@@ -47,12 +47,25 @@ export default async function PlayPage({
     redirect(`/game/${code}/final`);
   }
 
-  // Load rounds + questions
-  const { data: rounds } = await supabase
+  // Load rounds + questions (include modifier data for Jackpot banner etc.)
+  const { data: rawRounds } = await supabase
     .from("rounds")
-    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, config, interstitial_text")
+    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, config, interstitial_text, round_modifiers(modifier_type, config)")
     .eq("event_id", event.id)
     .order("sort_order");
+
+  // Flatten modifier (max 1 per round by UNIQUE constraint)
+  type RawMod = { modifier_type: string; config: Record<string, unknown> };
+  const rounds = (rawRounds ?? []).map((r) => {
+    const mods = r.round_modifiers as RawMod[] | null;
+    const mod = Array.isArray(mods) && mods.length > 0 ? mods[0] : null;
+    return {
+      ...r,
+      modifier_type: mod?.modifier_type ?? null,
+      modifier_config: mod?.config ?? {},
+      round_modifiers: undefined,
+    };
+  });
 
   const roundIds = (rounds ?? []).map((r) => r.id);
   const { data: questions } = roundIds.length
@@ -86,6 +99,8 @@ export default async function PlayPage({
     base_points: roundMap[q.round_id]?.base_points ?? 100,
     time_bonus_enabled: roundMap[q.round_id]?.time_bonus_enabled ?? true,
     config: (roundMap[q.round_id]?.config as Record<string, unknown>) ?? {},
+    modifier_type: roundMap[q.round_id]?.modifier_type ?? null,
+    modifier_config: (roundMap[q.round_id]?.modifier_config as Record<string, unknown>) ?? {},
   }));
 
   // Build rounds info for interstitial lookups

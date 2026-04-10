@@ -16,10 +16,10 @@
 
 ---
 
-**Title:** Phase 2 — Modifier system (Jackpot Mode first)
+**Title:** Phase 2b — Liquidation Mode modifier
 **Priority:** P2
-**Why:** Modifiers are the next layer of the modular architecture. Jackpot Mode (RICE 18, Effort 1) is the highest-value modifier. Requires a `round_modifiers` join table and the modifier dispatch pattern in the game engine.
-**Action:** See `GAME_ARCHITECTURE.md` Phase 2 spec. Build `round_modifiers` migration, then `JackpotModeModifier` module, then `LiquidationModeModifier`.
+**Why:** Second modifier from Phase 2. Bottom 25% of players by speed are frozen for 3 questions. Requires `modifier_state` on `game_state` (already added in migration 049) to track frozen player IDs and questions remaining.
+**Action:** See `GAME_ARCHITECTURE.md` §6.3. Build `LiquidationModeModifier` module in `src/modifiers/liquidation/`, update `submit_answer` RPC to write/read `modifier_state`, add frozen-player overlay to PlayView.
 
 ---
 

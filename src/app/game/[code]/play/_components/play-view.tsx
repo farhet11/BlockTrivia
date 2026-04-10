@@ -12,6 +12,7 @@ import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 import { resolvePlayerView } from "@/lib/game/round-registry";
+import { resolveModifierOverlay } from "@/lib/game/modifier-registry";
 
 function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
   if (isAnswered || pct > 0.5) return "none";
@@ -78,6 +79,10 @@ type QuestionData = {
   time_bonus_enabled: boolean;
   /** Round-specific config from rounds.config JSONB (migration 047). */
   config: Record<string, unknown>;
+  /** Active modifier type on this round, or null. */
+  modifier_type: string | null;
+  /** Modifier config JSONB — multiplier, etc. */
+  modifier_config: Record<string, unknown>;
 };
 
 type GameState = {
@@ -124,6 +129,7 @@ export function PlayView({
     explanation: string | null;
     didNotAnswer?: boolean;
     wagerAmt?: number;
+    jackpotWinner?: boolean;
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -145,6 +151,10 @@ export function PlayView({
   // Resolve the correct PlayerView component from the round registry
   const RoundPlayerView = currentQuestion
     ? resolvePlayerView(currentQuestion.round_type)
+    : null;
+  // Resolve the modifier overlay from the modifier registry (null = no modifier active)
+  const ModifierOverlay = currentQuestion?.modifier_type
+    ? resolveModifierOverlay(currentQuestion.modifier_type)
     : null;
 
   // Progress bar data
@@ -438,6 +448,7 @@ export function PlayView({
         correctAnswer: result.correct_answer,
         explanation: result.explanation ?? null,
         wagerAmt: result.wager_amt ?? 0,
+        jackpotWinner: result.jackpot_winner ?? false,
       });
 
       // Refresh rank immediately — leaderboard trigger fires synchronously on response INSERT
@@ -748,6 +759,15 @@ export function PlayView({
             })}
           </div>
         </div>
+      )}
+
+      {/* Modifier overlay — shown during playing and revealing phases */}
+      {ModifierOverlay && (phase === "playing" || phase === "revealing") && currentQuestion && (
+        <ModifierOverlay
+          config={currentQuestion.modifier_config}
+          isRevealing={phase === "revealing"}
+          jackpotWinner={lastResult?.jackpotWinner ?? false}
+        />
       )}
 
       {/* Revealing banner */}

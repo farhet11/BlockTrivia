@@ -50,7 +50,7 @@ export default async function PlayPage({
   // Load rounds + questions
   const { data: rounds } = await supabase
     .from("rounds")
-    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, wipeout_min_leverage, wipeout_max_leverage, interstitial_text")
+    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, config, interstitial_text")
     .eq("event_id", event.id)
     .order("sort_order");
 
@@ -85,8 +85,7 @@ export default async function PlayPage({
     time_limit_seconds: roundMap[q.round_id]?.time_limit_seconds ?? 15,
     base_points: roundMap[q.round_id]?.base_points ?? 100,
     time_bonus_enabled: roundMap[q.round_id]?.time_bonus_enabled ?? true,
-    wipeout_min_leverage: roundMap[q.round_id]?.wipeout_min_leverage ?? 1.0,
-    wipeout_max_leverage: roundMap[q.round_id]?.wipeout_max_leverage ?? 3.0,
+    config: (roundMap[q.round_id]?.config as Record<string, unknown>) ?? {},
   }));
 
   // Build rounds info for interstitial lookups

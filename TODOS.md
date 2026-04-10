@@ -23,13 +23,6 @@
 
 ---
 
-**Title:** Apply migrations 049–050 to production Supabase
-**Priority:** P0
-**Why:** `round_modifiers` table and `submit_answer` jackpot scoring are required for Jackpot Mode to work in production.
-**Action:** Run `supabase migration up` or apply `049_round_modifiers.sql` and `050_submit_answer_jackpot.sql` via the Supabase dashboard SQL editor.
-
----
-
 ## MindScan
 
 **Title:** Apply migrations 034, 035, 036 to production Supabase

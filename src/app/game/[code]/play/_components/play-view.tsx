@@ -94,6 +94,8 @@ type GameState = {
   question_started_at: string | null;
   started_at: string | null;
   ended_at: string | null;
+  /** Ephemeral per-question state written by the host control panel for complex round types. */
+  round_state: Record<string, unknown> | null;
 };
 
 type LeaderboardEntry = LbEntry;
@@ -825,6 +827,8 @@ export function PlayView({
             leverage={leverage}
             onLeverageChange={setLeverage}
             onSubmit={submitAnswer}
+            roundState={gameState.round_state ?? undefined}
+            currentPlayerId={player.id}
           />
         )}
 

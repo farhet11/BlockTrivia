@@ -51,6 +51,8 @@ type GameState = {
   question_started_at: string | null;
   started_at: string | null;
   ended_at: string | null;
+  /** Ephemeral per-question state for complex round types (e.g. Pressure Cooker spotlight). */
+  round_state: Record<string, unknown> | null;
 };
 
 type EventInfo = {
@@ -366,10 +368,42 @@ export function ControlPanel({
     [supabase, event.id]
   );
 
+  /**
+   * Pick a random active player from event_players for Pressure Cooker spotlight.
+   * Returns null if the query fails or there are no players yet.
+   */
+  async function pickSpotlightPlayer(): Promise<{ id: string; display_name: string } | null> {
+    const { data, error } = await supabase
+      .from("event_players")
+      .select("player_id, display_name")
+      .eq("event_id", event.id)
+      .limit(100);
+    if (error || !data || data.length === 0) return null;
+    const pick = data[Math.floor(Math.random() * data.length)];
+    return { id: pick.player_id as string, display_name: pick.display_name as string };
+  }
+
+  /**
+   * Build round_state for a question. For Pressure Cooker rounds, picks a random
+   * spotlight player. For all other rounds, clears round_state (null).
+   */
+  async function buildRoundState(roundType: string): Promise<Record<string, unknown> | null> {
+    if (roundType === "pressure_cooker") {
+      const spotlight = await pickSpotlightPlayer();
+      if (!spotlight) return null;
+      return {
+        spotlight_player_id: spotlight.id,
+        spotlight_display_name: spotlight.display_name,
+      };
+    }
+    return null;
+  }
+
   // Start game — go to first question
   async function startGame() {
     if (questions.length === 0) return;
     const first = questions[0];
+    const roundState = await buildRoundState(first.round_type);
     await updateEventStatus("active");
     await updateGameState({
       phase: "playing",
@@ -377,6 +411,7 @@ export function ControlPanel({
       current_question_id: first.id,
       question_started_at: new Date().toISOString(),
       started_at: new Date().toISOString(),
+      round_state: roundState,
     });
   }
 
@@ -386,11 +421,13 @@ export function ControlPanel({
     if (!roundId) return;
     const firstQ = questions.find((q) => q.round_id === roundId);
     if (!firstQ) return;
+    const roundState = await buildRoundState(firstQ.round_type);
     await updateGameState({
       phase: "playing",
       current_round_id: roundId,
       current_question_id: firstQ.id,
       question_started_at: new Date().toISOString(),
+      round_state: roundState,
     });
   }
 
@@ -413,16 +450,19 @@ export function ControlPanel({
         current_round_id: next.round_id,
         current_question_id: null,
         question_started_at: null,
+        round_state: null,
       });
       return;
     }
 
+    const roundState = await buildRoundState(next.round_type);
     await updateEventStatus("active");
     await updateGameState({
       phase: "playing",
       current_round_id: next.round_id,
       current_question_id: next.id,
       question_started_at: new Date().toISOString(),
+      round_state: roundState,
     });
   }
 

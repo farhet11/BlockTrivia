@@ -2,6 +2,15 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.5.2.0] - 2026-04-10
+
+### Added
+- **Pressure Cooker round (Phase 4b)** — one player is randomly spotlighted per question. They answer while everyone watches. Scoring is identical to MCQ. Host control panel picks a random active player and writes `{ spotlight_player_id, spotlight_display_name }` into `game_state.round_state` on every question advance.
+- **PressureCookerPlayerView** — pulsing "🔥 YOU'RE IN THE HOT SEAT" banner for the spotlighted player; amber "👀 [Name] is in the hot seat" for spectators. Both see the normal 2×2 MCQ grid and answer independently.
+- **`roundState` + `currentPlayerId` on `RoundPlayerViewProps`** — new optional props flowing from `game_state.round_state` + the current player profile. Forward-compatible surface for any round that needs per-player personalisation.
+- **`round_state` on `GameState` types** — added to both play-view and control-panel type definitions to match the DB column added in migration 047.
+- **23 unit tests** — registry, constraints, scoring contract (MCQ ELSE branch), round_state shape contract, hot-seat detection logic.
+
 ## [0.5.1.0] - 2026-04-10
 
 ### Added

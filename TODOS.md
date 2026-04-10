@@ -1,5 +1,28 @@
 # TODOS
 
+## Game Engine
+
+**Title:** Apply migrations 044–048 to production Supabase
+**Priority:** P0
+**Why:** Migrations 044 (project enrichment), 045 (projects insert policy), 046 (event import provenance), 047 (rounds.config JSONB + round_type enum→text), and 048 (submit_answer reads config, drops legacy columns) are all required for the features shipped in v0.4.0.0 to work in production.
+**Action:** Run `supabase migration up` or apply each file in order via the Supabase dashboard SQL editor.
+
+---
+
+**Title:** Update question-builder.tsx Round type to use string (not union)
+**Priority:** P2
+**Why:** `round_type: "mcq" | "true_false" | "wipeout"` is hardcoded in the question builder's `Round` type. Now that round_type is a text column, this should use `string` or import from the registry.
+**Action:** Change `round_type` type in `question-builder.tsx` and update `round-card.tsx` to use `getRegisteredRoundTypes()` from the registry instead of a hardcoded `ROUND_TYPES` array.
+
+---
+
+**Title:** Phase 2 — Modifier system (Jackpot Mode first)
+**Priority:** P2
+**Why:** Modifiers are the next layer of the modular architecture. Jackpot Mode (RICE 18, Effort 1) is the highest-value modifier. Requires a `round_modifiers` join table and the modifier dispatch pattern in the game engine.
+**Action:** See `GAME_ARCHITECTURE.md` Phase 2 spec. Build `round_modifiers` migration, then `JackpotModeModifier` module, then `LiquidationModeModifier`.
+
+---
+
 ## MindScan
 
 **Title:** Apply migrations 034, 035, 036 to production Supabase

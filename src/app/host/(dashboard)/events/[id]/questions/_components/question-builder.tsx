@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { RoundCard } from "./round-card";
@@ -63,6 +63,9 @@ export function QuestionBuilder({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [duplicating, setDuplicating] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lastAddedRoundId, setLastAddedRoundId] = useState<string | null>(null);
+  const [roundAddedFlash, setRoundAddedFlash] = useState(false);
+  const roundRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const isEnded = eventStatus === "ended";
   const isActive = eventStatus === "active" || eventStatus === "lobby" || eventStatus === "paused";
 
@@ -124,6 +127,13 @@ export function QuestionBuilder({
     setSaveStatus("saving");
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
   }
+  // Scroll to newly added round once it mounts
+  useEffect(() => {
+    if (!lastAddedRoundId) return;
+    const el = roundRefs.current.get(lastAddedRoundId);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [lastAddedRoundId, rounds]);
+
   function markSaved() {
     setSaveStatus("saved");
     saveTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
@@ -152,16 +162,19 @@ export function QuestionBuilder({
 
     if (!error && data) {
       setRounds([...rounds, data]);
+      setLastAddedRoundId(data.id);
+      setRoundAddedFlash(true);
+      setTimeout(() => setRoundAddedFlash(false), 1800);
       markSaved();
     }
   }
 
   async function deleteRound(roundId: string) {
     markSaving();
-    const { error } = await supabase
-      .from("rounds")
-      .delete()
-      .eq("id", roundId);
+    // Delete questions first (no CASCADE on FK), then modifier, then round
+    await supabase.from("questions").delete().eq("round_id", roundId);
+    await supabase.from("round_modifiers").delete().eq("round_id", roundId);
+    const { error } = await supabase.from("rounds").delete().eq("id", roundId);
 
     if (!error) {
       setRounds(rounds.filter((r) => r.id !== roundId));
@@ -334,7 +347,7 @@ export function QuestionBuilder({
           onClick={addRound}
           className="bg-primary text-primary-foreground hover:bg-primary-hover font-medium"
         >
-          Add Round
+          {roundAddedFlash ? "Round added ✓" : "Add Round"}
         </Button>
         <Button
           variant="outline"
@@ -365,8 +378,14 @@ export function QuestionBuilder({
           {rounds
             .sort((a, b) => a.sort_order - b.sort_order)
             .map((round) => (
-              <RoundCard
+              <div
                 key={round.id}
+                ref={(el) => {
+                  if (el) roundRefs.current.set(round.id, el);
+                  else roundRefs.current.delete(round.id);
+                }}
+              >
+              <RoundCard
                 round={round}
                 questions={questionsForRound(round.id)}
                 onUpdateRound={updateRound}
@@ -377,6 +396,7 @@ export function QuestionBuilder({
                 onMoveQuestion={moveQuestion}
                 onSetModifier={setModifier}
               />
+              </div>
             ))}
         </div>
       )}

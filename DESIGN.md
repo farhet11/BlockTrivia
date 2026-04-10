@@ -200,7 +200,7 @@ BlockTrivia is **gradient-free** in the traditional sense. No CSS gradients appe
 ### Leverage Slider (gameplay)
 
 - Position: between question text and answer buttons
-- Range: 1x to 5x (or max configured by host)
+- Range: 1x to 3x (safe to all-in)
 - Default: 1x
 - Track: 4px, Violet Tint background
 - Thumb: 20px circle, Electric Violet fill
@@ -394,7 +394,7 @@ shadcn/ui + Tailwind CSS. All components use Tailwind utility classes and shadcn
 
 - "Create a join screen on Warm Canvas (#faf9f7) with a hero heading in Lora at 32px weight 600. Event name in Electric Violet (#7c3aed). Five code input boxes 56px tall with violet borders, JetBrains Mono 16px bold centered characters. Below: outlined 'Scan QR Code' button with 1px Warm Border (#e8e5e0). Solid violet 'Join Game' CTA button 48px tall, 12px radius."
 - "Design an answer grid with four options in a 2x2 layout. Each button 56px tall, Surface White background, 1px Warm Border, 10px radius, Inter 15px weight 500. Selected state: 2px Electric Violet border + Violet Tint (#f0ecfe) background. Correct state: 2px Correct Green (#22c55e) border + Correct Tint (#dcfce7) background + checkmark icon."
-- "Build a leverage round screen. Question in Inter 18px weight 500 at the top. Below: a slider from 1x to 5x, track in Violet Tint, thumb in Electric Violet, value displayed as '3x' in Electric Violet bold. Below slider: four answer buttons in 2x2 grid. Timer bar at top of screen transitioning violet → amber → red."
+- "Build a leverage round screen. Question in Inter 18px weight 500 at the top. Below: a slider from 1x to 3x, track in Violet Tint, thumb in Electric Violet, value displayed as '3x' in Electric Violet bold. Below slider: four answer buttons in 2x2 grid. Timer bar at top of screen transitioning violet → amber → red."
 
 ### Ready-to-Use Agent Prompt
 

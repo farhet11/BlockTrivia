@@ -109,7 +109,9 @@ const EMPTY: OnboardingData = {
  */
 function deriveStartingStep(d: OnboardingData): 1 | 2 | 3 | 4 {
   if (d.ai_followup_questions.length > 0) return 4;
-  if (d.biggest_misconception.trim().length >= 15) return 4;
+  // Misconception filled but no questions yet — stay at step 3 so the
+  // "Next" CTA triggers the AI fetch on first advance.
+  if (d.biggest_misconception.trim().length >= 15) return 3;
   const projectStarted =
     !!d.linked_project_name ||
     d.project_website.trim().length > 0 ||

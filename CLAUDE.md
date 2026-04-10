@@ -29,7 +29,7 @@ Real-time Web3 trivia platform. Projects use it to find who actually understands
 ### 1. Database Schema (DONE)
 Full Supabase Postgres schema in `supabase/migrations/001_initial_schema.sql`:
 - 9 tables: profiles, events, event_hosts, rounds, questions, game_state, event_players, responses, leaderboard_entries
-- Enum types: user_role, event_status, round_type, game_phase
+- Enum types: user_role, event_status, game_phase (`round_type` was converted to text in migration 047 — adding new round types no longer requires a DB migration)
 - RLS policies on all tables
 - Auto-create profile on signup trigger
 - Auto-generate 5-char join codes for events
@@ -109,8 +109,8 @@ Full Supabase Postgres schema in `supabase/migrations/001_initial_schema.sql`:
 
 ## MVP Game Mechanics
 
-- **3 round types:** MCQ, True/False, WipeOut (MCQ + wager slider for leverage)
-- **Scoring:** +100 base + time bonus (faster = more points) + WipeOut leverage multiplier
+- **3 round types:** MCQ, True/False, WipeOut (MCQ + wager slider). Registered in `src/lib/game/round-registry.ts` — adding new types is zero DB migrations
+- **Scoring:** +100 base + time bonus (faster = more points). WipeOut: `wagerAmt = floor(max(50, bankedScore) × wagerPct)` — correct: +wagerAmt, wrong: −min(wagerAmt, bankedScore)
 - **Timer:** Configurable per round (10s / 15s / 20s / 30s)
 - **Late joiners:** Spectate current question read-only, become full participant at next question
 - **Pause:** Host can freeze game at any time (timer stops, players see overlay)

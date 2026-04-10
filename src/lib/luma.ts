@@ -15,7 +15,7 @@
  */
 
 import "server-only";
-import { validateUrl } from "./ssrf-guard";
+import { validateUrl, assertSafeRedirectDestination } from "./ssrf-guard";
 
 /** Hostnames we allow in imported URLs. Anything else is rejected. */
 const ALLOWED_HOSTS = new Set(["lu.ma", "luma.com", "www.luma.com"]);
@@ -169,6 +169,8 @@ export async function fetchLumaEvent(url: string): Promise<LumaImport> {
   } finally {
     clearTimeout(timeoutId);
   }
+  // Guard against SSRF via open redirect — validate the final destination URL.
+  assertSafeRedirectDestination(res);
 
   if (!res.ok) {
     throw new Error(

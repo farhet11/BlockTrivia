@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
   const { data: existingProject } = await supabase
     .from("projects")
-    .select(`id, rootdata_synced_at, ${SELECT_FIELDS}`)
+    .select(SELECT_FIELDS)
     .eq("rootdata_id", rootdataId.trim())
     .single();
 

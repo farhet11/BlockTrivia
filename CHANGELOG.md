@@ -2,6 +2,26 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.4.0.0] - 2026-04-10
+
+### Added
+- **Luma event import** — hosts can paste a `lu.ma` URL on the Create Event form to auto-populate the event title, description, date/time, location, and organizer logo from the Luma event page. Saves 2–3 minutes of manual entry per event.
+- **Organizer logo auto-fetch** — when a project website is linked during onboarding (or entered on Create Event), the host's full brand logo is fetched automatically and pre-filled in the logo upload field. No manual upload needed for projects with a web presence.
+- **MindScan onboarding v2** — adaptive diagnostic flow with per-step autosave, edit mode for returning hosts, RootData project enrichment, and AI-generated follow-up questions that drill deeper based on misconception input.
+- **Modular round architecture (Phase 1)** — round types are now pluggable modules registered in a central registry. Adding or removing a round type requires zero DB migrations and zero changes to the game engine. Ships with MCQ, True/False, and WipeOut modules.
+- **Event import provenance** — events imported from Luma carry `import_source` and `import_id` metadata so duplicate imports are detectable and the origin is always traceable.
+
+### Changed
+- **WipeOut config migrated to JSONB** — wager bounds (`minWagerPct`, `maxWagerPct`) now live in `rounds.config` JSONB instead of dedicated columns. The `submit_answer` RPC reads from config; legacy columns dropped.
+- **`round_type` column converted from Postgres enum to text** — adding a new round type no longer requires a DB migration. Validation moves to the round registry (Zod check constraint retained as a soft guard).
+- **WipeOut lever initialization** — the wager slider now initializes to the midpoint of each round's configured wager range rather than a hardcoded 50%.
+
+### Fixed
+- SSRF guard extended to validate redirect destinations — `site-logo.ts` and `luma.ts` now check the final URL after redirects, not just the input URL, closing an open-redirect SSRF vector.
+- Onboarding resume now stays at step 3 (misconception) when the AI questions haven't loaded yet, instead of dropping the host onto a blank step 4.
+- Duplicate columns in the RootData cache-check Supabase query removed.
+- Server-side caps added to the `previous[]` array and string fields in the onboarding follow-up API to prevent prompt inflation.
+
 ## [0.3.0.0] - 2026-04-09
 
 ### Added

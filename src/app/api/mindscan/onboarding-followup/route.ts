@@ -227,21 +227,27 @@ function parsePreviousFollowups(
   raw: unknown
 ): Array<{ question: string; answers: string[]; extra?: string }> | undefined {
   if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  // Server-side caps: max 3 previous entries, 6 answers each, 500-char extra.
+  const capped = raw.slice(0, 3);
   const out: Array<{ question: string; answers: string[]; extra?: string }> = [];
-  for (const item of raw) {
+  for (const item of capped) {
     if (!item || typeof item !== "object") continue;
     const it = item as Record<string, unknown>;
     if (typeof it.question !== "string" || it.question.trim().length === 0) continue;
+    // Cap question length to prevent oversized Claude prompts.
+    const question = it.question.trim().slice(0, 500);
     const answers = Array.isArray(it.answers)
-      ? it.answers.filter((a): a is string => typeof a === "string" && a.length > 0)
+      ? it.answers
+          .filter((a): a is string => typeof a === "string" && a.length > 0)
+          .slice(0, 6)
       : [];
     const extra =
       typeof it.extra === "string" && it.extra.trim().length > 0
-        ? it.extra.trim()
+        ? it.extra.trim().slice(0, 500)
         : undefined;
     // Skip entries with no signal — nothing useful to send Claude.
     if (answers.length === 0 && !extra) continue;
-    out.push({ question: it.question.trim(), answers, extra });
+    out.push({ question, answers, extra });
   }
   return out.length > 0 ? out : undefined;
 }

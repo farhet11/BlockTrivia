@@ -28,12 +28,26 @@ export default async function QuestionsPage({
 
   if (!event || event.created_by !== user.id) notFound();
 
-  // Fetch rounds with their questions
-  const { data: rounds } = await supabase
+  // Fetch rounds with their questions and any active modifier
+  const { data: rawRounds } = await supabase
     .from("rounds")
-    .select("*")
+    .select("*, round_modifiers(modifier_type, config)")
     .eq("event_id", eventId)
     .order("sort_order", { ascending: true });
+
+  // Flatten round_modifiers array (max 1 per round by UNIQUE constraint)
+  type RawMod = { modifier_type: string; config: Record<string, unknown> };
+  const rounds = (rawRounds ?? []).map((r) => {
+    const mods = r.round_modifiers as RawMod[] | null;
+    const mod = Array.isArray(mods) && mods.length > 0 ? mods[0] : null;
+    return {
+      ...r,
+      config: (r.config as Record<string, unknown>) ?? {},
+      modifier_type: mod?.modifier_type ?? null,
+      modifier_config: mod?.config ?? {},
+      round_modifiers: undefined,
+    };
+  });
 
   const roundIds = (rounds ?? []).map((r) => r.id);
   const [{ data: questions }, { data: sponsors }] = await Promise.all([

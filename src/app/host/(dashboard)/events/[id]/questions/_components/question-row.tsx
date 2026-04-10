@@ -15,7 +15,8 @@ export function QuestionRow({
   question: Question;
   index: number;
   total: number;
-  roundType: "mcq" | "true_false" | "wipeout";
+  /** text, not a union — validated by round registry */
+  roundType: string;
   onUpdate: (id: string, updates: Partial<Question>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onMove: (id: string, direction: "up" | "down") => Promise<void>;

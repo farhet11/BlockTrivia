@@ -2,6 +2,22 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.5.0.0] - 2026-04-10
+
+### Added
+- **Modifier system (Phase 2)** — scoring modifiers are now pluggable modules registered in a central registry (`src/lib/game/modifier-registry.ts`). Adding a modifier requires one registry entry and one migration. Max 1 active modifier per round (enforced at DB level).
+- **Jackpot Mode** — first modifier to ship. Host toggles per-round in the question builder. Fastest correct answer takes the pot (base_points × 5×, configurable). All others score 0. Implemented as `src/modifiers/jackpot/` with a UI overlay component and full test coverage.
+- **Modifier toggle in question builder** — each round card now has a "Scoring modifier" dropdown (None / Jackpot Mode). Active modifier shown as an amber badge in the round header. Backed by the new `round_modifiers` table.
+- **Jackpot UI overlay** — "🎰 JACKPOT MODE" banner on the player screen. Pre-answer: shows the pot multiplier. Post-reveal: "you took the pot!" or "Jackpot taken — 0 pts" depending on outcome.
+
+### Changed
+- **Round type** in `question-builder.tsx`, `round-card.tsx`, and `question-row.tsx` widened from `"mcq" | "true_false" | "wipeout"` to `string`. Round type selector now populated from `getRegisteredRoundTypes()` — no manual sync required when adding round types.
+- **`duplicateEvent`** no longer copies `wipeout_min_leverage`/`wipeout_max_leverage` (already dropped in migration 048). Now copies `config` JSONB.
+
+### Infrastructure
+- `supabase/migrations/049_round_modifiers.sql` — `round_modifiers` table (UNIQUE on `round_id`), RLS policies for hosts and players, `modifier_state` JSONB on `game_state` for future Liquidation Mode.
+- `supabase/migrations/050_submit_answer_jackpot.sql` — extends `submit_answer` RPC: reads `round_modifiers` at answer time; applies jackpot scoring (first correct wins `base_points × multiplier`; others get 0) without touching non-modifier code paths.
+
 ## [0.4.0.0] - 2026-04-10
 
 ### Added

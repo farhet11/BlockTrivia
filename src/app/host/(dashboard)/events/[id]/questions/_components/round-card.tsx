@@ -4,12 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { QuestionRow } from "./question-row";
 import type { Round, Question } from "./question-builder";
-
-const ROUND_TYPES: { value: Round["round_type"]; label: string }[] = [
-  { value: "mcq", label: "Multiple Choice" },
-  { value: "true_false", label: "True / False" },
-  { value: "wipeout", label: "WipeOut (Leverage)" },
-];
+import { getRegisteredRoundTypes } from "@/lib/game/round-registry";
+import { getRegisteredModifiers } from "@/lib/game/modifier-registry";
 
 const TIME_OPTIONS = [10, 15, 20, 30];
 
@@ -22,6 +18,7 @@ export function RoundCard({
   onUpdateQuestion,
   onDeleteQuestion,
   onMoveQuestion,
+  onSetModifier,
 }: {
   round: Round;
   questions: Question[];
@@ -31,12 +28,16 @@ export function RoundCard({
   onUpdateQuestion: (id: string, updates: Partial<Question>) => Promise<void>;
   onDeleteQuestion: (id: string) => Promise<void>;
   onMoveQuestion: (id: string, direction: "up" | "down") => Promise<void>;
+  onSetModifier: (roundId: string, modifierType: string | null) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(round.title ?? "");
   const [interstitialText, setInterstitialText] = useState(round.interstitial_text ?? "");
   const [showInterstitial, setShowInterstitial] = useState(false);
+
+  const roundTypes = getRegisteredRoundTypes();
+  const modifiers = getRegisteredModifiers();
 
   function handleTitleBlur() {
     setEditingTitle(false);
@@ -86,6 +87,13 @@ export function RoundCard({
           <span className="text-xs text-muted-foreground shrink-0">
             {questions.length} {questions.length === 1 ? "question" : "questions"}
           </span>
+
+          {/* Modifier badge */}
+          {round.modifier_type && (
+            <span className="text-xs font-medium text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 shrink-0">
+              🎰 {modifiers.find((m) => m.type === round.modifier_type)?.displayName ?? round.modifier_type}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -93,15 +101,13 @@ export function RoundCard({
           <select
             value={round.round_type}
             onChange={(e) =>
-              onUpdateRound(round.id, {
-                round_type: e.target.value as Round["round_type"],
-              })
+              onUpdateRound(round.id, { round_type: e.target.value })
             }
             className="text-xs bg-surface border border-border px-2 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-primary"
           >
-            {ROUND_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            {roundTypes.map((t) => (
+              <option key={t.type} value={t.type}>
+                {t.displayName}
               </option>
             ))}
           </select>
@@ -166,6 +172,37 @@ export function RoundCard({
                 placeholder="Optional message shown to players before this round starts..."
                 className="w-full text-sm bg-background border border-border px-3 py-2 text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary resize-none"
               />
+            )}
+          </div>
+
+          {/* Modifier picker */}
+          <div className="border border-border/50 bg-background/40 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Scoring modifier</span>
+                {round.modifier_type && (
+                  <span className="text-xs text-amber-400">active</span>
+                )}
+              </div>
+              <select
+                value={round.modifier_type ?? ""}
+                onChange={(e) =>
+                  onSetModifier(round.id, e.target.value === "" ? null : e.target.value)
+                }
+                className="text-xs bg-surface border border-border px-2 py-1.5 text-foreground outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">None</option>
+                {modifiers.map((m) => (
+                  <option key={m.type} value={m.type}>
+                    {m.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {round.modifier_type === "jackpot" && (
+              <p className="text-xs text-muted-foreground mt-2">
+                First correct answer wins {(round.modifier_config?.multiplier as number) ?? 5}× points. All others score 0.
+              </p>
             )}
           </div>
 

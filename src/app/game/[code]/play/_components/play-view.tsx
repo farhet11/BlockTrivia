@@ -12,7 +12,8 @@ import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 import { resolvePlayerView } from "@/lib/game/round-registry";
-import { resolveModifierOverlay } from "@/lib/game/modifier-registry";
+import { resolveModifierOverlay, modifierRegistry } from "@/lib/game/modifier-registry";
+import { ModifierActivationOverlay } from "@/modifiers/shared/modifier-activation-overlay";
 
 function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
   if (isAnswered || pct > 0.5) return "none";
@@ -96,6 +97,8 @@ type GameState = {
   ended_at: string | null;
   /** Ephemeral per-question state written by the host control panel for complex round types. */
   round_state: Record<string, unknown> | null;
+  /** Live modifier state — set by host during game. */
+  modifier_state: Record<string, unknown> | null;
 };
 
 type LeaderboardEntry = LbEntry;
@@ -154,10 +157,56 @@ export function PlayView({
   const RoundPlayerView = currentQuestion
     ? resolvePlayerView(currentQuestion.round_type)
     : null;
-  // Resolve the modifier overlay from the modifier registry (null = no modifier active)
-  const ModifierOverlay = currentQuestion?.modifier_type
-    ? resolveModifierOverlay(currentQuestion.modifier_type)
+
+  // ── Hybrid modifier resolution: live override > pre-configured default ──
+  const liveModType = typeof (gameState.modifier_state as Record<string, unknown>)?.type === "string"
+    && (gameState.modifier_state as Record<string, unknown>).type !== ""
+    ? (gameState.modifier_state as Record<string, unknown>).type as string
     : null;
+  const effectiveModType = liveModType || currentQuestion?.modifier_type || null;
+  const effectiveModConfig = liveModType
+    ? (((gameState.modifier_state as Record<string, unknown>)?.config as Record<string, unknown>) ?? {})
+    : (currentQuestion?.modifier_config ?? {});
+  const ModifierOverlay = effectiveModType
+    ? resolveModifierOverlay(effectiveModType)
+    : null;
+
+  // ── Live modifier activation detection (animation trigger) ────────────────
+  const prevModifierTypeRef = useRef<string | null>(null);
+  const [modifierJustActivated, setModifierJustActivated] = useState(false);
+  const activationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const prev = prevModifierTypeRef.current;
+    prevModifierTypeRef.current = effectiveModType;
+
+    // Trigger animation only when modifier goes from null → non-null
+    // AND the source is a live activation (not pre-configured default)
+    if (prev === null && effectiveModType !== null && liveModType !== null) {
+      setModifierJustActivated(true);
+
+      // Play sound effect
+      try {
+        const audio = new Audio("/sounds/modifier-activate.wav");
+        audio.volume = 0.6;
+        audio.play().catch(() => {});
+      } catch {}
+
+      if (activationTimerRef.current) clearTimeout(activationTimerRef.current);
+      activationTimerRef.current = setTimeout(() => {
+        setModifierJustActivated(false);
+      }, 2500);
+    }
+
+    // When modifier is deactivated, clear animation state
+    if (effectiveModType === null) {
+      setModifierJustActivated(false);
+    }
+
+    return () => {
+      if (activationTimerRef.current) clearTimeout(activationTimerRef.current);
+    };
+  }, [effectiveModType, liveModType]);
 
   // Progress bar data
   const rounds = useMemo(() => {
@@ -191,12 +240,15 @@ export function PlayView({
     const prev = gameStateRef.current;
     setGameState(next);
     if (next.phase === "playing" && next.current_question_id !== prev.current_question_id) {
-      // New question — reset answer state
+      // New question — reset answer state + modifier activation tracking
       setAnsweredQuestionId(null);
       setSelectedAnswer(null);
+      setModifierJustActivated(false);
       // Initialize leverage to the midpoint of this question's wager range so
       // the preview math matches what the slider will actually allow.
       const newQ = questions.find((q) => q.id === next.current_question_id);
+      // Reset ref so pre-configured defaults on the new question don't trigger animation
+      prevModifierTypeRef.current = newQ?.modifier_type ?? null;
       const minW = (newQ?.config?.minWagerPct as number) ?? 0.10;
       const maxW = (newQ?.config?.maxWagerPct as number) ?? 1.00;
       setLeverage(Math.round(((minW + maxW) / 2) * 20) / 20); // round to nearest 0.05
@@ -763,10 +815,22 @@ export function PlayView({
         </div>
       )}
 
+      {/* Modifier activation animation — full-screen overlay on live activation */}
+      {modifierJustActivated && effectiveModType && (
+        <ModifierActivationOverlay
+          modifierName={modifierRegistry.get(effectiveModType)?.displayName ?? effectiveModType}
+          subtitle={effectiveModType === "jackpot"
+            ? `First correct answer wins ${(effectiveModConfig?.multiplier as number) ?? 5}× points`
+            : undefined}
+          icon={effectiveModType === "jackpot" ? "🎰" : "⚡"}
+          onComplete={() => setModifierJustActivated(false)}
+        />
+      )}
+
       {/* Modifier overlay — shown during playing and revealing phases */}
-      {ModifierOverlay && (phase === "playing" || phase === "revealing") && currentQuestion && (
+      {ModifierOverlay && (phase === "playing" || phase === "revealing") && currentQuestion && !modifierJustActivated && (
         <ModifierOverlay
-          config={currentQuestion.modifier_config}
+          config={effectiveModConfig}
           isRevealing={phase === "revealing"}
           jackpotWinner={lastResult?.jackpotWinner ?? false}
         />

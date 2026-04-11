@@ -2,6 +2,24 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.5.3.0] - 2026-04-11
+
+### Added
+- **Hybrid modifier activation (Phase 2b)** — modifiers are now a live drama tool. Host can activate/deactivate modifiers from the control panel during a live game. Live activation overrides any pre-configured default from the question builder. If the host doesn't touch anything, the default fires automatically.
+- **Modifier activation overlay** — dramatic full-screen animation when host activates a modifier live: dark backdrop, spring-scaled modifier name, radial burst glow, subtitle fade-in, collapse to banner. Amber/gold palette.
+- **Modifier sound effect** — short rising chime plays on live activation (silent failure if autoplay blocked).
+- **Modifier panel in control panel** — during playing phase, host sees available modifier buttons (filtered by round compatibility). Active modifier shows amber bar with pulsing dot + Deactivate button.
+- **Auto-reset at round boundary** — live modifier clears automatically when advancing to the next round (interstitial, startGame, startFirstQuestionOfRound).
+
+### Changed
+- **`submit_answer` RPC** (migration 051) — now checks `game_state.modifier_state` first (live host activation), then falls back to `round_modifiers` (pre-configured default). Zero breaking changes to the RPC signature.
+- **Play-view modifier resolution** — uses hybrid logic: `liveModType || preConfiguredDefault`. Animation only fires on live activation, not on pre-configured defaults.
+
+### Infrastructure
+- `supabase/migrations/051_submit_answer_hybrid_modifiers.sql` — hybrid modifier lookup in `submit_answer` RPC
+- `src/modifiers/shared/modifier-activation-overlay.tsx` — reusable activation animation component
+- 5 new CSS keyframe animations for modifier entrance/burst/collapse
+
 ## [0.5.2.0] - 2026-04-10
 
 ### Added

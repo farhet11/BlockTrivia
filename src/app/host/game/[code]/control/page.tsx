@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { ControlPanel } from "./_components/control-panel";
+import { getRegisteredModifiers } from "@/lib/game/modifier-registry";
 
 export default async function HostControlPage({
   params,
@@ -43,6 +44,32 @@ export default async function HostControlPage({
   }
 
   const roundIds = (rounds || []).map((r) => r.id);
+
+  // Load round modifiers (pre-configured defaults from question builder)
+  let defaultModifiers: Record<string, { modifier_type: string; config: Record<string, unknown> }> = {};
+  if (roundIds.length) {
+    const { data: modRows } = await supabase
+      .from("round_modifiers")
+      .select("round_id, modifier_type, config")
+      .in("round_id", roundIds);
+    if (modRows) {
+      for (const row of modRows) {
+        defaultModifiers[row.round_id] = {
+          modifier_type: row.modifier_type,
+          config: (row.config as Record<string, unknown>) ?? {},
+        };
+      }
+    }
+  }
+
+  // Available modifier types from the registry
+  const availableModifiers = getRegisteredModifiers().map((m) => ({
+    type: m.type,
+    displayName: m.displayName,
+    description: m.description,
+    compatibleRounds: m.compatibleRounds,
+  }));
+
   const { data: questions } = roundIds.length
     ? await supabase
         .from("questions")
@@ -162,6 +189,8 @@ export default async function HostControlPage({
       initialGameState={gameState}
       playerCount={playerCount ?? 0}
       sponsors={sponsors}
+      defaultModifiers={defaultModifiers}
+      availableModifiers={availableModifiers}
       isHost={isHost}
       hostUser={{
         id: user.id,

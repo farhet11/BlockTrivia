@@ -1,33 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { QuestionRow } from "./question-row";
 import type { Round, Question } from "./question-builder";
 import { getRegisteredRoundTypes } from "@/lib/game/round-registry";
 import { getRegisteredModifiers } from "@/lib/game/modifier-registry";
+import { useSortable } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDroppable } from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 
 const TIME_OPTIONS = [10, 15, 20, 30];
 
 export function RoundCard({
   round,
+  rounds,
   questions,
   onUpdateRound,
   onDeleteRound,
   onAddQuestion,
   onUpdateQuestion,
   onDeleteQuestion,
-  onMoveQuestion,
+  onMoveToRound,
   onSetModifier,
 }: {
   round: Round;
+  rounds: Round[];
   questions: Question[];
   onUpdateRound: (id: string, updates: Partial<Round>) => Promise<void>;
   onDeleteRound: (id: string) => Promise<void>;
   onAddQuestion: (roundId: string) => Promise<void>;
   onUpdateQuestion: (id: string, updates: Partial<Question>) => Promise<void>;
   onDeleteQuestion: (id: string) => Promise<void>;
-  onMoveQuestion: (id: string, direction: "up" | "down") => Promise<void>;
+  onMoveToRound: (questionId: string, targetRoundId: string) => Promise<void>;
   onSetModifier: (roundId: string, modifierType: string | null) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(true);
@@ -39,6 +45,28 @@ export function RoundCard({
   const roundTypes = getRegisteredRoundTypes();
   const modifiers = getRegisteredModifiers();
 
+  // Sortable for round reorder
+  const {
+    attributes: roundAttributes,
+    listeners: roundListeners,
+    setNodeRef: setRoundNodeRef,
+    transform: roundTransform,
+    transition: roundTransition,
+    isDragging: isRoundDragging,
+  } = useSortable({ id: round.id });
+
+  const roundStyle = {
+    transform: CSS.Transform.toString(roundTransform),
+    transition: roundTransition,
+    opacity: isRoundDragging ? 0.4 : undefined,
+  };
+
+  // Droppable zone for receiving questions from other rounds
+  // Uses a prefixed ID to avoid conflict with the round's useSortable ID
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `drop:${round.id}` });
+
+  const questionIds = useMemo(() => questions.map((q) => q.id), [questions]);
+
   function handleTitleBlur() {
     setEditingTitle(false);
     if (title !== round.title) {
@@ -47,10 +75,26 @@ export function RoundCard({
   }
 
   return (
-    <div className="border border-border bg-surface">
+    <div
+      ref={setRoundNodeRef}
+      style={roundStyle}
+      className={`border bg-surface transition-colors ${isOver ? "border-primary ring-1 ring-primary/30" : "border-border"}`}
+    >
       {/* Round header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center gap-3 flex-1 min-w-0">
+          {/* Drag handle for round reorder */}
+          <button
+            {...roundAttributes}
+            {...roundListeners}
+            className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing shrink-0 touch-none"
+            title="Drag to reorder round"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+            </svg>
+          </button>
+
           <button
             onClick={() => setExpanded(!expanded)}
             className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -147,7 +191,7 @@ export function RoundCard({
 
       {/* Questions list */}
       {expanded && (
-        <div className="p-4 space-y-3">
+        <div ref={setDropRef} className="p-4 space-y-3">
           {/* Interstitial message */}
           <div className="border border-border/50 bg-background/40 p-3 space-y-2">
             <button
@@ -206,24 +250,26 @@ export function RoundCard({
             )}
           </div>
 
-          {questions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No questions in this round yet.
-            </p>
-          ) : (
-            questions.map((q, idx) => (
-              <QuestionRow
-                key={q.id}
-                question={q}
-                index={idx}
-                total={questions.length}
-                roundType={round.round_type}
-                onUpdate={onUpdateQuestion}
-                onDelete={onDeleteQuestion}
-                onMove={onMoveQuestion}
-              />
-            ))
-          )}
+          <SortableContext items={questionIds} strategy={verticalListSortingStrategy}>
+            {questions.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No questions in this round yet. Drag questions here or add one below.
+              </p>
+            ) : (
+              questions.map((q, idx) => (
+                <QuestionRow
+                  key={q.id}
+                  question={q}
+                  index={idx}
+                  roundType={round.round_type}
+                  rounds={rounds}
+                  onUpdate={onUpdateQuestion}
+                  onDelete={onDeleteQuestion}
+                  onMoveToRound={onMoveToRound}
+                />
+              ))
+            )}
+          </SortableContext>
           <Button
             variant="outline"
             size="sm"

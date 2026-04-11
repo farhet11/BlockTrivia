@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import type { Round, Question } from "./question-builder";
@@ -52,9 +52,9 @@ export function MindScanModal({
   const [error, setError] = useState<string | null>(null);
 
   // Layer 1b: input source tabs
-  const [activeTab, setActiveTab] = useState<"paste" | "url" | "audio">(
-    "paste"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "paste" | "url" | "audio" | "upload"
+  >("paste");
   const [fetchUrl, setFetchUrl] = useState("");
   const [fetchState, setFetchState] = useState<
     "idle" | "loading" | "done" | "error"
@@ -63,7 +63,47 @@ export function MindScanModal({
   const [transcribeState, setTranscribeState] = useState<
     "idle" | "loading" | "done" | "error"
   >("idle");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [extractState, setExtractState] = useState<
+    "idle" | "loading" | "done" | "error"
+  >("idle");
   const [showFullPreview, setShowFullPreview] = useState(false);
+
+  // Custom instructions (persistent per host)
+  const [customInstructions, setCustomInstructions] = useState("");
+  const [instructionsLoaded, setInstructionsLoaded] = useState(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load custom instructions from host_onboarding on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const { data } = await supabase
+        .from("host_onboarding")
+        .select("custom_instructions")
+        .maybeSingle();
+      if (!cancelled && data?.custom_instructions) {
+        setCustomInstructions(data.custom_instructions);
+      }
+      if (!cancelled) setInstructionsLoaded(true);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [supabase]);
+
+  // Auto-save custom instructions on blur (debounced)
+  const saveCustomInstructions = useCallback(
+    (value: string) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(async () => {
+        await supabase
+          .from("host_onboarding")
+          .update({ custom_instructions: value.trim() || null })
+          .eq("profile_id", (await supabase.auth.getUser()).data.user?.id ?? "");
+      }, 500);
+    },
+    [supabase]
+  );
 
   const [generated, setGenerated] = useState<MindScanQuestion[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -126,7 +166,33 @@ export function MindScanModal({
     }
   }
 
-  function switchTab(tab: "paste" | "url" | "audio") {
+  async function handleExtractDocument(file: File) {
+    setError(null);
+    setUploadFile(file);
+    setExtractState("loading");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/mindscan/extract-document", {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Could not extract text from that file.");
+        setExtractState("error");
+        return;
+      }
+      setContent(data.content);
+      setExtractState("done");
+      setShowFullPreview(false);
+    } catch {
+      setError("Network error. Check your connection and try again.");
+      setExtractState("error");
+    }
+  }
+
+  function switchTab(tab: "paste" | "url" | "audio" | "upload") {
     setActiveTab(tab);
     setError(null);
   }
@@ -142,7 +208,12 @@ export function MindScanModal({
       const res = await fetch("/api/mindscan/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, count, difficulty }),
+        body: JSON.stringify({
+          content,
+          count,
+          difficulty,
+          customInstructions: customInstructions.trim() || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -257,8 +328,8 @@ export function MindScanModal({
               Generate questions
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Paste your whitepaper, blog post, FAQ, or docs. We&rsquo;ll turn it
-              into quiz questions that test understanding.
+              Paste, upload, or link your content. We&rsquo;ll turn it into quiz
+              questions that test understanding.
             </p>
           </div>
           <button
@@ -302,6 +373,15 @@ export function MindScanModal({
                     icon: (
                       <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    ),
+                  },
+                  {
+                    id: "upload" as const,
+                    label: "Upload",
+                    icon: (
+                      <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                     ),
                   },
@@ -383,11 +463,79 @@ export function MindScanModal({
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Works with whitepapers, blog posts, FAQs, docs. Max 500 KB.
+                    Paste the link to a specific article, docs page, or blog post.
                   </p>
                 </div>
 
                 {fetchState === "done" && content && (
+                  <ContentPreview
+                    content={content}
+                    showFull={showFullPreview}
+                    onToggleFull={() => setShowFullPreview((v) => !v)}
+                    onContentChange={(v) => setContent(v)}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Upload tab */}
+            {activeTab === "upload" && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Upload a file
+                  </label>
+                  <label
+                    className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed px-4 py-8 cursor-pointer transition-colors ${
+                      extractState === "loading"
+                        ? "border-primary bg-primary/5 cursor-wait"
+                        : "border-border hover:border-primary hover:bg-accent"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept=".pdf,.docx,.md,.txt,.csv"
+                      disabled={extractState === "loading"}
+                      className="sr-only"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleExtractDocument(f);
+                      }}
+                    />
+                    {extractState === "loading" ? (
+                      <>
+                        <div className="size-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        <p className="text-sm text-muted-foreground">
+                          Extracting text from {uploadFile?.name}...
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="size-8 text-muted-foreground"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                          />
+                        </svg>
+                        <p className="text-sm text-foreground font-medium">
+                          {uploadFile ? uploadFile.name : "Click to upload"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          PDF, DOCX, Markdown, TXT, CSV — up to 10 MB
+                        </p>
+                      </>
+                    )}
+                  </label>
+                </div>
+
+                {extractState === "done" && content && (
                   <ContentPreview
                     content={content}
                     showFull={showFullPreview}
@@ -533,6 +681,28 @@ export function MindScanModal({
                   )}
                 </select>
               </div>
+            </div>
+
+            {/* Custom instructions */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Focus on... <span className="font-normal normal-case">(optional)</span>
+              </label>
+              <textarea
+                value={customInstructions}
+                onChange={(e) => {
+                  const v = e.target.value.slice(0, 500);
+                  setCustomInstructions(v);
+                }}
+                onBlur={() => saveCustomInstructions(customInstructions)}
+                rows={2}
+                maxLength={500}
+                className="w-full bg-background border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-primary resize-none"
+                placeholder="e.g. tokenomics section, common misconceptions, technical architecture, keep questions brief..."
+              />
+              <p className="text-xs text-muted-foreground">
+                {customInstructions.length} / 500 · Saved across sessions
+              </p>
             </div>
 
             {rounds.find((r) => r.id === targetRoundId)?.round_type === "true_false" && (

@@ -7,6 +7,24 @@ import { RoundCard } from "./round-card";
 import { JsonImportModal } from "./json-import-modal";
 import { MindScanModal } from "./mindscan-modal";
 import Link from "next/link";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  pointerWithin,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
 
 export type Round = {
   id: string;
@@ -60,7 +78,8 @@ export function QuestionBuilder({
   const [questions, setQuestions] = useState<Question[]>(initialQuestions);
   const [showJsonImport, setShowJsonImport] = useState(false);
   const [showMindScan, setShowMindScan] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [duplicating, setDuplicating] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lastAddedRoundId, setLastAddedRoundId] = useState<string | null>(null);
@@ -68,6 +87,197 @@ export function QuestionBuilder({
   const roundRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const isEnded = eventStatus === "ended";
   const isActive = eventStatus === "active" || eventStatus === "lobby" || eventStatus === "paused";
+
+  // ── Drag & drop ──────────────────────────────────────────────────────────
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [dragType, setDragType] = useState<"round" | "question" | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const sortedRounds = useMemo(
+    () => [...rounds].sort((a, b) => a.sort_order - b.sort_order),
+    [rounds]
+  );
+  const roundIds = useMemo(() => sortedRounds.map((r) => r.id), [sortedRounds]);
+
+  function handleDragStart(event: DragStartEvent) {
+    const id = event.active.id as string;
+    setActiveId(id);
+    // Determine if dragging a round or question
+    if (rounds.some((r) => r.id === id)) {
+      setDragType("round");
+    } else {
+      setDragType("question");
+    }
+  }
+
+  /** Extract round ID from a droppable ID (could be "drop:uuid" or just "uuid") */
+  function resolveRoundId(id: string): string | null {
+    if (id.startsWith("drop:")) return id.slice(5);
+    if (rounds.some((r) => r.id === id)) return id;
+    return null;
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    if (dragType !== "question") return;
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeQ = questions.find((q) => q.id === active.id);
+    if (!activeQ) return;
+
+    // Determine the target round: over could be a question, a round sortable, or a round droppable
+    let overRoundId: string | null = null;
+    const overQ = questions.find((q) => q.id === over.id);
+    if (overQ) {
+      overRoundId = overQ.round_id;
+    } else {
+      overRoundId = resolveRoundId(over.id as string);
+    }
+
+    if (!overRoundId || activeQ.round_id === overRoundId) return;
+
+    // Check round type compatibility before allowing cross-round move
+    const fromRound = rounds.find((r) => r.id === activeQ.round_id);
+    const toRound = rounds.find((r) => r.id === overRoundId);
+    if (!fromRound || !toRound) return;
+
+    const isTF = (t: string) => t === "true_false";
+    if (isTF(fromRound.round_type) !== isTF(toRound.round_type)) {
+      // Incompatible — don't move during drag, will show feedback on drop
+      return;
+    }
+
+    // Move question to the new round optimistically (local state only)
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === activeQ.id ? { ...q, round_id: overRoundId! } : q
+      )
+    );
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveId(null);
+    setDragType(null);
+    if (!over) return;
+
+    if (dragType === "round") {
+      // ── Round reorder ──
+      const oldIndex = sortedRounds.findIndex((r) => r.id === active.id);
+      const newIndex = sortedRounds.findIndex((r) => r.id === over.id);
+      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+      const reordered = arrayMove(sortedRounds, oldIndex, newIndex);
+      // Update sort_order values
+      const updatedRounds = reordered.map((r, i) => ({ ...r, sort_order: i }));
+      setRounds(updatedRounds);
+
+      // Persist to DB
+      markSaving();
+      await Promise.all(
+        updatedRounds
+          .filter((r, i) => sortedRounds[i]?.id !== r.id)
+          .map((r) =>
+            supabase.from("rounds").update({ sort_order: r.sort_order }).eq("id", r.id)
+          )
+      );
+      markSaved();
+    } else if (dragType === "question") {
+      // ── Question reorder / cross-round move ──
+      const activeQ = questions.find((q) => q.id === active.id);
+      if (!activeQ) return;
+
+      // Determine target round
+      let overRoundId: string;
+      const overQ = questions.find((q) => q.id === over.id);
+      if (overQ) {
+        overRoundId = overQ.round_id;
+      } else {
+        const resolved = resolveRoundId(over.id as string);
+        if (!resolved) return;
+        overRoundId = resolved;
+      }
+
+      // Check compatibility
+      const fromRound = rounds.find((r) => r.id === activeQ.round_id);
+      const toRound = rounds.find((r) => r.id === overRoundId);
+      if (!fromRound || !toRound) return;
+
+      const isTF = (t: string) => t === "true_false";
+      if (isTF(fromRound.round_type) !== isTF(toRound.round_type)) {
+        // Revert the optimistic move from handleDragOver
+        setQuestions((prev) =>
+          prev.map((q) =>
+            q.id === activeQ.id ? { ...q, round_id: fromRound.id } : q
+          )
+        );
+        markError(
+          `Can't move ${isTF(fromRound.round_type) ? "True/False" : "4-option"} questions into a ${isTF(toRound.round_type) ? "True/False" : "4-option"} round`
+        );
+        return;
+      }
+
+      const roundQuestions = questions
+        .filter((q) => q.round_id === overRoundId)
+        .sort((a, b) => a.sort_order - b.sort_order);
+
+      const oldIndex = roundQuestions.findIndex((q) => q.id === active.id);
+      const newIndex = overQ
+        ? roundQuestions.findIndex((q) => q.id === over.id)
+        : roundQuestions.length;
+
+      if (activeQ.round_id === overRoundId && oldIndex === newIndex) return;
+
+      // Reorder within the target round
+      let reordered: Question[];
+      if (oldIndex !== -1) {
+        // Same-round reorder
+        reordered = arrayMove(roundQuestions, oldIndex, newIndex === -1 ? roundQuestions.length - 1 : newIndex);
+      } else {
+        // Cross-round: insert at position
+        const insertIdx = newIndex === -1 ? roundQuestions.length : newIndex;
+        reordered = [...roundQuestions];
+        reordered.splice(insertIdx, 0, { ...activeQ, round_id: overRoundId });
+      }
+
+      // Assign new sort_order values
+      const updates = reordered.map((q, i) => ({
+        ...q,
+        round_id: overRoundId,
+        sort_order: i,
+      }));
+
+      setQuestions((prev) => {
+        const rest = prev.filter(
+          (q) => !updates.some((u) => u.id === q.id) && q.id !== activeQ.id
+        );
+        return [...rest, ...updates];
+      });
+
+      // Persist
+      markSaving();
+      await Promise.all(
+        updates.map((q) =>
+          supabase
+            .from("questions")
+            .update({ round_id: q.round_id, sort_order: q.sort_order })
+            .eq("id", q.id)
+        )
+      );
+      markSaved();
+    }
+  }
+
+  const activeQuestion = activeId
+    ? questions.find((q) => q.id === activeId)
+    : null;
+  const activeRound = activeId
+    ? rounds.find((r) => r.id === activeId)
+    : null;
 
   async function duplicateEvent() {
     setDuplicating(true);
@@ -125,7 +335,14 @@ export function QuestionBuilder({
 
   function markSaving() {
     setSaveStatus("saving");
+    setSaveError(null);
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+  }
+
+  function markError(msg: string) {
+    setSaveStatus("error");
+    setSaveError(msg);
+    saveTimerRef.current = setTimeout(() => { setSaveStatus("idle"); setSaveError(null); }, 5000);
   }
   // Scroll to newly added round once it mounts
   useEffect(() => {
@@ -166,6 +383,8 @@ export function QuestionBuilder({
       setRoundAddedFlash(true);
       setTimeout(() => setRoundAddedFlash(false), 1800);
       markSaved();
+    } else {
+      markError("Failed to add round");
     }
   }
 
@@ -187,17 +406,85 @@ export function QuestionBuilder({
       setRounds(rounds.filter((r) => r.id !== roundId));
       setQuestions(questions.filter((q) => q.round_id !== roundId));
       markSaved();
+    } else {
+      markError("Failed to delete round");
     }
   }
 
   async function updateRound(roundId: string, updates: Partial<Round>) {
+    // ── Round type change: validate + adapt questions ──────────────────────
+    if (updates.round_type) {
+      const oldRound = rounds.find((r) => r.id === roundId);
+      const newType = updates.round_type;
+      const oldType = oldRound?.round_type ?? "mcq";
+
+      if (newType !== oldType) {
+        const roundQs = questions.filter((q) => q.round_id === roundId);
+        const isTrueFalse = (t: string) => t === "true_false";
+        const is4Option = (t: string) => !isTrueFalse(t);
+
+        // 4-option → True/False: lose options C/D, correct_answer > 1 becomes invalid
+        if (is4Option(oldType) && isTrueFalse(newType) && roundQs.length > 0) {
+          const invalidQs = roundQs.filter((q) => q.correct_answer > 1);
+          const msg = invalidQs.length > 0
+            ? `${roundQs.length} question${roundQs.length > 1 ? "s" : ""} will be trimmed to 2 options. ${invalidQs.length} question${invalidQs.length > 1 ? "s have" : " has"} the correct answer set to option C or D — ${invalidQs.length > 1 ? "these" : "this"} will be reset to A. Continue?`
+            : `${roundQs.length} question${roundQs.length > 1 ? "s" : ""} will be trimmed to 2 options (C and D removed). Continue?`;
+          if (!window.confirm(msg)) return;
+
+          // Adapt: trim options to 2, reset correct_answer if > 1
+          markSaving();
+          for (const q of roundQs) {
+            const trimmedOptions = [
+              q.options[0] || "True",
+              q.options[1] || "False",
+            ];
+            const newCorrect = q.correct_answer > 1 ? 0 : q.correct_answer;
+            await supabase
+              .from("questions")
+              .update({ options: trimmedOptions, correct_answer: newCorrect })
+              .eq("id", q.id);
+            // Update local state
+            setQuestions((prev) =>
+              prev.map((pq) =>
+                pq.id === q.id
+                  ? { ...pq, options: trimmedOptions, correct_answer: newCorrect }
+                  : pq
+              )
+            );
+          }
+        }
+
+        // True/False → 4-option: pad options C/D
+        if (isTrueFalse(oldType) && is4Option(newType) && roundQs.length > 0) {
+          markSaving();
+          for (const q of roundQs) {
+            if (q.options.length < 4) {
+              const padded = [...q.options];
+              while (padded.length < 4) padded.push("");
+              await supabase
+                .from("questions")
+                .update({ options: padded })
+                .eq("id", q.id);
+              setQuestions((prev) =>
+                prev.map((pq) =>
+                  pq.id === q.id ? { ...pq, options: padded } : pq
+                )
+              );
+            }
+          }
+        }
+      }
+    }
+
     markSaving();
     const { error } = await supabase
       .from("rounds")
       .update(updates)
       .eq("id", roundId);
 
-    if (!error) {
+    if (error) {
+      markError(error.message.includes("round_type") ? `Round type not supported — run migration 052` : `Failed to update round`);
+    } else {
       setRounds(rounds.map((r) => (r.id === roundId ? { ...r, ...updates } : r)));
       markSaved();
     }
@@ -226,6 +513,8 @@ export function QuestionBuilder({
           )
         );
         markSaved();
+      } else {
+        markError("Failed to clear modifier");
       }
     } else {
       // Upsert modifier — rely on UNIQUE(round_id) constraint with ON CONFLICT
@@ -248,8 +537,16 @@ export function QuestionBuilder({
           )
         );
         markSaved();
+      } else {
+        markError("Failed to set modifier");
       }
     }
+  }
+
+  /** Returns the correct default options array for a given round type. */
+  function defaultOptionsForRound(roundId: string): string[] {
+    const round = rounds.find((r) => r.id === roundId);
+    return round?.round_type === "true_false" ? ["True", "False"] : ["", "", "", ""];
   }
 
   async function addQuestion(roundId: string) {
@@ -261,7 +558,7 @@ export function QuestionBuilder({
       .insert({
         round_id: roundId,
         body: "",
-        options: ["", "", "", ""],
+        options: defaultOptionsForRound(roundId),
         correct_answer: 0,
         sort_order: sortOrder,
       })
@@ -271,6 +568,8 @@ export function QuestionBuilder({
     if (!error && data) {
       setQuestions([...questions, data]);
       markSaved();
+    } else {
+      markError("Failed to add question");
     }
   }
 
@@ -286,6 +585,8 @@ export function QuestionBuilder({
         questions.map((q) => (q.id === questionId ? { ...q, ...updates } : q))
       );
       markSaved();
+    } else {
+      markError("Failed to update question");
     }
   }
 
@@ -299,6 +600,8 @@ export function QuestionBuilder({
     if (!error) {
       setQuestions(questions.filter((q) => q.id !== questionId));
       markSaved();
+    } else {
+      markError("Failed to delete question");
     }
   }
 
@@ -334,6 +637,47 @@ export function QuestionBuilder({
       })
     );
     markSaved();
+  }
+
+  async function moveQuestionToRound(questionId: string, targetRoundId: string) {
+    const q = questions.find((q) => q.id === questionId);
+    if (!q || q.round_id === targetRoundId) return;
+
+    // Check round type compatibility
+    const fromRound = rounds.find((r) => r.id === q.round_id);
+    const toRound = rounds.find((r) => r.id === targetRoundId);
+    if (!fromRound || !toRound) return;
+
+    const isTF = (t: string) => t === "true_false";
+    if (isTF(fromRound.round_type) !== isTF(toRound.round_type)) {
+      markError(
+        `Can't move ${isTF(fromRound.round_type) ? "True/False" : "4-option"} questions into a ${isTF(toRound.round_type) ? "True/False" : "4-option"} round`
+      );
+      return;
+    }
+
+    // Append to end of target round
+    const targetQuestions = questionsForRound(targetRoundId);
+    const newSortOrder = targetQuestions.length;
+
+    markSaving();
+    const { error } = await supabase
+      .from("questions")
+      .update({ round_id: targetRoundId, sort_order: newSortOrder })
+      .eq("id", questionId);
+
+    if (!error) {
+      setQuestions(
+        questions.map((item) =>
+          item.id === questionId
+            ? { ...item, round_id: targetRoundId, sort_order: newSortOrder }
+            : item
+        )
+      );
+      markSaved();
+    } else {
+      markError("Failed to move question");
+    }
   }
 
   function handleJsonImported(newQuestions: Question[]) {
@@ -381,31 +725,57 @@ export function QuestionBuilder({
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
-          {rounds
-            .sort((a, b) => a.sort_order - b.sort_order)
-            .map((round) => (
-              <div
-                key={round.id}
-                ref={(el) => {
-                  if (el) roundRefs.current.set(round.id, el);
-                  else roundRefs.current.delete(round.id);
-                }}
-              >
-              <RoundCard
-                round={round}
-                questions={questionsForRound(round.id)}
-                onUpdateRound={updateRound}
-                onDeleteRound={deleteRound}
-                onAddQuestion={addQuestion}
-                onUpdateQuestion={updateQuestion}
-                onDeleteQuestion={deleteQuestion}
-                onMoveQuestion={moveQuestion}
-                onSetModifier={setModifier}
-              />
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={roundIds} strategy={verticalListSortingStrategy}>
+            <div className="space-y-6">
+              {sortedRounds.map((round) => (
+                <div
+                  key={round.id}
+                  ref={(el) => {
+                    if (el) roundRefs.current.set(round.id, el);
+                    else roundRefs.current.delete(round.id);
+                  }}
+                >
+                  <RoundCard
+                    round={round}
+                    rounds={sortedRounds}
+                    questions={questionsForRound(round.id)}
+                    onUpdateRound={updateRound}
+                    onDeleteRound={deleteRound}
+                    onAddQuestion={addQuestion}
+                    onUpdateQuestion={updateQuestion}
+                    onDeleteQuestion={deleteQuestion}
+                    onMoveToRound={moveQuestionToRound}
+                    onSetModifier={setModifier}
+                  />
+                </div>
+              ))}
+            </div>
+          </SortableContext>
+
+          <DragOverlay>
+            {activeQuestion && (
+              <div className="border border-primary bg-surface p-3 shadow-lg opacity-90">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {activeQuestion.body || "Untitled question"}
+                </p>
               </div>
-            ))}
-        </div>
+            )}
+            {activeRound && (
+              <div className="border border-primary bg-surface p-4 shadow-lg opacity-90">
+                <p className="font-semibold text-foreground">
+                  {activeRound.title || "Untitled Round"}
+                </p>
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* JSON Import Modal */}
@@ -436,6 +806,7 @@ export function QuestionBuilder({
             {isEnded && <span className="text-muted-foreground">Read-only · game ended</span>}
             {!isEnded && saveStatus === "saving" && "Saving..."}
             {!isEnded && saveStatus === "saved" && "✓ Saved"}
+            {!isEnded && saveStatus === "error" && <span className="text-wrong">{saveError ?? "Save failed"}</span>}
           </span>
           <div className="flex items-center gap-2">
             {isEnded ? (

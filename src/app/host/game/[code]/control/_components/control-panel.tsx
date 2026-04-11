@@ -51,6 +51,10 @@ type GameState = {
   question_started_at: string | null;
   started_at: string | null;
   ended_at: string | null;
+  /** Ephemeral per-question state for complex round types (e.g. Pressure Cooker spotlight). */
+  round_state: Record<string, unknown> | null;
+  /** Live modifier state — set by host during game. */
+  modifier_state: Record<string, unknown> | null;
 };
 
 type EventInfo = {
@@ -64,6 +68,18 @@ type EventInfo = {
   organizerName?: string | null;
 };
 
+type DefaultModifier = {
+  modifier_type: string;
+  config: Record<string, unknown>;
+};
+
+type AvailableModifier = {
+  type: string;
+  displayName: string;
+  description: string;
+  compatibleRounds: string[];
+};
+
 export function ControlPanel({
   event,
   questions,
@@ -71,6 +87,8 @@ export function ControlPanel({
   initialGameState,
   playerCount: initialPlayerCount,
   sponsors,
+  defaultModifiers,
+  availableModifiers,
   isHost,
   hostUser,
 }: {
@@ -80,6 +98,8 @@ export function ControlPanel({
   initialGameState: GameState;
   playerCount: number;
   sponsors: Sponsor[];
+  defaultModifiers: Record<string, DefaultModifier>;
+  availableModifiers: AvailableModifier[];
   isHost: boolean;
   hostUser?: { id: string; displayName: string; email: string; avatarUrl: string | null };
 }) {
@@ -101,6 +121,14 @@ export function ControlPanel({
   const [answeredCount, setAnsweredCount] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
+
+  // ── Live modifier state ─────────────────────────────────────────────────
+  const initModState = initialGameState.modifier_state;
+  const [activeModifier, setActiveModifier] = useState<{ type: string; config: Record<string, unknown> } | null>(
+    initModState && typeof (initModState as Record<string, unknown>)?.type === "string" && (initModState as Record<string, unknown>).type !== ""
+      ? { type: (initModState as Record<string, unknown>).type as string, config: ((initModState as Record<string, unknown>).config as Record<string, unknown>) ?? {} }
+      : null
+  );
 
   // Derive ordered unique rounds from questions
   const rounds = useMemo(() => {
@@ -366,10 +394,66 @@ export function ControlPanel({
     [supabase, event.id]
   );
 
+  /**
+   * Pick a random active player from event_players for Pressure Cooker spotlight.
+   * Returns null if the query fails or there are no players yet.
+   */
+  async function pickSpotlightPlayer(): Promise<{ id: string; display_name: string } | null> {
+    const { data, error } = await supabase
+      .from("event_players")
+      .select("player_id, display_name")
+      .eq("event_id", event.id)
+      .limit(100);
+    if (error || !data || data.length === 0) return null;
+    const pick = data[Math.floor(Math.random() * data.length)];
+    return { id: pick.player_id as string, display_name: pick.display_name as string };
+  }
+
+  /**
+   * Build round_state for a question. For Pressure Cooker rounds, picks a random
+   * spotlight player. For all other rounds, clears round_state (null).
+   */
+  async function buildRoundState(roundType: string): Promise<Record<string, unknown> | null> {
+    if (roundType === "pressure_cooker") {
+      const spotlight = await pickSpotlightPlayer();
+      if (!spotlight) return null;
+      return {
+        spotlight_player_id: spotlight.id,
+        spotlight_display_name: spotlight.display_name,
+      };
+    }
+    return null;
+  }
+
+  // ── Modifier activation/deactivation ──────────────────────────────────────
+
+  async function activateModifier(modType: string) {
+    const mod = availableModifiers.find((m) => m.type === modType);
+    if (!mod) return;
+    // Default config per modifier type
+    const config: Record<string, unknown> = modType === "jackpot" ? { multiplier: 5 } : {};
+    const modState = { type: modType, config, activated_at: new Date().toISOString() };
+    setActiveModifier({ type: modType, config });
+    await supabase
+      .from("game_state")
+      .update({ modifier_state: modState })
+      .eq("event_id", event.id);
+  }
+
+  async function deactivateModifier() {
+    setActiveModifier(null);
+    await supabase
+      .from("game_state")
+      .update({ modifier_state: {} })
+      .eq("event_id", event.id);
+  }
+
   // Start game — go to first question
   async function startGame() {
     if (questions.length === 0) return;
     const first = questions[0];
+    const roundState = await buildRoundState(first.round_type);
+    setActiveModifier(null);
     await updateEventStatus("active");
     await updateGameState({
       phase: "playing",
@@ -377,7 +461,9 @@ export function ControlPanel({
       current_question_id: first.id,
       question_started_at: new Date().toISOString(),
       started_at: new Date().toISOString(),
-    });
+      round_state: roundState,
+      modifier_state: {},
+    } as Partial<GameState>);
   }
 
   // Start first question of the current_round_id (called from interstitial)
@@ -386,12 +472,16 @@ export function ControlPanel({
     if (!roundId) return;
     const firstQ = questions.find((q) => q.round_id === roundId);
     if (!firstQ) return;
+    const roundState = await buildRoundState(firstQ.round_type);
+    setActiveModifier(null);
     await updateGameState({
       phase: "playing",
       current_round_id: roundId,
       current_question_id: firstQ.id,
       question_started_at: new Date().toISOString(),
-    });
+      round_state: roundState,
+      modifier_state: {},
+    } as Partial<GameState>);
   }
 
   // Next question (or show interstitial at round boundary)
@@ -406,23 +496,28 @@ export function ControlPanel({
 
     const next = questions[nextIdx];
 
-    // At round boundary — show interstitial
+    // At round boundary — show interstitial, clear modifier
     if (isRoundBoundary && nextRound) {
+      setActiveModifier(null);
       await updateGameState({
         phase: "interstitial",
         current_round_id: next.round_id,
         current_question_id: null,
         question_started_at: null,
-      });
+        round_state: null,
+        modifier_state: {},
+      } as Partial<GameState>);
       return;
     }
 
+    const roundState = await buildRoundState(next.round_type);
     await updateEventStatus("active");
     await updateGameState({
       phase: "playing",
       current_round_id: next.round_id,
       current_question_id: next.id,
       question_started_at: new Date().toISOString(),
+      round_state: roundState,
     });
   }
 
@@ -667,6 +762,60 @@ export function ControlPanel({
                   )
                 )}
               </div>
+            </div>
+
+            {/* ── Modifier panel ─────────────────────────────────────────── */}
+            <div className="space-y-1.5">
+              {activeModifier ? (
+                /* Active modifier indicator + deactivate */
+                <div className="flex items-center justify-between border border-amber-400/50 bg-amber-400/10 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
+                    </span>
+                    <span className="text-sm font-semibold text-amber-300">
+                      {availableModifiers.find((m) => m.type === activeModifier.type)?.displayName ?? activeModifier.type}
+                    </span>
+                    <span className="text-xs text-amber-400/60">active</span>
+                  </div>
+                  <button
+                    onClick={deactivateModifier}
+                    disabled={loading}
+                    className="text-xs font-medium text-amber-300 hover:text-amber-200 transition-colors px-2 py-1 border border-amber-400/30 hover:border-amber-400/50"
+                  >
+                    Deactivate
+                  </button>
+                </div>
+              ) : (
+                /* Available modifiers — activate buttons */
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground shrink-0">Modifier:</span>
+                  {availableModifiers
+                    .filter((m) => {
+                      if (m.compatibleRounds.length === 0) return true;
+                      return m.compatibleRounds.includes(currentQuestion?.round_type ?? "");
+                    })
+                    .map((mod) => {
+                      const isDefault = currentQuestion && defaultModifiers[currentQuestion.round_id]?.modifier_type === mod.type;
+                      return (
+                        <button
+                          key={mod.type}
+                          onClick={() => activateModifier(mod.type)}
+                          disabled={loading}
+                          className="text-xs font-medium px-3 py-1.5 border border-border hover:border-amber-400/50 hover:bg-amber-400/10 hover:text-amber-300 transition-colors disabled:opacity-50"
+                          title={mod.description}
+                        >
+                          {mod.type === "jackpot" ? "🎰 " : ""}{mod.displayName}
+                          {isDefault && <span className="ml-1 text-muted-foreground/60">(default)</span>}
+                        </button>
+                      );
+                    })}
+                  {availableModifiers.length === 0 && (
+                    <span className="text-xs text-muted-foreground/60">None available</span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Controls — State 1: waiting on players */}

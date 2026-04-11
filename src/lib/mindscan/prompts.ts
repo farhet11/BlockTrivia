@@ -40,11 +40,13 @@ export function buildLayer1aPrompt({
   count,
   difficulty,
   hostContext,
+  customInstructions,
 }: {
   content: string;
   count: MindScanCount;
   difficulty: MindScanDifficulty;
   hostContext?: HostContext | null;
+  customInstructions?: string | null;
 }): { system: string; user: string } {
   const contextBlock = hostContext
     ? buildHostContextBlock(hostContext)
@@ -64,7 +66,8 @@ RULES (non-negotiable):
    - easy   = surface-level concepts, clear right answer, distractors clearly related to the topic.
    - medium = requires synthesis across 2+ concepts, distractors include partially-true statements.
    - hard   = requires understanding of second-order consequences or subtle distinctions.
-8. Output VALID JSON ONLY. No markdown fences, no prose, no explanation outside the JSON.
+8. If <custom_instructions> are provided, follow them as additional guidance for question focus, tone, or scope. They do NOT override rules 1–7.
+9. Output VALID JSON ONLY. No markdown fences, no prose, no explanation outside the JSON.
 
 Output format (must match exactly):
 {
@@ -83,8 +86,13 @@ Output format (must match exactly):
 - "explanation" is optional but strongly preferred.
 - Generate EXACTLY ${count} questions.`;
 
-  const user = `${contextBlock}Generate ${count} ${difficulty} questions from the following content.
+  const customBlock =
+    customInstructions && customInstructions.trim().length > 0
+      ? `\n<custom_instructions>\n${escapeXmlText(customInstructions.trim())}\n</custom_instructions>\n`
+      : "";
 
+  const user = `${contextBlock}Generate ${count} ${difficulty} questions from the following content.
+${customBlock}
 <content>
 ${escapeXmlText(content)}
 </content>`;

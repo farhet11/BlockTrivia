@@ -27,10 +27,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { content, count, difficulty } = (body ?? {}) as {
+  const { content, count, difficulty, customInstructions } = (body ?? {}) as {
     content?: unknown;
     count?: unknown;
     difficulty?: unknown;
+    customInstructions?: unknown;
   };
 
   if (typeof content !== "string" || content.trim().length < MIN_CONTENT_CHARS) {
@@ -67,6 +68,12 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+
+  // Optional custom instructions — cap at 500 chars server-side.
+  const validCustomInstructions =
+    typeof customInstructions === "string" && customInstructions.trim().length > 0
+      ? customInstructions.trim().slice(0, 500)
+      : null;
 
   // --- 2. Auth check ---------------------------------------------------------
   const supabase = await createServerSupabaseClient();
@@ -127,6 +134,7 @@ export async function POST(request: Request) {
     count: count as MindScanCount,
     difficulty: difficulty as MindScanDifficulty,
     hostContext,
+    customInstructions: validCustomInstructions,
   });
 
   let rawText: string;

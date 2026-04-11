@@ -27,6 +27,7 @@ type Endpoint =
   | "onboarding-followup"
   | "fetch-url"
   | "transcribe"
+  | "extract"
   | "luma-import";
 
 type EndpointConfig = {
@@ -40,6 +41,7 @@ const CONFIG: Record<Endpoint, EndpointConfig> = {
   "onboarding-followup": { limit: 10, windowHours: 1, costMode: "calls" },
   "fetch-url": { limit: 30, windowHours: 1, costMode: "calls" },
   transcribe: { limit: 5, windowHours: 24, costMode: "calls" },
+  extract: { limit: 20, windowHours: 24, costMode: "calls" },
   // Luma OG scrape on Create Event. Cheap server-side fetch, but gate
   // per host so a pathological paste loop can't hammer lu.ma and get
   // our IP throttled.
@@ -52,6 +54,7 @@ export const LIMITS: Record<Endpoint, number> = {
   "onboarding-followup": CONFIG["onboarding-followup"].limit,
   "fetch-url": CONFIG["fetch-url"].limit,
   transcribe: CONFIG.transcribe.limit,
+  extract: CONFIG.extract.limit,
   "luma-import": CONFIG["luma-import"].limit,
 };
 
@@ -70,6 +73,8 @@ function errorMessage(
       return `Rate limit reached (${limit} URL fetches per ${window}). Try again in a bit.`;
     case "onboarding-followup":
       return `Rate limit reached (${limit} follow-up sets per ${window}). Try again in a bit.`;
+    case "extract":
+      return `Daily extraction limit reached (${limit} uploads per ${window}). Come back tomorrow.`;
     case "luma-import":
       return `Rate limit reached (${limit} Luma imports per ${window}). Try again in a bit.`;
   }

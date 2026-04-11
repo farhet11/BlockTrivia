@@ -2,6 +2,40 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.5.3.0] - 2026-04-11
+
+### Added
+- **Hybrid modifier activation (Phase 2b)** — modifiers are now a live drama tool. Host can activate/deactivate modifiers from the control panel during a live game. Live activation overrides any pre-configured default from the question builder. If the host doesn't touch anything, the default fires automatically.
+- **Modifier activation overlay** — dramatic full-screen animation when host activates a modifier live: dark backdrop, spring-scaled modifier name, radial burst glow, subtitle fade-in, collapse to banner. Amber/gold palette.
+- **Modifier sound effect** — short rising chime plays on live activation (silent failure if autoplay blocked).
+- **Modifier panel in control panel** — during playing phase, host sees available modifier buttons (filtered by round compatibility). Active modifier shows amber bar with pulsing dot + Deactivate button.
+- **Auto-reset at round boundary** — live modifier clears automatically when advancing to the next round (interstitial, startGame, startFirstQuestionOfRound).
+
+### Changed
+- **`submit_answer` RPC** (migration 051) — now checks `game_state.modifier_state` first (live host activation), then falls back to `round_modifiers` (pre-configured default). Zero breaking changes to the RPC signature.
+- **Play-view modifier resolution** — uses hybrid logic: `liveModType || preConfiguredDefault`. Animation only fires on live activation, not on pre-configured defaults.
+
+### Infrastructure
+- `supabase/migrations/051_submit_answer_hybrid_modifiers.sql` — hybrid modifier lookup in `submit_answer` RPC
+- `src/modifiers/shared/modifier-activation-overlay.tsx` — reusable activation animation component
+- 5 new CSS keyframe animations for modifier entrance/burst/collapse
+
+## [0.5.2.0] - 2026-04-10
+
+### Added
+- **Pressure Cooker round (Phase 4b)** — one player is randomly spotlighted per question. They answer while everyone watches. Scoring is identical to MCQ. Host control panel picks a random active player and writes `{ spotlight_player_id, spotlight_display_name }` into `game_state.round_state` on every question advance.
+- **PressureCookerPlayerView** — pulsing "🔥 YOU'RE IN THE HOT SEAT" banner for the spotlighted player; amber "👀 [Name] is in the hot seat" for spectators. Both see the normal 2×2 MCQ grid and answer independently.
+- **`roundState` + `currentPlayerId` on `RoundPlayerViewProps`** — new optional props flowing from `game_state.round_state` + the current player profile. Forward-compatible surface for any round that needs per-player personalisation.
+- **`round_state` on `GameState` types** — added to both play-view and control-panel type definitions to match the DB column added in migration 047.
+- **23 unit tests** — registry, constraints, scoring contract (MCQ ELSE branch), round_state shape contract, hot-seat detection logic.
+
+## [0.5.1.0] - 2026-04-10
+
+### Added
+- **Reversal round (Phase 4a)** — new round type: 4 statements shown, 3 are true, 1 is false. Players identify the false one. `correct_answer` = index of the FALSE statement — same MCQ scoring path, zero new DB migrations needed. Registered in the round registry with `mindScanAutoGen: true`.
+- **ReversalPlayerView** — distinct component with "🔄 Find the statement that is FALSE" instruction pill, 2×2 option grid, and dedicated reveal UX: false statement gets green border (correct pick) + red "FALSE" badge, avoiding confusion between "correct pick" and "true statement."
+- **19 unit tests** — registry registration, governance constraints, scoring contract (mirrors MCQ ELSE branch), and mechanic invariants including PlayerView distinctness from MCQ.
+
 ## [0.5.0.0] - 2026-04-10
 
 ### Added

@@ -72,6 +72,14 @@ export interface RoundPlayerViewProps {
   // WipeOut wager state — only used by WipeOut PlayerView
   leverage?: number;
   onLeverageChange?: (value: number) => void;
+  /**
+   * Ephemeral per-question engine state (from game_state.round_state JSONB).
+   * Used by rounds that need server-side coordination — e.g. Pressure Cooker
+   * writes spotlight_player_id / spotlight_display_name here.
+   */
+  roundState?: Record<string, unknown>;
+  /** The current player's profile ID — used by rounds that personalise per-player (e.g. spotlight). */
+  currentPlayerId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +122,8 @@ export interface RoundModule {
 
 import { MCQPlayerView } from "@/rounds/mcq/player-view";
 import { WipeOutPlayerView } from "@/rounds/wipeout/player-view";
+import { ReversalPlayerView } from "@/rounds/reversal/player-view";
+import { PressureCookerPlayerView } from "@/rounds/pressure-cooker/player-view";
 
 const modules: RoundModule[] = [
   {
@@ -151,15 +161,34 @@ const modules: RoundModule[] = [
       eventTypes: ["irl", "virtual", "hybrid"],
     },
   },
+  {
+    type: "reversal",
+    displayName: "Reversal",
+    description:
+      "4 statements shown — 3 are true, 1 is false. Players identify the false one. " +
+      "Mark the false statement as the correct answer in the builder.",
+    PlayerView: ReversalPlayerView,
+    mindScanAutoGen: true,
+    constraints: {
+      minPlayers: 1,
+      eventTypes: ["irl", "virtual", "hybrid"],
+    },
+  },
+  {
+    type: "pressure_cooker",
+    displayName: "Pressure Cooker",
+    description:
+      "One player is randomly spotlighted per question — they answer while everyone watches. " +
+      "Everyone scores normally. The hot seat rotates each question.",
+    PlayerView: PressureCookerPlayerView,
+    mindScanAutoGen: false,
+    constraints: {
+      minPlayers: 2,             // spotlight is meaningless with only one player
+      mustNotBeFirst: false,
+      eventTypes: ["irl", "virtual", "hybrid"],
+    },
+  },
   // ─── Add new round modules here ──────────────────────────────────────────
-  // {
-  //   type: "reversal",
-  //   displayName: "Reversal",
-  //   description: "4 statements shown. 3 are true. Find the 1 that's false.",
-  //   PlayerView: ReversalPlayerView,
-  //   mindScanAutoGen: true,
-  //   constraints: { minPlayers: 1, eventTypes: ["irl", "virtual", "hybrid"] },
-  // },
 ];
 
 /** The registry — the engine's single source of truth for round modules. */

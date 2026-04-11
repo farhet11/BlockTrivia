@@ -801,13 +801,23 @@ export function QuestionBuilder({
 
       {/* Sticky bottom bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm">
-        <div className="w-full px-6 py-3 flex items-center justify-between">
-          <span className="text-xs text-muted-foreground h-4">
-            {isEnded && <span className="text-muted-foreground">Read-only · game ended</span>}
-            {!isEnded && saveStatus === "saving" && "Saving..."}
-            {!isEnded && saveStatus === "saved" && "✓ Saved"}
-            {!isEnded && saveStatus === "error" && <span className="text-wrong">{saveError ?? "Save failed"}</span>}
-          </span>
+        <div className="w-full pl-20 pr-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href={`/host/events/${eventId}`}>
+              <Button variant="outline" className="font-semibold gap-1.5">
+                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                Edit Event
+              </Button>
+            </Link>
+            <span className="text-xs text-muted-foreground h-4">
+              {isEnded && <span className="text-muted-foreground">Read-only · game ended</span>}
+              {!isEnded && saveStatus === "saving" && "Saving..."}
+              {!isEnded && saveStatus === "saved" && "✓ Saved"}
+              {!isEnded && saveStatus === "error" && <span className="text-wrong">{saveError ?? "Save failed"}</span>}
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             {isEnded ? (
               <>

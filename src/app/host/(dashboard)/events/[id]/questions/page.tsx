@@ -5,7 +5,6 @@ import { SponsorsPanel } from "./_components/sponsors-panel";
 import { SocialPanel } from "./_components/social-panel";
 import { JoinCodeCopy } from "./_components/join-code-copy";
 import { ShareButton } from "./_components/share-button";
-import { EditableTitle } from "./_components/editable-title";
 
 export default async function QuestionsPage({
   params,
@@ -66,7 +65,13 @@ export default async function QuestionsPage({
             Events
           </a>
           {" / "}
-          <EditableTitle eventId={eventId} initialTitle={event.title} />
+          <a
+            href={`/host/events/${eventId}`}
+            className="hover:text-foreground transition-colors"
+            title="Edit event details"
+          >
+            {event.title}
+          </a>
         </p>
         <div className="flex items-center justify-between mt-2">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">

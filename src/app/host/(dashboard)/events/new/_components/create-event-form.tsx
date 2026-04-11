@@ -102,40 +102,60 @@ type OrganizerSuggestion = {
   logo_dark_url: string | null;
 };
 
-export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
+export type EditEventData = {
+  id: string;
+  title: string;
+  description: string | null;
+  prizes: string | null;
+  organizer_name: string | null;
+  format: EventFormat;
+  access_mode: AccessMode;
+  logo_url: string | null;
+  logo_dark_url: string | null;
+  scheduled_at: string | null;
+  source_url: string | null;
+  source_provider: string | null;
+  cover_image_url: string | null;
+  project_id: string | null;
+  access_emails: string[];
+};
+
+export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: string; editEvent?: EditEventData }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [format, setFormat] = useState<EventFormat>("hybrid");
+  const [format, setFormat] = useState<EventFormat>(editEvent?.format ?? "hybrid");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(editEvent?.logo_url ?? null);
   const [logoDarkFile, setLogoDarkFile] = useState<File | null>(null);
-  const [logoDarkPreview, setLogoDarkPreview] = useState<string | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [logoDarkUrl, setLogoDarkUrl] = useState<string | null>(null);
-  const [hasDarkLogo, setHasDarkLogo] = useState(false);
+  const [logoDarkPreview, setLogoDarkPreview] = useState<string | null>(editEvent?.logo_dark_url ?? null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(editEvent?.logo_url ?? null);
+  const [logoDarkUrl, setLogoDarkUrl] = useState<string | null>(editEvent?.logo_dark_url ?? null);
+  const [hasDarkLogo, setHasDarkLogo] = useState(!!editEvent?.logo_dark_url);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const darkFileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
-  const [showMore, setShowMore] = useState(false);
-  const [accessMode, setAccessMode] = useState<AccessMode>("open");
-  const [accessEmails, setAccessEmails] = useState("");
+  const [showMore, setShowMore] = useState(
+    !!(editEvent?.prizes || editEvent?.logo_url || editEvent?.access_mode && editEvent.access_mode !== "open")
+  );
+  const [accessMode, setAccessMode] = useState<AccessMode>(editEvent?.access_mode ?? "open");
+  const [accessEmails, setAccessEmails] = useState(editEvent?.access_emails?.join("\n") ?? "");
   const [csvInfo, setCsvInfo] = useState<{ fileName: string; columnName: string; count: number } | null>(null);
 
   // Controlled values for pre-fillable fields
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [prizes, setPrizes] = useState("");
+  const [title, setTitle] = useState(editEvent?.title ?? "");
+  const [description, setDescription] = useState(editEvent?.description ?? "");
+  const [prizes, setPrizes] = useState(editEvent?.prizes ?? "");
 
   // Start mode: "now" jumps straight to questions; "schedule" sets a future
   // start time and redirects to the share page so the host can distribute
   // a pre-registration link.
-  const [startMode, setStartMode] = useState<"now" | "schedule">("now");
-  const [scheduledAt, setScheduledAt] = useState("");
+  const [startMode, setStartMode] = useState<"now" | "schedule">(editEvent?.scheduled_at ? "schedule" : "now");
+  const [scheduledAt, setScheduledAt] = useState(editEvent?.scheduled_at ? editEvent.scheduled_at.slice(0, 16) : "");
 
   // Organizer typeahead state
-  const [organizerName, setOrganizerName] = useState("");
+  const [organizerName, setOrganizerName] = useState(editEvent?.organizer_name ?? "");
   const [userId, setUserId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<OrganizerSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -664,6 +684,50 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
       });
   }
 
+  async function uploadLogos(eventId: string) {
+    if (logoFile) {
+      const ext = logoFile.name.split(".").pop();
+      const path = `event-logos/${eventId}/logo.${ext}`;
+      const { error: storageErr } = await supabase.storage
+        .from("sponsor-logos")
+        .upload(path, logoFile, { upsert: true });
+
+      if (!storageErr) {
+        const { data: urlData } = supabase.storage.from("sponsor-logos").getPublicUrl(path);
+        const logoUpdate: Record<string, string> = { logo_url: urlData.publicUrl };
+
+        if (logoDarkFile) {
+          const darkExt = logoDarkFile.name.split(".").pop();
+          const darkPath = `event-logos/${eventId}/logo-dark.${darkExt}`;
+          const { error: darkErr } = await supabase.storage
+            .from("sponsor-logos")
+            .upload(darkPath, logoDarkFile, { upsert: true });
+          if (!darkErr) {
+            const { data: darkUrlData } = supabase.storage.from("sponsor-logos").getPublicUrl(darkPath);
+            logoUpdate.logo_dark_url = darkUrlData.publicUrl;
+          }
+        }
+
+        await supabase.from("events").update(logoUpdate).eq("id", eventId);
+      }
+    } else if (editEvent) {
+      // Edit mode: explicitly set logos (including null for removals)
+      const logoUpdate: Record<string, string | null> = {
+        logo_url: logoUrl,
+        logo_dark_url: logoDarkUrl,
+      };
+      await supabase.from("events").update(logoUpdate).eq("id", eventId);
+    } else {
+      // Create mode: only write truthy URLs
+      const logoUpdate: Record<string, string> = {};
+      if (logoUrl) logoUpdate.logo_url = logoUrl;
+      if (logoDarkUrl) logoUpdate.logo_dark_url = logoDarkUrl;
+      if (Object.keys(logoUpdate).length > 0) {
+        await supabase.from("events").update(logoUpdate).eq("id", eventId);
+      }
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -685,8 +749,9 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
     }
 
     // Validate scheduled-for-later mode
-    let scheduledAtIso: string | null = null;
-    if (startMode === "schedule") {
+    // In edit mode, preserve the original scheduled_at (controls are hidden)
+    let scheduledAtIso: string | null = editEvent?.scheduled_at ?? null;
+    if (!editEvent && startMode === "schedule") {
       if (!scheduledAt) {
         setError("Pick a date and time for your event.");
         setLoading(false);
@@ -713,6 +778,54 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
     const coverImageUrl =
       lumaImport?.imageUrl ?? carriedProvenance?.coverImageUrl ?? null;
 
+    // ── Edit mode: update existing event ────────────────────────────
+    if (editEvent) {
+      const { error: updateError } = await supabase
+        .from("events")
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          prizes: prizes.trim() || null,
+          organizer_name: submittedOrganizerName,
+          format,
+          access_mode: accessMode,
+          source_provider: sourceProvider,
+          source_url: sourceUrl,
+          cover_image_url: coverImageUrl,
+          ...(projectId ? { project_id: projectId } : {}),
+          scheduled_at: scheduledAtIso,
+        })
+        .eq("id", editEvent.id);
+
+      if (updateError) {
+        setError(updateError.message);
+        setLoading(false);
+        return;
+      }
+
+      // Upload / update logos
+      await uploadLogos(editEvent.id);
+
+      // Update access list (replace)
+      if (accessMode !== "open" && accessEmails.trim()) {
+        await supabase.from("event_access_list").delete().eq("event_id", editEvent.id);
+        const emails = accessEmails
+          .split(/[\n,;]+/)
+          .map((e) => e.trim().toLowerCase())
+          .filter((e) => e && e.includes("@"));
+        if (emails.length > 0) {
+          const unique = [...new Set(emails)];
+          await supabase.from("event_access_list").insert(
+            unique.map((email) => ({ event_id: editEvent.id, email }))
+          );
+        }
+      }
+
+      router.push(`/host/events/${editEvent.id}/questions`);
+      return;
+    }
+
+    // ── Create mode: insert new event ────────────────────────────────
     const { data, error: insertError } = await supabase
       .from("events")
       .insert({
@@ -738,47 +851,8 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
       return;
     }
 
-    // Upload logo(s) after event creation (need event ID for storage path)
-    if (logoFile && data) {
-      const ext = logoFile.name.split(".").pop();
-      const path = `event-logos/${data.id}/logo.${ext}`;
-
-      const { error: storageErr } = await supabase.storage
-        .from("sponsor-logos")
-        .upload(path, logoFile, { upsert: true });
-
-      if (!storageErr) {
-        const { data: urlData } = supabase.storage.from("sponsor-logos").getPublicUrl(path);
-        const logoUpdate: Record<string, string> = { logo_url: urlData.publicUrl };
-
-        // Upload dark variant if provided
-        if (logoDarkFile) {
-          const darkExt = logoDarkFile.name.split(".").pop();
-          const darkPath = `event-logos/${data.id}/logo-dark.${darkExt}`;
-          const { error: darkErr } = await supabase.storage
-            .from("sponsor-logos")
-            .upload(darkPath, logoDarkFile, { upsert: true });
-
-          if (!darkErr) {
-            const { data: darkUrlData } = supabase.storage.from("sponsor-logos").getPublicUrl(darkPath);
-            logoUpdate.logo_dark_url = darkUrlData.publicUrl;
-          }
-        }
-
-        await supabase
-          .from("events")
-          .update(logoUpdate)
-          .eq("id", data.id);
-      }
-    } else if (data) {
-      // Handle URL-based logos (from organizer suggestion, no file upload)
-      const logoUpdate: Record<string, string> = {};
-      if (logoUrl) logoUpdate.logo_url = logoUrl;
-      if (logoDarkUrl) logoUpdate.logo_dark_url = logoDarkUrl;
-      if (Object.keys(logoUpdate).length > 0) {
-        await supabase.from("events").update(logoUpdate).eq("id", data.id);
-      }
-    }
+    // Upload logos
+    await uploadLogos(data.id);
 
     // Insert access list emails for whitelist or blacklist
     if (accessMode !== "open" && accessEmails.trim() && data) {
@@ -825,7 +899,8 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Start mode picker */}
+      {/* Start mode picker — hidden in edit mode */}
+      {!editEvent && (
       <div className="space-y-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
@@ -895,6 +970,7 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
           </div>
         )}
       </div>
+      )}
 
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -1443,9 +1519,13 @@ export function CreateEventForm({ fromEventId }: { fromEventId?: string }) {
           className="h-11 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-medium"
         >
           {loading
-            ? fromEventId
+            ? editEvent
+              ? "Saving..."
+              : fromEventId
               ? "Duplicating..."
               : "Creating..."
+            : editEvent
+            ? "Save Changes"
             : fromEventId
             ? "Duplicate Event"
             : startMode === "schedule"

@@ -157,6 +157,10 @@ export function PlayView({
   const RoundPlayerView = currentQuestion
     ? resolvePlayerView(currentQuestion.round_type)
     : null;
+  // Resolve the modifier overlay from the modifier registry (null = no modifier active)
+  const ModifierOverlay = currentQuestion?.modifier_type
+    ? resolveModifierOverlay(currentQuestion.modifier_type)
+    : null;
 
   // ── Hybrid modifier resolution: live override > pre-configured default ──
   const liveModType = typeof (gameState.modifier_state as Record<string, unknown>)?.type === "string"

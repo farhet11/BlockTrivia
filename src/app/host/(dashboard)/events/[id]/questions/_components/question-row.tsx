@@ -87,12 +87,12 @@ export function QuestionRow({
       className={`border p-3 space-y-3 transition-colors ${expanded ? "border-primary/30 bg-accent-light" : "border-border/50 bg-background/40"}`}
     >
       {/* Question header */}
-      <div className="flex items-start gap-2">
+      <div className="flex items-center gap-2">
         {/* Drag handle */}
         <button
           {...attributes}
           {...listeners}
-          className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing mt-1 shrink-0 touch-none"
+          className="text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing shrink-0 touch-none"
           title="Drag to reorder"
         >
           <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -103,13 +103,13 @@ export function QuestionRow({
         {/* Q-number doubles as expand/collapse toggle */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-xs font-bold text-muted-foreground hover:text-primary mt-1 shrink-0 text-left transition-colors"
+          className="text-xs font-bold text-muted-foreground hover:text-primary shrink-0 text-left transition-colors"
           title={expanded ? "Collapse" : "Expand"}
         >
           Q{index + 1}
         </button>
         {question.ai_generated && (
-          <span className="mt-1 shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1 py-px bg-primary/10 text-primary leading-none">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1 py-px bg-primary/10 text-primary leading-none">
             AI
           </span>
         )}

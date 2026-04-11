@@ -5,6 +5,7 @@ import { SponsorsPanel } from "./_components/sponsors-panel";
 import { SocialPanel } from "./_components/social-panel";
 import { JoinCodeCopy } from "./_components/join-code-copy";
 import { ShareButton } from "./_components/share-button";
+import { EditableTitle } from "./_components/editable-title";
 
 export default async function QuestionsPage({
   params,
@@ -65,7 +66,7 @@ export default async function QuestionsPage({
             Events
           </a>
           {" / "}
-          <span>{event.title}</span>
+          <EditableTitle eventId={eventId} initialTitle={event.title} />
         </p>
         <div className="flex items-center justify-between mt-2">
           <h1 className="font-heading text-2xl font-semibold tracking-tight">

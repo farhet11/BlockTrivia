@@ -54,10 +54,6 @@ export type Question = {
   sort_order: number;
   explanation?: string | null;
   ai_generated?: boolean;
-  /** Pixel Reveal: URL of the image to progressively reveal. */
-  image_url?: string | null;
-  /** Closest Wins: the numeric correct answer for distance scoring. */
-  correct_answer_numeric?: number | null;
 };
 
 export function QuestionBuilder({
@@ -329,8 +325,6 @@ export function QuestionBuilder({
             correct_answer: q.correct_answer,
             sort_order: q.sort_order,
             explanation: q.explanation ?? null,
-            image_url: q.image_url ?? null,
-            correct_answer_numeric: q.correct_answer_numeric ?? null,
           }))
         );
       }

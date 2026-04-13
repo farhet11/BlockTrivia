@@ -422,62 +422,7 @@ export function ControlPanel({
         spotlight_display_name: spotlight.display_name,
       };
     }
-    if (roundType === "oracles_dilemma") {
-      // Pick a random player as the Oracle
-      const oracle = await pickSpotlightPlayer();
-      if (!oracle) return null;
-      return {
-        oracle_player_id: oracle.id,
-        oracle_display_name: oracle.display_name,
-        oracle_choice: null,
-        oracle_suggested_answer: null,
-      };
-    }
     return null;
-  }
-
-  /**
-   * Tally votes for The Narrative rounds. Counts responses per option,
-   * determines majority, and writes to round_state for scoring.
-   */
-  async function tallyNarrativeVotes() {
-    if (!gameState.current_question_id) return;
-
-    const { data: responses, error } = await supabase
-      .from("responses")
-      .select("selected_answer")
-      .eq("question_id", gameState.current_question_id);
-
-    if (error || !responses || responses.length === 0) return;
-
-    // Count votes per option (0-3)
-    const voteCounts = [0, 0, 0, 0];
-    for (const r of responses) {
-      const idx = r.selected_answer;
-      if (idx >= 0 && idx < 4) voteCounts[idx]++;
-    }
-
-    // Determine majority (highest vote count, first in case of tie)
-    let majorityOption = 0;
-    let maxVotes = 0;
-    for (let i = 0; i < voteCounts.length; i++) {
-      if (voteCounts[i] > maxVotes) {
-        maxVotes = voteCounts[i];
-        majorityOption = i;
-      }
-    }
-
-    // Write to round_state so submit_answer scoring can use it
-    await supabase
-      .from("game_state")
-      .update({
-        round_state: {
-          majority_option: majorityOption,
-          vote_counts: voteCounts,
-          total_votes: responses.length,
-        },
-      })
-      .eq("event_id", event.id);
   }
 
   // ── Modifier activation/deactivation ──────────────────────────────────────
@@ -578,10 +523,6 @@ export function ControlPanel({
 
   // Show reveal (correct answer)
   async function revealAnswer() {
-    // The Narrative: tally votes before reveal so scoring uses majority
-    if (currentQuestion?.round_type === "the_narrative") {
-      await tallyNarrativeVotes();
-    }
     await updateGameState({ phase: "revealing" });
   }
 

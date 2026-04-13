@@ -39,6 +39,8 @@ export interface QuestionData {
   time_bonus_enabled: boolean;
   /** Round-specific config from rounds.config JSONB (seeded by migration 047). */
   config: Record<string, unknown>;
+  /** Pixel Reveal: image URL for the question. */
+  image_url?: string | null;
 }
 
 /** Round-specific config stored in the JSONB `config` column on the rounds table. */
@@ -124,6 +126,10 @@ import { MCQPlayerView } from "@/rounds/mcq/player-view";
 import { WipeOutPlayerView } from "@/rounds/wipeout/player-view";
 import { ReversalPlayerView } from "@/rounds/reversal/player-view";
 import { PressureCookerPlayerView } from "@/rounds/pressure-cooker/player-view";
+import { PixelRevealPlayerView } from "@/rounds/pixel-reveal/player-view";
+import { ClosestWinsPlayerView } from "@/rounds/closest-wins/player-view";
+import { TheNarrativePlayerView } from "@/rounds/the-narrative/player-view";
+import { OraclesDilemmaPlayerView } from "@/rounds/oracles-dilemma/player-view";
 
 const modules: RoundModule[] = [
   {
@@ -188,7 +194,56 @@ const modules: RoundModule[] = [
       eventTypes: ["irl", "virtual", "hybrid"],
     },
   },
-  // ─── Add new round modules here ──────────────────────────────────────────
+  // ─── New round types (Phase 5) ────────────────────────────────────────────
+  {
+    type: "pixel_reveal",
+    displayName: "Pixel Reveal",
+    description:
+      "Image starts blurred, progressively clears. Early correct answers earn a quadratic time bonus.",
+    PlayerView: PixelRevealPlayerView,
+    mindScanAutoGen: false,
+    constraints: {
+      minPlayers: 1,
+      eventTypes: ["irl", "virtual", "hybrid"],
+    },
+  },
+  {
+    type: "closest_wins",
+    displayName: "Closest Wins",
+    description:
+      "Players type a numeric answer. Scoring based on distance from the correct value — closer = more points.",
+    PlayerView: ClosestWinsPlayerView,
+    mindScanAutoGen: false,
+    constraints: {
+      minPlayers: 1,
+      eventTypes: ["irl", "virtual", "hybrid"],
+    },
+  },
+  {
+    type: "the_narrative",
+    displayName: "The Narrative",
+    description:
+      "All players vote. The majority vote becomes 'correct.' Rewards reading the room, not knowing facts.",
+    PlayerView: TheNarrativePlayerView,
+    mindScanAutoGen: false,
+    constraints: {
+      minPlayers: 3,
+      eventTypes: ["irl", "virtual", "hybrid"],
+    },
+  },
+  {
+    type: "oracles_dilemma",
+    displayName: "Oracle's Dilemma",
+    description:
+      "One random Oracle sees the answer and chooses: truth or deception. Others decide whether to trust them.",
+    PlayerView: OraclesDilemmaPlayerView,
+    mindScanAutoGen: false,
+    constraints: {
+      minPlayers: 3,
+      mustNotBeFirst: true,
+      eventTypes: ["irl", "virtual", "hybrid"],
+    },
+  },
 ];
 
 /** The registry — the engine's single source of truth for round modules. */

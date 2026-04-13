@@ -71,7 +71,7 @@ export default async function PlayPage({
   const { data: questions } = roundIds.length
     ? await supabase
         .from("questions")
-        .select("id, round_id, body, options, sort_order")
+        .select("id, round_id, body, options, sort_order, image_url")
         .in("round_id", roundIds)
         .order("sort_order")
     : { data: [] };

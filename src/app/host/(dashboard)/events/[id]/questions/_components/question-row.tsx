@@ -61,17 +61,26 @@ export function QuestionRow({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [menuOpen]);
 
+  const isClosestWins = roundType === "closest_wins";
+  const isPixelReveal = roundType === "pixel_reveal";
+
   // Local state — avoids Supabase round-trip on every keystroke
   const [localBody, setLocalBody] = useState(question.body);
   const [localOptions, setLocalOptions] = useState<string[]>(
     isTrueFalse ? ["True", "False"] : (question.options as string[])
   );
   const [localExplanation, setLocalExplanation] = useState(question.explanation ?? "");
+  const [localImageUrl, setLocalImageUrl] = useState(question.image_url ?? "");
+  const [localNumericAnswer, setLocalNumericAnswer] = useState(
+    question.correct_answer_numeric != null ? String(question.correct_answer_numeric) : ""
+  );
 
   // Sync if question is replaced externally (e.g. JSON import)
   useEffect(() => {
     setLocalBody(question.body);
     setLocalExplanation(question.explanation ?? "");
+    setLocalImageUrl(question.image_url ?? "");
+    setLocalNumericAnswer(question.correct_answer_numeric != null ? String(question.correct_answer_numeric) : "");
     if (!isTrueFalse) setLocalOptions(question.options as string[]);
   }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -240,38 +249,87 @@ export function QuestionRow({
       {/* Options (expanded) */}
       {expanded && (
         <div className="pl-8 space-y-2">
-          {optionLabels.map((label, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <button
-                onClick={() => onUpdate(question.id, { correct_answer: i })}
-                className={`shrink-0 size-6 flex items-center justify-center text-xs font-medium transition-colors ${
-                  question.correct_answer === i
-                    ? "bg-correct text-white"
-                    : "bg-muted text-muted-foreground hover:bg-accent"
-                }`}
-              >
-                {label}
-              </button>
-              {isTrueFalse ? (
-                <span className="text-sm text-foreground">{label}</span>
-              ) : (
-                <input
-                  value={localOptions[i] ?? ""}
-                  onChange={(e) => {
-                    const updated = [...localOptions];
-                    updated[i] = e.target.value;
-                    setLocalOptions(updated);
-                  }}
-                  onBlur={() => onUpdate(question.id, { options: localOptions })}
-                  placeholder={`Option ${label}`}
-                  className="flex-1 text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
-                />
+          {/* Pixel Reveal: image URL */}
+          {isPixelReveal && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Image URL <span className="normal-case">(progressively revealed to players)</span>
+              </p>
+              <input
+                value={localImageUrl}
+                onChange={(e) => setLocalImageUrl(e.target.value)}
+                onBlur={() => onUpdate(question.id, { image_url: localImageUrl || null })}
+                placeholder="https://example.com/image.jpg"
+                className="w-full text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
+              />
+              {localImageUrl && (
+                <div className="mt-1 w-32 h-20 border border-border overflow-hidden bg-muted">
+                  <img src={localImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                </div>
               )}
             </div>
-          ))}
-          <p className="text-xs text-muted-foreground mt-1">
-            Click a letter to mark the correct answer.
-          </p>
+          )}
+
+          {/* Closest Wins: numeric answer */}
+          {isClosestWins && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Correct Numeric Answer <span className="normal-case">(players guess closest to this value)</span>
+              </p>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={localNumericAnswer}
+                onChange={(e) => setLocalNumericAnswer(e.target.value)}
+                onBlur={() => {
+                  const parsed = parseFloat(localNumericAnswer);
+                  onUpdate(question.id, {
+                    correct_answer_numeric: isNaN(parsed) ? null : parsed,
+                  });
+                }}
+                placeholder="Enter the correct number..."
+                className="w-full max-w-xs text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
+              />
+            </div>
+          )}
+
+          {/* MCQ-style options (hidden for Closest Wins) */}
+          {!isClosestWins && (
+            <>
+              {optionLabels.map((label, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <button
+                    onClick={() => onUpdate(question.id, { correct_answer: i })}
+                    className={`shrink-0 size-6 flex items-center justify-center text-xs font-medium transition-colors ${
+                      question.correct_answer === i
+                        ? "bg-correct text-white"
+                        : "bg-muted text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                  {isTrueFalse ? (
+                    <span className="text-sm text-foreground">{label}</span>
+                  ) : (
+                    <input
+                      value={localOptions[i] ?? ""}
+                      onChange={(e) => {
+                        const updated = [...localOptions];
+                        updated[i] = e.target.value;
+                        setLocalOptions(updated);
+                      }}
+                      onBlur={() => onUpdate(question.id, { options: localOptions })}
+                      placeholder={`Option ${label}`}
+                      className="flex-1 text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
+                    />
+                  )}
+                </div>
+              ))}
+              <p className="text-xs text-muted-foreground mt-1">
+                Click a letter to mark the correct answer.
+              </p>
+            </>
+          )}
 
           {/* Explanation (optional) */}
           <div className="pt-1 space-y-1">

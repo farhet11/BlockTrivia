@@ -84,6 +84,8 @@ type QuestionData = {
   modifier_type: string | null;
   /** Modifier config JSONB — multiplier, etc. */
   modifier_config: Record<string, unknown>;
+  /** Pixel Reveal: image URL for the question. */
+  image_url?: string | null;
 };
 
 type GameState = {
@@ -470,14 +472,23 @@ export function PlayView({
     setIsSubmitting(true);
 
     try {
-      const { data: result, error } = await supabase.rpc("submit_answer", {
+      const rpcParams: Record<string, unknown> = {
         p_event_id: event.id,
         p_question_id: currentQuestion.id,
         p_selected_answer: answerIndex,
         p_time_taken_ms: timeTakenMs,
         // WipeOut passes wager via metadata; all other rounds default to 1.0
         p_wipeout_leverage: typeof metadata?.wager === "number" ? metadata.wager : (isWipeout ? leverage : 1.0),
-      });
+      };
+      // Closest Wins: pass numeric answer
+      if (typeof metadata?.numeric_answer === "number") {
+        rpcParams.p_numeric_answer = metadata.numeric_answer;
+      }
+      // Oracle's Dilemma: pass oracle choice
+      if (typeof metadata?.oracle_choice === "string") {
+        rpcParams.p_oracle_choice = metadata.oracle_choice;
+      }
+      const { data: result, error } = await supabase.rpc("submit_answer", rpcParams);
 
       if (error) {
         console.error("submit_answer RPC error:", error);

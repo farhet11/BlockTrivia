@@ -767,14 +767,14 @@ export function QuestionBuilder({
 
           <DragOverlay>
             {activeQuestion && (
-              <div className="border border-primary bg-surface p-3 shadow-lg opacity-90">
+              <div className="border-2 border-primary bg-surface p-3 opacity-90">
                 <p className="text-sm font-medium text-foreground truncate">
                   {activeQuestion.body || "Untitled question"}
                 </p>
               </div>
             )}
             {activeRound && (
-              <div className="border border-primary bg-surface p-4 shadow-lg opacity-90">
+              <div className="border-2 border-primary bg-surface p-4 opacity-90">
                 <p className="font-semibold text-foreground">
                   {activeRound.title || "Untitled Round"}
                 </p>

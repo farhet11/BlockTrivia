@@ -157,7 +157,7 @@ export function QuestionRow({
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 w-48 border border-border bg-surface shadow-lg py-1">
+            <div className="absolute right-0 top-full mt-1 z-50 w-48 border border-border bg-surface py-1">
               {/* Move to round */}
               <div
                 className="relative"
@@ -181,7 +181,7 @@ export function QuestionRow({
                 </button>
 
                 {moveSubmenuOpen && moveTargets.length > 0 && (
-                  <div className="absolute right-full top-0 mr-0.5 w-52 border border-border bg-surface shadow-lg py-1 max-h-60 overflow-y-auto">
+                  <div className="absolute right-full top-0 mr-0.5 w-52 border border-border bg-surface py-1 max-h-60 overflow-y-auto">
                     {moveTargets.map((r) => {
                       const targetIsTF = r.round_type === "true_false";
                       const sourceIsTF = isTrueFalse;

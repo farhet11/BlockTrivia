@@ -39,7 +39,7 @@ export function ConfirmModal({
       />
 
       {/* Card */}
-      <div className="relative bg-surface border border-border rounded-lg shadow-xl w-full max-w-sm mx-4 animate-in fade-in-0 zoom-in-95">
+      <div className="relative bg-surface border border-border rounded-lg w-full max-w-sm mx-4 animate-in fade-in-0 zoom-in-95">
         <div className="px-5 pt-5 pb-4 space-y-2">
           <h2 className="font-heading text-lg font-bold text-foreground">
             {title}

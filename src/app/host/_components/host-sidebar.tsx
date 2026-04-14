@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, Plus, BarChart3, FileText, Settings, PanelLeftClose, PanelLeftOpen, Archive } from "lucide-react";
 
-const ICON_SW = 1.5; // sidebar icons — thinnest, matches Claude's sidebar elegance
+const ICON_SW = 2.5; // matches design system spec: all UI icons use strokeWidth 2.5
 
 type NavItem = {
   label: string;
@@ -173,7 +173,7 @@ export function HostSidebar({
                 }`}
                 title={item.label}
               >
-                <Icon size={20} strokeWidth={active ? 2.25 : ICON_SW} />
+                <Icon size={20} strokeWidth={ICON_SW} />
               </Link>
             );
           })

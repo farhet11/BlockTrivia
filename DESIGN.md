@@ -1,8 +1,9 @@
 # Design System: BlockTrivia
 
-> Version 3.0 — April 2, 2026
+> Version 3.1 — April 14, 2026
 > Format: awesome-design-md 9-section standard
 > For: Google Stitch, Claude Code, Cursor, v0, and any AI coding agent
+> **Pre-flight:** see [`DESIGN-CHECKLIST.md`](./DESIGN-CHECKLIST.md) — every PR must pass.
 
 ---
 

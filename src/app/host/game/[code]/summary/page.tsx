@@ -25,6 +25,7 @@ export default async function SummaryPage({
   if (!event || event.created_by !== user.id) redirect("/host");
 
   // Load top 10 leaderboard — try with profile join, fall back without
+  // eslint-disable-next-line prefer-const -- entries is reassigned in the fallback path below
   let { data: entries, error: lbError } = await supabase
     .from("leaderboard_entries")
     .select(`

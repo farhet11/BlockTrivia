@@ -22,6 +22,8 @@ export type LbEntry = {
 function CountUp({ target, delay = 0 }: { target: number; delay?: number }) {
   const [val, setVal] = useState(0);
   useEffect(() => {
+    // Reset animation when target/delay changes — intentional cascading render
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVal(0);
     let raf: number;
     const timer = setTimeout(() => {
@@ -136,12 +138,14 @@ export function PodiumLayout({
   extendedData?: { [key: string]: { correct_count?: number; total_questions?: number; accuracy?: number; avg_speed_ms?: number; is_top_10_pct?: boolean; fastest_answer_ms?: number; slowest_answer_ms?: number; answer_speed_stddev?: number } };
   playerSpotlights?: SpotlightEntry[];
 }) {
+  // Hook must be called unconditionally at the top of the component
+  const [expanded, setExpanded] = useState(true);
+
   const [first, second, third] = entries;
   if (!first) return null;
 
   // 1 player only — skip podium, single highlighted row
   if (!second) {
-    const [expanded, setExpanded] = useState(true);
     const extended = extendedData?.[first.player_id];
 
     return (

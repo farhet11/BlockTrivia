@@ -187,8 +187,7 @@ export function FindGame({
         </div>
 
         <p className="font-heading italic text-lg text-muted-foreground leading-relaxed">
-          "A high-stakes, real-time trivia experience designed for the world's
-          most innovative communities. Knowledge is the only currency here."
+          {'"A high-stakes, real-time trivia experience designed for the world\'s most innovative communities. Knowledge is the only currency here."'}
         </p>
 
         <div className="space-y-7">

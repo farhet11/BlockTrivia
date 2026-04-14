@@ -61,6 +61,8 @@ export function LobbyView({
 
   // Check game state on mount + subscribe to changes — redirect when game starts
   useEffect(() => {
+    let gsChannel: ReturnType<typeof supabase.channel> | null = null;
+
     async function checkAndSubscribeGameState() {
       const { data: gs } = await supabase
         .from("game_state")
@@ -70,7 +72,7 @@ export function LobbyView({
 
       if (gs) handlePhaseChange(gs.phase);
 
-      supabase
+      gsChannel = supabase
         .channel(`game-state:${event.id}`)
         .on(
           "postgres_changes",
@@ -86,9 +88,13 @@ export function LobbyView({
     }
 
     checkAndSubscribeGameState();
+
+    return () => {
+      if (gsChannel) supabase.removeChannel(gsChannel);
+    };
   }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Polling fallback — checks every 2s in case Realtime misses the game start
+  // Polling fallback — checks every 3s in case Realtime misses the game start
   useEffect(() => {
     const interval = setInterval(async () => {
       const { data } = await supabase
@@ -97,7 +103,7 @@ export function LobbyView({
         .eq("event_id", event.id)
         .single();
       if (data) handlePhaseChange(data.phase);
-    }, 2000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import Link from "next/link";
 import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
@@ -141,13 +142,15 @@ export function PlayView({
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
-  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const [_lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const [playerCount, setPlayerCount] = useState<number | null>(null);
+  const [_playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
+  // Track Realtime subscription health — only poll when disconnected
+  const realtimeHealthy = useRef(true);
 
   const currentQuestion = useMemo(
     () => questions.find((q) => q.id === gameState.current_question_id) ?? null,
@@ -269,17 +272,22 @@ export function PlayView({
         { event: "UPDATE", schema: "public", table: "game_state", filter: `event_id=eq.${event.id}` },
         (payload) => applyGameState(payload.new as GameState)
       )
-      .subscribe();
+      .subscribe((status) => {
+        realtimeHealthy.current = status === "SUBSCRIBED";
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Polling fallback — syncs every 2s if Realtime misses an event
+  // Polling fallback — only runs when Realtime is disconnected, or every 5s as a safety net
   useEffect(() => {
     const interval = setInterval(async () => {
+      // Skip poll if Realtime is healthy (reduces DB load at scale)
+      if (realtimeHealthy.current) return;
+
       const { data } = await supabase
         .from("game_state")
-        .select("*")
+        .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state")
         .eq("event_id", event.id)
         .single();
 
@@ -288,7 +296,7 @@ export function PlayView({
       if (data.phase !== current.phase || data.current_question_id !== current.current_question_id) {
         applyGameState(data as GameState);
       }
-    }, 2000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -302,7 +310,8 @@ export function PlayView({
       .eq("question_id", gameState.current_question_id)
       .eq("player_id", player.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) { console.error("[play] failed to check existing answer:", error.message); return; }
         if (data) {
           setAnsweredQuestionId(gameState.current_question_id);
           setSelectedAnswer(data.selected_answer);
@@ -328,7 +337,6 @@ export function PlayView({
 
     const startedAt = new Date(gameState.question_started_at).getTime();
     const duration = currentQuestion.time_limit_seconds * 1000;
-    let interval: ReturnType<typeof setInterval>;
 
     const tick = () => {
       const remaining = Math.max(0, Math.ceil((startedAt + duration - Date.now()) / 1000));
@@ -337,14 +345,15 @@ export function PlayView({
     };
 
     tick();
-    interval = setInterval(tick, 200);
+    const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, currentQuestion, hasAnswered]);
 
   // When host reveals answer, fetch correct answer for players who didn't submit
   useEffect(() => {
     if (gameState.phase !== "revealing" || hasAnswered || !currentQuestion) return;
-    supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data }) => {
+    supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data, error }) => {
+      if (error) { console.error("[play] failed to fetch revealed answer:", error.message); return; }
       if (data && !data.error) {
         setLastResult({
           isCorrect: false,
@@ -390,7 +399,7 @@ export function PlayView({
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
@@ -404,7 +413,7 @@ export function PlayView({
         if (entries.length === 0) {
           const { data: players } = await supabase
             .from("event_players")
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             .select(`player_id, game_alias, profiles ( username, display_name )`)
             .eq("event_id", event.id)
             .limit(10);
@@ -439,12 +448,13 @@ export function PlayView({
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data }) => {
+       
+      .then(({ data, error }) => {
+        if (error) { console.error("[play] failed to fetch own lb entry:", error.message); return; }
         if (data) {
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: resolvePlayerName(null, (data as any).profiles?.username, (data as any).profiles?.display_name),
+            display_name: resolvePlayerName(null, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.username, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.display_name),
             total_score: data.total_score,
             rank: data.rank,
           });
@@ -455,7 +465,7 @@ export function PlayView({
       .from("event_players")
       .select("player_id", { count: "exact", head: true })
       .eq("event_id", event.id)
-      .then(({ count }) => { if (count !== null) setPlayerCount(count); });
+      .then(({ count, error }) => { if (!error && count !== null) setPlayerCount(count); });
   }, [gameState.phase, supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function submitAnswer(answerIndex: number, metadata?: Record<string, unknown>) {
@@ -522,7 +532,7 @@ export function PlayView({
         .eq("event_id", event.id)
         .eq("player_id", player.id)
         .single()
-        .then(({ data }) => { if (data) setMyLbEntry((prev) => prev ? { ...prev, ...data } : data as unknown as LeaderboardEntry); });
+        .then(({ data, error }) => { if (!error && data) setMyLbEntry((prev) => prev ? { ...prev, ...data } : data as unknown as LeaderboardEntry); });
     } catch (err) {
       console.error("submit_answer exception:", err);
       submitLockRef.current = false;
@@ -636,10 +646,10 @@ export function PlayView({
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
-          <a href="/join">
+          <Link href="/join">
             <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
             <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
-          </a>
+          </Link>
           <div className="text-center space-y-2">
             <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
               <span className="w-2 h-2 rounded-full bg-timer-warn" />
@@ -658,10 +668,10 @@ export function PlayView({
   if (!currentQuestion) {
     return (
       <div className="min-h-dvh bg-background flex flex-col items-center justify-center px-5 gap-6">
-        <a href="/join">
+        <Link href="/join">
           <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
-        </a>
+        </Link>
         <div className="text-center space-y-2">
           <h1 className="font-heading text-xl font-bold">{event.title}</h1>
           <p className="text-sm text-muted-foreground animate-pulse">Waiting for next question...</p>

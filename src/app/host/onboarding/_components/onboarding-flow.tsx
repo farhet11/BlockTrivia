@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
-  coerceFollowupAnswers,
   isFollowupAnswered,
   type FollowupAnswer,
   type OnboardingFollowupQuestion,

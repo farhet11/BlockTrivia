@@ -158,7 +158,7 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
   const [organizerName, setOrganizerName] = useState(editEvent?.organizer_name ?? "");
   const [userId, setUserId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<OrganizerSuggestion[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [_showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -256,7 +256,7 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
           });
         }
       });
-  }, [fromEventId, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fromEventId, supabase]);  
 
   // ── Luma link detection + import ──────────────────────────────────────
   // Regex matches any lu.ma or luma.com URL so we detect the link whether
@@ -392,47 +392,6 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
     },
     [userId, supabase],
   );
-
-  function handleOrganizerChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value;
-    setOrganizerName(value);
-    searchOrganizers(value);
-  }
-
-  function handleSelectSuggestion(suggestion: OrganizerSuggestion) {
-    setOrganizerName(suggestion.organizer_name);
-
-    if (suggestion.logo_url) {
-      setLogoPreview(suggestion.logo_url);
-      setLogoUrl(suggestion.logo_url);
-      setLogoFile(null);
-    }
-
-    if (suggestion.logo_dark_url) {
-      setLogoDarkPreview(suggestion.logo_dark_url);
-      setLogoDarkUrl(suggestion.logo_dark_url);
-      setLogoDarkFile(null);
-      setHasDarkLogo(true);
-    }
-
-    if (suggestion.logo_url || suggestion.logo_dark_url) {
-      setShowMore(true);
-    }
-
-    setShowSuggestions(false);
-    setSuggestions([]);
-  }
-
-  function handleOrganizerBlur() {
-    blurTimeoutRef.current = setTimeout(() => {
-      setShowSuggestions(false);
-    }, 200);
-  }
-
-  function handleOrganizerFocus() {
-    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    if (suggestions.length > 0) setShowSuggestions(true);
-  }
 
   function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

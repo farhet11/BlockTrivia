@@ -10,7 +10,6 @@ import Link from "next/link";
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
   pointerWithin,
   KeyboardSensor,
   PointerSensor,
@@ -609,40 +608,6 @@ export function QuestionBuilder({
     } else {
       markError("Failed to delete question");
     }
-  }
-
-  async function moveQuestion(questionId: string, direction: "up" | "down") {
-    const q = questions.find((q) => q.id === questionId);
-    if (!q) return;
-
-    const siblings = questionsForRound(q.round_id);
-    const idx = siblings.findIndex((s) => s.id === questionId);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= siblings.length) return;
-
-    const other = siblings[swapIdx];
-
-    markSaving();
-    // Swap sort_order values
-    await Promise.all([
-      supabase
-        .from("questions")
-        .update({ sort_order: other.sort_order })
-        .eq("id", q.id),
-      supabase
-        .from("questions")
-        .update({ sort_order: q.sort_order })
-        .eq("id", other.id),
-    ]);
-
-    setQuestions(
-      questions.map((item) => {
-        if (item.id === q.id) return { ...item, sort_order: other.sort_order };
-        if (item.id === other.id) return { ...item, sort_order: q.sort_order };
-        return item;
-      })
-    );
-    markSaved();
   }
 
   async function moveQuestionToRound(questionId: string, targetRoundId: string) {

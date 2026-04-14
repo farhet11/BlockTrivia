@@ -68,7 +68,7 @@ export default async function LeaderboardPage({ params }: Props) {
       .maybeSingle(),
     supabase
       .from("leaderboard_entries")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       .select(`player_id, total_score, rank, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })

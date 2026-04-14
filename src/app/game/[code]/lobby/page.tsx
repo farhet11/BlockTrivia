@@ -54,7 +54,6 @@ export default async function LobbyPage({
     supabase.from("rounds").select("id, time_limit_seconds, questions(id)").eq("event_id", event.id),
   ]);
 
-  const roundCount = rounds?.length ?? 0;
   const questionCount = rounds?.reduce((sum, r) => sum + ((r.questions as unknown[])?.length ?? 0), 0) ?? 0;
 
   // Estimate game duration: sum of (questions × timer) per round + ~8s interstitial per round

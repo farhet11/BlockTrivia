@@ -5,7 +5,6 @@ import { FallingBlocksError } from "@/app/_components/falling-blocks-error";
 
 export default function GlobalError({
   error,
-  reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;

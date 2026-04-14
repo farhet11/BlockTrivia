@@ -110,6 +110,9 @@ export function ControlPanel({
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Ref to always have the latest version of startFirstQuestionOfRound
+  // (defined later in the component — used by the interstitial countdown interval)
+  const startFirstQuestionOfRoundRef = useRef<(() => Promise<void>) | null>(null);
   const [copied, setCopied] = useState(false);
   const [stageView, setStageView] = useState(false);
   const [playerPulse, setPlayerPulse] = useState(false);
@@ -181,6 +184,7 @@ export function ControlPanel({
   // Track how many players have answered the current question
   useEffect(() => {
     if (!gameState.current_question_id || gameState.phase !== "playing") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnsweredCount(0);
       return;
     }
@@ -253,6 +257,7 @@ export function ControlPanel({
   // Fetch leaderboard when phase is "leaderboard"
   useEffect(() => {
     if (gameState.phase !== "leaderboard") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLbLoading(true);
 
     // Snapshot current ranks for delta computation
@@ -266,7 +271,7 @@ export function ControlPanel({
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(20)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
@@ -283,7 +288,7 @@ export function ControlPanel({
         if (entries.length === 0) {
           const { data: players } = await supabase
             .from("event_players")
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             .select(`player_id, profiles ( display_name, avatar_url )`)
             .eq("event_id", event.id)
             .limit(20);
@@ -316,14 +321,13 @@ export function ControlPanel({
   // Countdown timer (question)
   useEffect(() => {
     if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTimeLeft(null);
       return;
     }
 
     const startedAt = new Date(gameState.question_started_at).getTime();
     const duration = currentQuestion.time_limit * 1000;
-
-    let interval: ReturnType<typeof setInterval>;
 
     const tick = () => {
       const remaining = Math.max(
@@ -335,13 +339,14 @@ export function ControlPanel({
     };
 
     tick();
-    interval = setInterval(tick, 200);
+    const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, currentQuestion]);
 
   // Interstitial auto-advance countdown (8s)
   useEffect(() => {
     if (gameState.phase !== "interstitial") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setInterstitialCountdown(null);
       if (interstitialTimerRef.current) {
         clearInterval(interstitialTimerRef.current);
@@ -358,7 +363,7 @@ export function ControlPanel({
       setInterstitialCountdown(count);
       if (count <= 0) {
         if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
-        startFirstQuestionOfRound();
+        startFirstQuestionOfRoundRef.current?.();
       }
     }, 1000);
 
@@ -538,6 +543,10 @@ export function ControlPanel({
       modifier_state: {},
     } as Partial<GameState>);
   }
+  // Keep the ref in sync for the interstitial countdown to call the latest version
+  useEffect(() => {
+    startFirstQuestionOfRoundRef.current = startFirstQuestionOfRound;
+  });
 
   // Next question (or show interstitial at round boundary)
   async function nextQuestion() {

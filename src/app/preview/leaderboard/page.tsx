@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
@@ -55,10 +56,10 @@ export default function LeaderboardPreview() {
     <div className="min-h-dvh bg-background flex flex-col">
       {/* Header */}
       <header className="border-b border-border px-5 h-14 flex items-center justify-between max-w-lg mx-auto w-full">
-        <a href="/">
+        <Link href="/">
           <img src="/logo-light.svg" alt="BlockTrivia" className="h-6 dark:hidden" />
           <img src="/logo-dark.svg" alt="BlockTrivia" className="h-6 hidden dark:block" />
-        </a>
+        </Link>
         <div className="flex items-center gap-3">
           <ThemeToggle />
         </div>

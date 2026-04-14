@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { resolvePlayerName } from "@/lib/player-name";
 import confetti from "canvas-confetti";
@@ -366,9 +367,9 @@ export function LeaderboardView({
             <p className="text-sm text-muted-foreground">
               Join the next <span className="font-semibold text-foreground">{event.title}</span> trivia and prove it.
             </p>
-            <a href="/join" className="inline-flex items-center h-11 px-8 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors">
+            <Link href="/join" className="inline-flex items-center h-11 px-8 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors">
               Join a Game →
-            </a>
+            </Link>
           </div>
         )}
       </div>

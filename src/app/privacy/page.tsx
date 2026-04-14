@@ -19,9 +19,7 @@ export default function PrivacyPage() {
         <div className="prose prose-invert max-w-none space-y-6 text-sm text-muted-foreground leading-relaxed">
           <section>
             <p>
-              This Privacy Policy explains how BlockTrivia ("we," "us," or "our") collects, uses, stores, and shares your
-              information when you use our platform at blocktrivia.com, our Telegram bot, or participate in BlockTrivia
-              events. By using BlockTrivia, you agree to the practices described in this policy.
+              {'This Privacy Policy explains how BlockTrivia ("we," "us," or "our") collects, uses, stores, and shares your information when you use our platform at blocktrivia.com, our Telegram bot, or participate in BlockTrivia events. By using BlockTrivia, you agree to the practices described in this policy.'}
             </p>
           </section>
 
@@ -169,7 +167,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-foreground mt-8 mb-3">8. Children's Privacy</h2>
+            <h2 className="text-lg font-semibold text-foreground mt-8 mb-3">{"8. Children's Privacy"}</h2>
             <p>
               BlockTrivia is not directed at children under the age of 13 (or 16 in the EU). We do not knowingly
               collect personal information from children.
@@ -189,8 +187,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-8 mb-3">10. Changes to This Policy</h2>
             <p>
-              We may update this policy as our product evolves. When we make material changes, we will update the "Last
-              Updated" date above and notify you via email or in-app notice.
+              {'We may update this policy as our product evolves. When we make material changes, we will update the "Last Updated" date above and notify you via email or in-app notice.'}
             </p>
           </section>
 

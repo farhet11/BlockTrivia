@@ -254,7 +254,7 @@ export function LivenessChallenge({
             onClick={startChallenge}
             className="h-12 px-8 bg-primary text-primary-foreground font-heading font-medium hover:bg-primary-hover transition-colors"
           >
-            Let's go
+            {"Let's go"}
           </button>
         </>
       )}

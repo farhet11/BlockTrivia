@@ -24,6 +24,8 @@ export function AvatarDropdown({
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  // Mount guard for next-themes to avoid hydration mismatch
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   async function handleSignOut() {

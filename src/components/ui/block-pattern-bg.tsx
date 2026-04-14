@@ -203,6 +203,10 @@ export function BlockPatternBg() {
     breathItemsRef.current = items;
   }, [theme]);
 
+  // Use a ref to hold the animation callback to avoid temporal dead zone
+  // (the callback references itself for requestAnimationFrame loops)
+  const animateBreathRef = useRef<FrameRequestCallback>(() => {});
+
   const animateBreath = useCallback((time: number) => {
     const canvas = breathRef.current;
     if (!canvas) return;
@@ -214,7 +218,7 @@ export function BlockPatternBg() {
 
     const items = breathItemsRef.current;
     if (items.length === 0) {
-      animRef.current = requestAnimationFrame(animateBreath);
+      animRef.current = requestAnimationFrame(animateBreathRef.current);
       return;
     }
 
@@ -254,8 +258,13 @@ export function BlockPatternBg() {
     }
 
     ctx.restore();
-    animRef.current = requestAnimationFrame(animateBreath);
+    animRef.current = requestAnimationFrame(animateBreathRef.current);
   }, [theme]);
+
+  // Keep the ref in sync with the latest callback
+  useEffect(() => {
+    animateBreathRef.current = animateBreath;
+  });
 
   useEffect(() => {
     const resize = () => {

@@ -28,6 +28,7 @@ export default async function HostControlPage({
 
   // Load rounds + questions (ordered)
   // Try with interstitial_text first; fall back without it if column doesn't exist yet
+  // eslint-disable-next-line prefer-const -- rounds is reassigned in the fallback path below
   let { data: rounds, error: roundsError } = await supabase
     .from("rounds")
     .select("id, title, round_type, sort_order, time_limit_seconds, base_points, interstitial_text")
@@ -46,7 +47,7 @@ export default async function HostControlPage({
   const roundIds = (rounds || []).map((r) => r.id);
 
   // Load round modifiers (pre-configured defaults from question builder)
-  let defaultModifiers: Record<string, { modifier_type: string; config: Record<string, unknown> }> = {};
+  const defaultModifiers: Record<string, { modifier_type: string; config: Record<string, unknown> }> = {};
   if (roundIds.length) {
     const { data: modRows } = await supabase
       .from("round_modifiers")

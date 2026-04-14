@@ -15,9 +15,10 @@ export function DashboardShell({
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
-  // Restore from localStorage on mount
+  // Restore from localStorage on mount — intentional client-side state sync
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === "true") setCollapsed(true);
   }, []);
 

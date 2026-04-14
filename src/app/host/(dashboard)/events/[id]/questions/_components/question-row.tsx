@@ -77,11 +77,13 @@ export function QuestionRow({
 
   // Sync if question is replaced externally (e.g. JSON import)
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLocalBody(question.body);
     setLocalExplanation(question.explanation ?? "");
     setLocalImageUrl(question.image_url ?? "");
     setLocalNumericAnswer(question.correct_answer_numeric != null ? String(question.correct_answer_numeric) : "");
     if (!isTrueFalse) setLocalOptions(question.options as string[]);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Rounds this question can move to (exclude current round)

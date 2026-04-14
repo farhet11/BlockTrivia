@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Sponsor = {
   id: string;
@@ -138,7 +139,7 @@ export function SponsorsPanel({
               {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
                 <div key={s.id} className="flex items-center gap-3 border border-border bg-background p-3">
                   <img
-                    src={s.logo_url}
+                    src={proxyImageUrl(s.logo_url)}
                     alt={s.name ?? "Sponsor"}
                     className="h-8 w-16 object-contain grayscale opacity-60 shrink-0"
                   />
@@ -206,7 +207,7 @@ export function SponsorsPanel({
                   ? sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
                       <img
                         key={s.id}
-                        src={s.logo_url}
+                        src={proxyImageUrl(s.logo_url)}
                         alt={s.name ?? "Sponsor"}
                         className={`h-8 max-w-[120px] object-contain grayscale opacity-60 ${
                           previewTheme === "dark" ? "invert brightness-200" : ""

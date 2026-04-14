@@ -14,6 +14,7 @@ import { Check, X } from "lucide-react";
 import { resolvePlayerView } from "@/lib/game/round-registry";
 import { resolveModifierOverlay, modifierRegistry } from "@/lib/game/modifier-registry";
 import { ModifierActivationOverlay } from "@/modifiers/shared/modifier-activation-overlay";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
   if (isAnswered || pct > 0.5) return "none";
@@ -586,7 +587,7 @@ export function PlayView({
           user={{ id: player.id, displayName: player.displayName, email: player.email }}
           avatarUrl={player.avatarUrl}
           right={event.logoUrl ? (
-            <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+            <img src={proxyImageUrl(event.logoUrl)} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
           ) : null}
         />
         <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
@@ -618,7 +619,7 @@ export function PlayView({
               <div className="w-full border-t border-border/50 bg-background/80 py-2 px-4">
                 <div className="flex items-center justify-center gap-6 flex-wrap">
                   {[...sponsors].sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                    <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"}
+                    <img key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"}
                       className="h-6 max-w-[100px] object-contain" />
                   ))}
                 </div>

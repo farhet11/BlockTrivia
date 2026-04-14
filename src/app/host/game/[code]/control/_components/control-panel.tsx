@@ -7,6 +7,7 @@ import { AppHeader } from "@/app/_components/app-header";
 import { BrandedQR } from "@/app/_components/branded-qr";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-podium";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Question = {
   id: string;
@@ -984,7 +985,7 @@ export function ControlPanel({
                   Hosted by
                 </p>
                 {event.logoUrl ? (
-                  <img src={event.logoUrl} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
+                  <img src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
                 ) : (
                   <>
                     <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
@@ -1213,7 +1214,7 @@ export function ControlPanel({
           <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
           <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
             {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-              <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+              <img key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
             ))}
           </div>
         </div>
@@ -1227,7 +1228,7 @@ export function ControlPanel({
               <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
               <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
                 {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                  <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+                  <img key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
                 ))}
               </div>
             </div>

@@ -851,26 +851,46 @@ export function PlayView({
         />
       )}
 
-      {/* Revealing banner */}
-      {phase === "revealing" && lastResult && !lastResult.didNotAnswer && (
-        <div
-          className={`reveal-anim px-5 py-3 flex items-center justify-between ${
-            lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
-          }`}
-          style={{ animation: lastResult.isCorrect
-            ? "reveal-banner 300ms cubic-bezier(0.34,1.56,0.64,1)"
-            : "reveal-banner 260ms ease-out"
-          }}
-        >
-          <span className={`font-bold text-sm flex items-center gap-1.5 ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
-            {lastResult.isCorrect ? <Check size={16} strokeWidth={2.5} /> : <X size={16} strokeWidth={2.5} />}
-            {lastResult.isCorrect ? "Correct!" : "Wrong"}
-          </span>
-          <span className="font-bold text-sm tabular-nums">
-            {lastResult.pointsAwarded >= 0 ? "+" : ""}{lastResult.pointsAwarded} pts
-          </span>
-        </div>
-      )}
+      {/* Revealing banner — carries the full post-answer summary so the separate
+          result card below can stay removed (keeps the Why explanation un-crowded) */}
+      {phase === "revealing" && lastResult && !lastResult.didNotAnswer && (() => {
+        const descriptor = lastResult.isCorrect
+          ? lastResult.wagerAmt
+            ? `Wagered ${lastResult.wagerAmt} pts`
+            : currentQuestion?.time_bonus_enabled
+            ? "Base + speed bonus"
+            : "Correct answer"
+          : lastResult.wagerAmt
+          ? `Lost ${Math.min(lastResult.wagerAmt, myLbEntry?.total_score ?? 0)} pts wagered`
+          : "Better luck next time";
+        return (
+          <div
+            className={`reveal-anim px-5 py-3 flex items-center justify-between gap-3 ${
+              lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
+            }`}
+            style={{ animation: lastResult.isCorrect
+              ? "reveal-banner 300ms cubic-bezier(0.34,1.56,0.64,1)"
+              : "reveal-banner 260ms ease-out"
+            }}
+          >
+            <span className={`flex items-center gap-1.5 text-sm min-w-0 ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
+              {lastResult.isCorrect ? <Check size={16} strokeWidth={2.5} /> : <X size={16} strokeWidth={2.5} />}
+              <span className="font-bold">{lastResult.isCorrect ? "Correct!" : "Wrong"}</span>
+              <span className="opacity-40 shrink-0">·</span>
+              <span className="font-normal opacity-80 truncate">{descriptor}</span>
+            </span>
+            <span className="flex items-center gap-2 font-bold text-sm tabular-nums shrink-0">
+              <span>{lastResult.pointsAwarded >= 0 ? "+" : ""}{lastResult.pointsAwarded} pts</span>
+              {myLbEntry?.rank != null && (
+                <>
+                  <span className="opacity-40">·</span>
+                  <span>#{myLbEntry.rank}</span>
+                </>
+              )}
+            </span>
+          </div>
+        );
+      })()}
 
       {phase === "revealing" && lastResult?.didNotAnswer && (
         <div className="px-5 py-3 bg-muted/30 border-b border-border flex items-center justify-center">
@@ -926,63 +946,9 @@ export function PlayView({
           </div>
         )}
 
-        {/* P5 — Result card (dopamine hit) */}
-        {phase === "revealing" && (
-          <div
-            className={`reveal-anim border p-4 flex items-center justify-between gap-4 ${
-              lastResult?.didNotAnswer || !lastResult
-                ? "border-border bg-muted/30"
-                : lastResult.isCorrect
-                ? "border-correct/30 bg-[#dcfce7] dark:bg-correct/10"
-                : "border-wrong/30 bg-[#fef2f2] dark:bg-wrong/10"
-            }`}
-            style={{ animation: lastResult?.isCorrect
-              ? "result-spring 500ms cubic-bezier(0.34,1.56,0.64,1)"
-              : "result-spring 380ms ease-out"
-            }}
-          >
-            <div className="space-y-1 min-w-0">
-              <p className={`font-heading text-2xl font-bold tabular-nums ${
-                lastResult?.didNotAnswer || !lastResult
-                  ? "text-muted-foreground"
-                  : lastResult.pointsAwarded > 0
-                  ? "text-correct"
-                  : lastResult.pointsAwarded < 0
-                  ? "text-wrong"
-                  : "text-muted-foreground"
-              }`}>
-                {lastResult?.didNotAnswer || !lastResult
-                  ? "0 pts"
-                  : lastResult.pointsAwarded >= 0
-                  ? `+${lastResult.pointsAwarded} pts`
-                  : `${lastResult.pointsAwarded} pts`}
-              </p>
-              <p className="text-xs text-muted-foreground truncate">
-                {lastResult?.didNotAnswer || !lastResult
-                  ? "Time's up — no answer"
-                  : lastResult.isCorrect
-                  // Use wagerAmt presence as signal — more reliable than isWipeout which
-                  // reads currentQuestion and can flip when the next question loads.
-                  ? lastResult.wagerAmt
-                    ? `Wagered ${lastResult.wagerAmt} pts`
-                    : currentQuestion?.time_bonus_enabled
-                    ? "Base + speed bonus"
-                    : "Correct answer"
-                  : lastResult.wagerAmt
-                  ? `Lost ${Math.min(lastResult.wagerAmt, myLbEntry?.total_score ?? 0)} pts wagered`
-                  : "Better luck next time"}
-              </p>
-            </div>
-            {myLbEntry?.rank != null && (
-              <div className="text-right shrink-0">
-                <p className="font-heading text-2xl font-bold tabular-nums text-foreground">
-                  #{myLbEntry.rank}
-                </p>
-                <p className="text-xs text-muted-foreground">your rank</p>
-              </div>
-            )}
-          </div>
-        )}
+        {/* NOTE: the standalone result card was removed — the reveal banner at
+            the top of the screen now carries points, descriptor, and rank, which
+            avoids crowding the Why explanation. */}
 
         {/* Submitted / waiting */}
         {hasAnswered && phase === "playing" && (

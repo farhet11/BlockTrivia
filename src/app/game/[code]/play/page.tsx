@@ -10,49 +10,71 @@ export default async function PlayPage({
   const { code } = await params;
   const supabase = await createServerSupabaseClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Phase 1: auth + event in parallel (event lookup is keyed by join_code only)
+  const [authResult, eventResult] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("events")
+      .select("id, title, join_code, status, logo_url, logo_dark_url, organizer_name")
+      .eq("join_code", code.toUpperCase())
+      .single(),
+  ]);
+
+  const user = authResult.data.user;
+  const event = eventResult.data;
   if (!user) redirect(`/join/${code}`);
-
-  const { data: event } = await supabase
-    .from("events")
-    .select("id, title, join_code, status, logo_url, logo_dark_url, organizer_name")
-    .eq("join_code", code.toUpperCase())
-    .single();
-
   if (!event) redirect("/join");
 
-  // Verify player has joined
-  const { data: playerEntry } = await supabase
-    .from("event_players")
-    .select("id")
-    .eq("event_id", event.id)
-    .eq("player_id", user.id)
-    .single();
+  // Phase 2: everything that needs event.id (and profile which needs user.id)
+  // runs in parallel. These 5 queries were previously sequential — biggest win here.
+  const [
+    playerEntryResult,
+    gameStateResult,
+    roundsResult,
+    sponsorsResult,
+    profileResult,
+  ] = await Promise.all([
+    supabase
+      .from("event_players")
+      .select("id")
+      .eq("event_id", event.id)
+      .eq("player_id", user.id)
+      .single(),
+    supabase
+      .from("game_state")
+      .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state, is_paused")
+      .eq("event_id", event.id)
+      .single(),
+    supabase
+      .from("rounds")
+      .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, config, interstitial_text, round_modifiers(modifier_type, config)")
+      .eq("event_id", event.id)
+      .order("sort_order"),
+    supabase
+      .from("event_sponsors")
+      .select("id, name, logo_url, sort_order")
+      .eq("event_id", event.id)
+      .order("sort_order"),
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", user.id)
+      .single(),
+  ]);
+
+  const playerEntry = playerEntryResult.data;
+  const gameState = gameStateResult.data;
+  const rawRounds = roundsResult.data;
+  const sponsors = sponsorsResult.data;
+  const profile = profileResult.data;
 
   if (!playerEntry) redirect(`/join/${code}`);
-
-  // Load game state
-  const { data: gameState } = await supabase
-    .from("game_state")
-    .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state, is_paused")
-    .eq("event_id", event.id)
-    .single();
-
   if (!gameState || gameState.phase === "lobby") {
     redirect(`/game/${code}/lobby`);
   }
   if (gameState.phase === "ended") {
     redirect(`/game/${code}/final`);
   }
-
-  // Load rounds + questions (include modifier data for Jackpot banner etc.)
-  const { data: rawRounds } = await supabase
-    .from("rounds")
-    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, time_bonus_enabled, config, interstitial_text, round_modifiers(modifier_type, config)")
-    .eq("event_id", event.id)
-    .order("sort_order");
 
   // Flatten modifier (max 1 per round by UNIQUE constraint)
   type RawMod = { modifier_type: string; config: Record<string, unknown> };
@@ -67,7 +89,8 @@ export default async function PlayPage({
     };
   });
 
-  const roundIds = (rounds ?? []).map((r) => r.id);
+  // Phase 3: questions (sequential — needs round IDs from phase 2)
+  const roundIds = rounds.map((r) => r.id);
   const { data: questions } = roundIds.length
     ? await supabase
         .from("questions")
@@ -76,20 +99,7 @@ export default async function PlayPage({
         .order("sort_order")
     : { data: [] };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url")
-    .eq("id", user.id)
-    .single();
-
-  // Load sponsors
-  const { data: sponsors } = await supabase
-    .from("event_sponsors")
-    .select("id, name, logo_url, sort_order")
-    .eq("event_id", event.id)
-    .order("sort_order");
-
-  const roundMap = Object.fromEntries((rounds ?? []).map((r) => [r.id, r]));
+  const roundMap = Object.fromEntries(rounds.map((r) => [r.id, r]));
   const questionList = (questions ?? []).map((q) => ({
     ...q,
     options: q.options as string[],
@@ -104,7 +114,7 @@ export default async function PlayPage({
   }));
 
   // Build rounds info for interstitial lookups
-  const roundsInfo = (rounds ?? []).map((r) => ({
+  const roundsInfo = rounds.map((r) => ({
     id: r.id,
     title: r.title ?? `Round ${r.sort_order + 1}`,
     sort_order: r.sort_order,

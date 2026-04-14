@@ -8,6 +8,7 @@ import { BrandedQR } from "@/app/_components/branded-qr";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-podium";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { RoundTypeBadge } from "@/app/_components/round-type-badge";
 
 type Question = {
   id: string;
@@ -736,7 +737,8 @@ export function ControlPanel({
             {/* Progress */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
+                <span className="inline-flex items-center gap-2">
+                  <RoundTypeBadge type={currentQuestion.round_type} size={20} />
                   {currentQuestion.round_title}
                   {rounds.length > 1 && (
                     <span className="ml-1.5 text-muted-foreground/60">
@@ -800,9 +802,10 @@ export function ControlPanel({
               );
             })()}
 
-            {/* Timer row — round type label + large timer number */}
+            {/* Timer row — round type badge + large timer number */}
             <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-wider text-muted-foreground">
+              <span className="inline-flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+                <RoundTypeBadge type={currentQuestion.round_type} size={20} />
                 {currentQuestion.round_type.replace("_", "/")}
               </span>
               <span
@@ -880,10 +883,11 @@ export function ControlPanel({
                           key={mod.type}
                           onClick={() => activateModifier(mod.type)}
                           disabled={loading}
-                          className="text-xs font-medium px-3 py-1.5 border border-border hover:border-amber-400/50 hover:bg-amber-400/10 hover:text-amber-300 transition-colors disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 border border-border hover:border-amber-400/50 hover:bg-amber-400/10 hover:text-amber-300 transition-colors disabled:opacity-50"
                           title={mod.description}
                         >
-                          {mod.type === "jackpot" ? "🎰 " : ""}{mod.displayName}
+                          <RoundTypeBadge type={mod.type} size={16} />
+                          {mod.displayName}
                           {isDefault && <span className="ml-1 text-muted-foreground/60">(default)</span>}
                         </button>
                       );
@@ -931,7 +935,8 @@ export function ControlPanel({
         {gameState.phase === "revealing" && currentQuestion && (
           <div className="py-8 space-y-6">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
+              <span className="inline-flex items-center gap-2">
+                <RoundTypeBadge type={currentQuestion.round_type} size={20} />
                 {currentQuestion.round_title}
                 {rounds.length > 1 && (
                   <span className="ml-1.5 text-muted-foreground/60">

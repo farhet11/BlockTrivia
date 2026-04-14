@@ -53,7 +53,8 @@ export interface ModifierModule {
   compatibleRounds: string[];
   /**
    * Optional React component overlaid on the player screen while the modifier
-   * is active (e.g. "🎰 JACKPOT" banner). Rendered above the question view.
+   * is active (e.g. JACKPOT banner with violet RoundTypeBadge). Rendered above
+   * the question view.
    */
   UIOverlay?: ComponentType<ModifierOverlayProps>;
 }

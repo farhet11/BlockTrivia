@@ -10,6 +10,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { RoundTypeBadge, type RoundType } from "@/app/_components/round-type-badge";
 
 const TIME_OPTIONS = [10, 15, 20, 30];
 
@@ -110,6 +111,8 @@ export function RoundCard({
             </svg>
           </button>
 
+          <RoundTypeBadge type={round.round_type as RoundType} size={24} />
+
           {editingTitle ? (
             <input
               value={title}
@@ -134,8 +137,9 @@ export function RoundCard({
 
           {/* Modifier badge */}
           {round.modifier_type && (
-            <span className="text-xs font-medium text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 shrink-0">
-              🎰 {modifiers.find((m) => m.type === round.modifier_type)?.displayName ?? round.modifier_type}
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 shrink-0">
+              <RoundTypeBadge type={round.modifier_type} size={16} />
+              {modifiers.find((m) => m.type === round.modifier_type)?.displayName ?? round.modifier_type}
             </span>
           )}
         </div>

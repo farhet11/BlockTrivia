@@ -11,6 +11,7 @@
  */
 
 import type { ModifierOverlayProps } from "@/lib/game/modifier-registry";
+import { RoundTypeBadge } from "@/app/_components/round-type-badge";
 
 /** Default multiplier if config doesn't specify one — matches the RPC default. */
 const DEFAULT_MULTIPLIER = 5;
@@ -28,7 +29,7 @@ export function JackpotUIOverlay({
       return (
         <div className="w-full px-4 pt-2 pb-1">
           <div className="flex items-center justify-center gap-2 bg-amber-400/20 border border-amber-400/50 px-4 py-2 text-sm font-semibold text-amber-300 animate-pulse">
-            <span className="text-base">🎰</span>
+            <RoundTypeBadge type="jackpot" size={20} />
             <span>JACKPOT — you took the pot!</span>
           </div>
         </div>
@@ -37,7 +38,7 @@ export function JackpotUIOverlay({
     return (
       <div className="w-full px-4 pt-2 pb-1">
         <div className="flex items-center justify-center gap-2 bg-zinc-800/60 border border-zinc-700/50 px-4 py-2 text-sm font-medium text-zinc-400">
-          <span className="text-base">🎰</span>
+          <RoundTypeBadge type="jackpot" size={20} />
           <span>Jackpot taken — 0 pts</span>
         </div>
       </div>
@@ -48,7 +49,7 @@ export function JackpotUIOverlay({
   return (
     <div className="w-full px-4 pt-2 pb-1">
       <div className="flex items-center justify-center gap-2 bg-amber-400/10 border border-amber-400/40 px-4 py-2">
-        <span className="text-base">🎰</span>
+        <RoundTypeBadge type="jackpot" size={20} />
         <span className="text-sm font-semibold text-amber-300">
           JACKPOT MODE
         </span>

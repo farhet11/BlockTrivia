@@ -15,6 +15,7 @@ import { resolvePlayerView } from "@/lib/game/round-registry";
 import { resolveModifierOverlay, modifierRegistry } from "@/lib/game/modifier-registry";
 import { ModifierActivationOverlay } from "@/modifiers/shared/modifier-activation-overlay";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { RoundTypeBadge } from "@/app/_components/round-type-badge";
 
 function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
   if (isAnswered || pct > 0.5) return "none";
@@ -752,10 +753,13 @@ export function PlayView({
       {currentRoundData && rounds.length > 0 && (
         <div className="border-b border-border px-5 py-2.5 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-            <span className="font-medium truncate max-w-[60%]">
-              {currentRoundData.title}
+            <span className="inline-flex items-center gap-2 font-medium truncate max-w-[60%]">
+              {currentQuestion && (
+                <RoundTypeBadge type={currentQuestion.round_type} size={20} />
+              )}
+              <span className="truncate">{currentRoundData.title}</span>
               {rounds.length > 1 && (
-                <span className="ml-1.5 text-muted-foreground/60">
+                <span className="ml-1 text-muted-foreground/60 shrink-0">
                   ({currentRoundIndex + 1}/{rounds.length})
                 </span>
               )}
@@ -833,7 +837,7 @@ export function PlayView({
           subtitle={effectiveModType === "jackpot"
             ? `First correct answer wins ${(effectiveModConfig?.multiplier as number) ?? 5}× points`
             : undefined}
-          icon={effectiveModType === "jackpot" ? "🎰" : "⚡"}
+          modifierType={effectiveModType}
           onComplete={() => setModifierJustActivated(false)}
         />
       )}

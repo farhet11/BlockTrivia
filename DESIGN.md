@@ -569,3 +569,66 @@ import { Users, Trophy, Timer, Play } from 'lucide-react';
 - Never use icon-only buttons without a tooltip or `aria-label`
 - Never use icons as decoration — every icon must communicate a function
 - In dark mode, default icons use Ash (`#a1a1aa`), not Stone
+
+---
+
+## 11. Round Type Badges
+
+Round type indicators are **filled violet squares with a Lucide icon inside** — visually distinct from bare UI action icons. They communicate "this is a game mode," not "this is an action."
+
+### Container vs UI icon
+
+|  | Round Type Badge | UI Action Icon |
+|--|------------------|----------------|
+| Container | 32×32 violet (`#7c3aed`) square, 6px radius | None — bare icon |
+| Icon stroke | **2.0** | **2.5** |
+| Icon color | `#ffffff` on violet | Stone / Ash |
+| Meaning | "This is a game mode" | "This is an action" |
+
+The thinner stroke (2.0 vs 2.5) is intentional — UI icons need to read on busy backgrounds at 20px; round badges sit inside their own colored container and need the contrast inside it to feel light, not dense.
+
+### Sizes
+
+| Context | Badge | Icon |
+|---------|-------|------|
+| Inline with text | 24px | 14px |
+| Default (selectors, labels) | 32px | 18px |
+| Stage / projected view | 48px | 26px |
+
+### Icon mapping
+
+| Round type | Lucide icon |
+|------------|-------------|
+| `mcq` | `ListChecks` |
+| `true_false` | `ToggleLeft` |
+| `wipeout` | `Bomb` |
+| `closest_wins` | `Ruler` |
+| `jackpot` | `Gem` |
+| `reversal` | `RefreshCcw` |
+| `pressure_cooker` | `Gauge` |
+| `consensus` | `UsersRound` |
+| `pixel_reveal` | `Image` |
+| `the_narrative` | `BookOpen` |
+| `oracles_dilemma` | `Eye` |
+
+### Component
+
+```tsx
+import { RoundTypeBadge } from "@/app/_components/round-type-badge";
+
+<RoundTypeBadge type="wipeout" size={32} />
+```
+
+Falls back to `ListChecks` for unknown types so it never crashes on legacy data.
+
+### Where to use
+
+- Question builder — round-type label next to round title
+- Host control panel — round indicator + modifier picker
+- Player gameplay screen — round label in progress bar
+- Stage / projector view — 48px badge for visibility from the back of the room
+- Modifier activation overlay — same badge system, sized up
+
+### Future
+
+These Lucide badges are placeholders. When custom illustrations are commissioned, the icon inside the badge swaps for a custom SVG. The container, sizing, and color stay — only the icon content changes. Treat the badge container as the stable contract.

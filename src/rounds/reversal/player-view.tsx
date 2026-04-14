@@ -27,6 +27,7 @@
 import { X } from "lucide-react";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { RoundPlayerViewProps } from "@/lib/game/round-registry";
+import { RoundTypeBadge } from "@/app/_components/round-type-badge";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
@@ -46,7 +47,7 @@ export function ReversalPlayerView({
       {/* Instruction pill */}
       <div className="flex items-center justify-center">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[#f5f3ef] dark:bg-[#1f1f23] border border-border px-3 py-1.5">
-          <span className="text-sm">🔄</span>
+          <RoundTypeBadge type="reversal" size={16} />
           Find the statement that is <span className="text-wrong font-bold ml-0.5">FALSE</span>
         </span>
       </div>

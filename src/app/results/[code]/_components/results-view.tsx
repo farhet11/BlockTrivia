@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { Link } from "lucide-react";
 import { AppHeader } from "@/app/_components/app-header";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Entry = {
   player_id: string;
@@ -152,7 +153,7 @@ export function ResultsView({
     <div className="min-h-dvh bg-background flex flex-col">
       <AppHeader
         right={event.logoUrl ? (
-          <Image src={event.logoUrl} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
+          <Image src={proxyImageUrl(event.logoUrl)} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
         ) : null}
       />
 
@@ -296,7 +297,7 @@ export function ResultsView({
                     {sponsors.map((s) => (
                       <Image
                         key={s.id}
-                        src={s.logo_url}
+                        src={proxyImageUrl(s.logo_url)}
                         alt={s.name ?? "Sponsor"}
                         width={120}
                         height={32}

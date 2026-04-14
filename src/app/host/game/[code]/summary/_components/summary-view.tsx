@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { AppHeader } from "@/app/_components/app-header";
 import { ShareRow } from "./announce-results-button";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Entry = {
   player_id: string;
@@ -272,7 +273,7 @@ export function SummaryView({
                     {sponsors.map((s) => (
                       <Image
                         key={s.id}
-                        src={s.logo_url}
+                        src={proxyImageUrl(s.logo_url)}
                         alt={s.name ?? "Sponsor"}
                         width={120}
                         height={32}

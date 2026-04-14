@@ -1,8 +1,9 @@
 # Design System: BlockTrivia
 
-> Version 3.0 — April 2, 2026
+> Version 3.1 — April 14, 2026
 > Format: awesome-design-md 9-section standard
 > For: Google Stitch, Claude Code, Cursor, v0, and any AI coding agent
+> **Pre-flight:** see [`DESIGN-CHECKLIST.md`](./DESIGN-CHECKLIST.md) — every PR must pass.
 
 ---
 
@@ -77,6 +78,24 @@ What makes BlockTrivia's design genuinely distinctive is that it must survive co
 
 BlockTrivia is **gradient-free** in the traditional sense. No CSS gradients appear on surfaces, buttons, or backgrounds. The one exception is the timer bar, which transitions from Electric Violet → Timer Amber → Timer Critical as time runs out — a functional gradient that communicates urgency, not decoration. Visual richness comes from the interplay of warm surface tones, the breathing violet pattern overlay, and the light/dark section alternation.
 
+### Section Background Patterns
+
+For **marketing and info pages only** (landing, how-it-works, pricing) we layer three section backgrounds in alternating rhythm. Gameplay screens (question, leaderboard, lobby, results) **never** use these blocks — they stay on Warm Canvas / Night Canvas to keep zero distraction.
+
+| Block | Background | Headings | Body | Accent / borders | Cards / CTA |
+|-------|------------|----------|------|------------------|-------------|
+| **Warm Canvas** (default) | `#faf9f7` | Ink | Stone | Warm Border | as documented |
+| **Ink** (dark editorial) | Ink `#1a1917` | Snow `#fafafa` | Ash `#a1a1aa` | Night Border `#27272a` | Night Surface `#18181b` cards; Electric Violet pops on dark |
+| **Violet** (loud brand) | Electric Violet `#7c3aed` | `#ffffff` | `rgba(255,255,255,0.8)` | `rgba(255,255,255,0.15)` | Inverted CTA: Ink bg + white text |
+
+**Rules of the rhythm:**
+
+- Use Ink sections for hero stats, social proof, "how it works", testimonials, footer.
+- Use **one** Violet section per page maximum — it's the loudest moment, dilute it and it stops working. Typical use: a "join the arena" CTA block.
+- Every Warm Canvas section between blocks creates the breath that makes the dark / violet sections feel earned.
+
+Reusable React primitives live at `src/app/_components/marketing/section.tsx`: `<CanvasSection>`, `<InkSection>`, `<VioletSection>`.
+
 ---
 
 ## 3. Typography Rules
@@ -93,8 +112,8 @@ BlockTrivia is **gradient-free** in the traditional sense. No CSS gradients appe
 | Role | Font | Size | Weight | Line Height | Letter Spacing | Notes |
 |------|------|------|--------|-------------|----------------|-------|
 | Wordmark | Outfit | — | 800 | — | -0.02em | Logo only. Tight, geometric, confident. |
-| Hero / page title | Outfit | 28–36px | 600 | 1.20 | -0.02em | Display headings, marketing heroes |
-| Section heading | Outfit | 20–24px | 600 | 1.30 | -0.01em | Clear section anchors |
+| Hero / page title | Outfit | `clamp(52px, 8vw, 96px)` | **800** | 1.05 | **-0.03em** | Display headings, marketing heroes — bumped Apr 2026 for boldness |
+| Section heading | Outfit | 28–40px | **700** | 1.15 | **-0.03em** | Clear section anchors — bumped Apr 2026 |
 | Subheading | Inter | 17–18px | 500 | 1.40 | 0 | Card titles, feature names |
 | Question text | Inter | 18–20px | 500 | 1.40 | 0 | The most critical size — must be readable at arm's length in 2 seconds |
 | Body | Inter | 16px | 400 | 1.60 | 0 | Standard reading text |
@@ -244,6 +263,42 @@ BlockTrivia is **gradient-free** in the traditional sense. No CSS gradients appe
 
 Whitespace is the most important design element in BlockTrivia. It's not "empty space" — it's the room between a player's thumb and a wrong button tap. It's the breathing room that lets a question be parsed in 2 seconds instead of 4. When in doubt, add more space. A screen that feels "too empty" in Figma will feel "exactly right" at 3pm at ETH Denver with 200 people in the room.
 
+### Section Rhythm (marketing pages)
+
+On marketing/info pages — landing, how-it-works, pricing — sections alternate background blocks (see §2 "Section Background Patterns") to create visual rhythm and let the eye breathe between dense moments.
+
+Canonical landing-page rhythm:
+
+```
+[Warm Canvas]  hero
+[Ink]          social proof / stats
+[Warm Canvas]  how it works
+[Violet]       CTA block (one per page max)
+[Warm Canvas]  features
+[Ink]          footer
+```
+
+Gameplay screens do **not** alternate sections — they stay on Warm Canvas / Night Canvas only. The rhythm is for marketing surfaces where the goal is "make me feel something"; gameplay screens have one goal: "make me answer in 10 seconds."
+
+### Numbered Step Badges
+
+For "How it works" sequences and any numbered list rendered visually:
+
+- 32×32px (default), 6px radius, Outfit 16px weight 700, white text
+- 3-step rotation: Step 1 = Electric Violet · Step 2 = Ink · Step 3 = Timer Amber
+- Component: `<NumberedStep n={1} />` from `src/app/_components/marketing/numbered-step.tsx`
+
+### Landing Page Stats Bar
+
+Marketing-only stats row (e.g. "12k+ players · 340 events · 97% cheat-free"):
+
+- Number: Outfit 36px weight 800
+- Label: Inter 14px weight 400
+- Layout: horizontal, evenly spaced, centered
+- Component: `<StatsBar tone="light|dark" />` from `src/app/_components/marketing/stats-bar.tsx`
+
+In-app stats bars (profile, results) keep their current sizing — this section bar is louder by design because marketing pages are reaching, not reporting.
+
 ---
 
 ## 6. Depth & Elevation
@@ -288,6 +343,7 @@ BlockTrivia uses a **flat surface hierarchy** — the most extreme version of th
 - Respect `prefers-reduced-motion` — wrap all animations in the media query
 - Use Inter for any text a player reads under time pressure
 - Test every screen at maximum phone brightness
+- Alternate section backgrounds on marketing pages (Warm Canvas → Ink → Warm Canvas → Violet → Warm Canvas → Ink) — the rhythm creates breath
 
 ### Don't
 
@@ -301,6 +357,8 @@ BlockTrivia uses a **flat surface hierarchy** — the most extreme version of th
 - Don't use blue as an accent color — it's reserved for links and info states only
 - Don't default to dark mode — light is the default entry point; dark mode is a toggle
 - Don't clutter gameplay screens — every pixel must serve the 10-second decision window
+- Don't use color blocks (Ink, Violet) on gameplay screens — they're marketing-only. Gameplay stays on Warm Canvas / Night Canvas
+- Don't ship more than ONE Violet section per page — it's the loudest moment, dilute it and it stops working
 
 ---
 
@@ -511,3 +569,66 @@ import { Users, Trophy, Timer, Play } from 'lucide-react';
 - Never use icon-only buttons without a tooltip or `aria-label`
 - Never use icons as decoration — every icon must communicate a function
 - In dark mode, default icons use Ash (`#a1a1aa`), not Stone
+
+---
+
+## 11. Round Type Badges
+
+Round type indicators are **filled violet squares with a Lucide icon inside** — visually distinct from bare UI action icons. They communicate "this is a game mode," not "this is an action."
+
+### Container vs UI icon
+
+|  | Round Type Badge | UI Action Icon |
+|--|------------------|----------------|
+| Container | 32×32 violet (`#7c3aed`) square, 6px radius | None — bare icon |
+| Icon stroke | **2.0** | **2.5** |
+| Icon color | `#ffffff` on violet | Stone / Ash |
+| Meaning | "This is a game mode" | "This is an action" |
+
+The thinner stroke (2.0 vs 2.5) is intentional — UI icons need to read on busy backgrounds at 20px; round badges sit inside their own colored container and need the contrast inside it to feel light, not dense.
+
+### Sizes
+
+| Context | Badge | Icon |
+|---------|-------|------|
+| Inline with text | 24px | 14px |
+| Default (selectors, labels) | 32px | 18px |
+| Stage / projected view | 48px | 26px |
+
+### Icon mapping
+
+| Round type | Lucide icon |
+|------------|-------------|
+| `mcq` | `ListChecks` |
+| `true_false` | `ToggleLeft` |
+| `wipeout` | `Bomb` |
+| `closest_wins` | `Ruler` |
+| `jackpot` | `Gem` |
+| `reversal` | `RefreshCcw` |
+| `pressure_cooker` | `Gauge` |
+| `consensus` | `UsersRound` |
+| `pixel_reveal` | `Image` |
+| `the_narrative` | `BookOpen` |
+| `oracles_dilemma` | `Eye` |
+
+### Component
+
+```tsx
+import { RoundTypeBadge } from "@/app/_components/round-type-badge";
+
+<RoundTypeBadge type="wipeout" size={32} />
+```
+
+Falls back to `ListChecks` for unknown types so it never crashes on legacy data.
+
+### Where to use
+
+- Question builder — round-type label next to round title
+- Host control panel — round indicator + modifier picker
+- Player gameplay screen — round label in progress bar
+- Stage / projector view — 48px badge for visibility from the back of the room
+- Modifier activation overlay — same badge system, sized up
+
+### Future
+
+These Lucide badges are placeholders. When custom illustrations are commissioned, the icon inside the badge swaps for a custom SVG. The container, sizing, and color stay — only the icon content changes. Treat the badge container as the stable contract.

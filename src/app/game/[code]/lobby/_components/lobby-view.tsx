@@ -9,6 +9,7 @@ import { ShareDrawer } from "@/app/_components/share-drawer";
 import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Sponsor = {
   id: string;
@@ -188,7 +189,7 @@ export function LobbyView({
               Hosted by
             </p>
             {event.logoUrl ? (
-              <Image src={event.logoUrl} alt={event.organizerName ?? "Organizer"} width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
+              <Image src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
             ) : (
               <>
                 <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />

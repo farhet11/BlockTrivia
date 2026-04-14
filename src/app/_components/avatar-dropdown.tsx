@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase";
 import { PlayerAvatar } from "./player-avatar";
 import { User, Settings, LogOut, Sun, Moon, Monitor } from "lucide-react";
 
-const MENU_ICON = { size: 16, strokeWidth: 2 } as const;
+const MENU_ICON = { size: 16, strokeWidth: 2.5 } as const;
 
 export function AvatarDropdown({
   user,
@@ -54,7 +54,7 @@ export function AvatarDropdown({
         <DropdownMenu.Content
           align="end"
           sideOffset={8}
-          className="z-[100] min-w-[240px] bg-surface border border-border rounded-lg shadow-lg animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2"
+          className="z-[100] min-w-[240px] bg-surface border border-border rounded-lg animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2"
         >
           {/* User info */}
           <div className="px-4 py-3">
@@ -87,7 +87,7 @@ export function AvatarDropdown({
                       }`}
                       title={seg.label}
                     >
-                      <Icon size={14} strokeWidth={2} />
+                      <Icon size={14} strokeWidth={2.5} />
                     </button>
                   );
                 })}
@@ -123,7 +123,7 @@ export function AvatarDropdown({
             onClick={handleSignOut}
             className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#ef4444] cursor-pointer outline-none hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors"
           >
-            <LogOut size={16} strokeWidth={2} />
+            <LogOut size={16} strokeWidth={2.5} />
             Sign out
           </DropdownMenu.Item>
 

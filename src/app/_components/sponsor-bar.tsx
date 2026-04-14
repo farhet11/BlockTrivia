@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Sponsor = {
   id: string;
@@ -23,7 +24,7 @@ export function SponsorBar({ sponsors }: { sponsors: Sponsor[] }) {
           .map((s) => (
             <Image
               key={s.id}
-              src={s.logo_url}
+              src={proxyImageUrl(s.logo_url)}
               alt={s.name ?? "Sponsor"}
               title={s.name ?? undefined}
               width={120}

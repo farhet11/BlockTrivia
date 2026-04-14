@@ -12,6 +12,7 @@ import { AppHeader } from "@/app/_components/app-header";
 import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 import { SpotlightCard, type SpotlightEntry } from "@/app/_components/spotlight-card";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Sponsor = { id: string; name: string | null; logo_url: string; sort_order: number };
 
@@ -217,7 +218,7 @@ export function LeaderboardView({
               Hosted by
             </p>
             {event.logoUrl ? (
-              <Image src={event.logoUrl} alt="Organizer" width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
+              <Image src={proxyImageUrl(event.logoUrl)} alt="Organizer" width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
             ) : (
               <>
                 <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />

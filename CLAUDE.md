@@ -167,6 +167,7 @@ npm test        # Run Vitest test suite
 - Read `node_modules/next/dist/docs/` before writing any Next.js code — this is Next.js 16 with breaking changes
 - Design tokens are CSS variables in `globals.css`, mapped via `@theme inline` for Tailwind
 - Logo: use `logo-light.svg` (light mode) and `logo-dark.svg` (dark mode) with `dark:hidden` / `hidden dark:block` pattern
+- Before every PR, check all items in `DESIGN-CHECKLIST.md`. Fix violations before merge.
 
 ## Testing
 

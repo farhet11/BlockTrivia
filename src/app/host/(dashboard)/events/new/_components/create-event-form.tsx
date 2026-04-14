@@ -1104,7 +1104,7 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
         </div>
 
         {projectResults.length > 0 && (
-          <div className="absolute z-10 left-0 right-0 top-full mt-1 border border-border bg-surface max-h-48 overflow-y-auto shadow-sm">
+          <div className="absolute z-10 left-0 right-0 top-full mt-1 border border-border bg-surface max-h-48 overflow-y-auto">
             {projectResults.slice(0, 6).map((r) => (
               <button
                 key={r.project_id}

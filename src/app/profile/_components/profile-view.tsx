@@ -263,7 +263,7 @@ export function ProfileView({
                   disabled={saving || name.trim().length < 2}
                   className="p-1 text-primary hover:text-primary/80 transition-colors"
                 >
-                  <Check size={16} strokeWidth={2} />
+                  <Check size={16} strokeWidth={2.5} />
                 </button>
                 <button
                   onClick={() => {
@@ -272,7 +272,7 @@ export function ProfileView({
                   }}
                   className="p-1 text-stone-400 hover:text-foreground transition-colors"
                 >
-                  <X size={16} strokeWidth={2} />
+                  <X size={16} strokeWidth={2.5} />
                 </button>
               </div>
             ) : (
@@ -283,7 +283,7 @@ export function ProfileView({
                   className="p-1 text-stone-400 dark:text-zinc-500 hover:text-primary transition-colors shrink-0"
                   title="Edit display name"
                 >
-                  <Pencil size={13} strokeWidth={2} />
+                  <Pencil size={13} strokeWidth={2.5} />
                 </button>
               </div>
             )}
@@ -317,7 +317,7 @@ export function ProfileView({
                   disabled={savingUsername || usernameInput.trim().length < 5}
                   className="p-1 text-primary hover:text-primary/80 transition-colors"
                 >
-                  <Check size={14} strokeWidth={2} />
+                  <Check size={14} strokeWidth={2.5} />
                 </button>
                 <button
                   onClick={() => {
@@ -327,7 +327,7 @@ export function ProfileView({
                   }}
                   className="p-1 text-stone-400 hover:text-foreground transition-colors"
                 >
-                  <X size={14} strokeWidth={2} />
+                  <X size={14} strokeWidth={2.5} />
                 </button>
               </div>
               {usernameError && <p className="text-xs text-destructive">{usernameError}</p>}
@@ -341,7 +341,7 @@ export function ProfileView({
                 className="p-0.5 text-stone-400 dark:text-zinc-500 hover:text-primary transition-colors shrink-0"
                 title="Edit username"
               >
-                <Pencil size={11} strokeWidth={2} />
+                <Pencil size={11} strokeWidth={2.5} />
               </button>
             </div>
           ) : (
@@ -522,7 +522,7 @@ export function ProfileView({
                   that shape every quiz MindScan generates for you.
                 </p>
               </div>
-              <ChevronRight size={16} strokeWidth={1.75} className="shrink-0 text-muted-foreground" />
+              <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-muted-foreground" />
             </Link>
           </section>
         )}
@@ -533,7 +533,7 @@ export function ProfileView({
             onClick={() => setShowSignOut(true)}
             className="flex items-center gap-2.5 w-full py-3 text-[15px] font-medium text-muted-foreground hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors -mx-1 px-1"
           >
-            <ArrowRight size={16} strokeWidth={1.75} />
+            <ArrowRight size={16} strokeWidth={2.5} />
             Sign out
           </button>
         </div>
@@ -723,7 +723,7 @@ function DeleteConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 backdrop-blur-sm px-4">
-      <div className="bg-background border border-border w-full max-w-md p-6 space-y-4 shadow-lg select-none">
+      <div className="bg-background border border-border w-full max-w-md p-6 space-y-4 select-none">
         <h2 className="font-heading text-lg font-bold text-foreground">Delete account</h2>
         <div className="space-y-2 text-sm text-muted-foreground">
           <p>

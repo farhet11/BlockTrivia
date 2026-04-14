@@ -47,13 +47,15 @@ type ImportQuestion = {
   options?: string[];
   correct_answer: number;
   explanation?: string;
+  image_url?: string;
+  correct_answer_numeric?: number;
 };
 
 type ImportRound = {
   title?: string;
-  round_type?: "mcq" | "true_false" | "wipeout";
+  round_type?: string;
   /** @deprecated use round_type */
-  type?: "mcq" | "true_false" | "wipeout";
+  type?: string;
   time_limit_seconds?: number;
   base_points?: number;
   questions: ImportQuestion[];
@@ -115,8 +117,9 @@ export function JsonImportModal({
   const showModeChoice = format === "full" && rounds.length > 0;
 
   const SAMPLE_JSON = JSON.stringify([
+    // ── Round 1: MCQ ──────────────────────────────────────────────────────
     {
-      title: "What is BlockTrivia?",
+      title: "Crypto Basics — MCQ",
       round_type: "mcq",
       time_limit_seconds: 20,
       base_points: 100,
@@ -130,109 +133,308 @@ export function JsonImportModal({
             "A DeFi yield protocol",
           ],
           correct_answer: 0,
-          explanation: "BlockTrivia is a live trivia game that helps Web3 projects find who actually understands their protocol - not just airdrop farmers.",
+          explanation: "BlockTrivia is a live trivia game that helps Web3 projects identify genuine community members.",
         },
         {
-          body: "What does a player's rank on the BlockTrivia leaderboard actually prove?",
+          body: "What does EVM stand for?",
           options: [
-            "How much ETH they hold",
-            "How fast and accurately they answered questions about the protocol",
-            "How many NFTs they own",
-            "Their on-chain transaction history",
+            "Ethereum Virtual Machine",
+            "Encrypted Value Module",
+            "External Validation Mechanism",
+            "Ethereum Verified Mint",
+          ],
+          correct_answer: 0,
+          explanation: "EVM = Ethereum Virtual Machine — the runtime environment for smart contracts on Ethereum.",
+        },
+        {
+          body: "Which consensus mechanism does Ethereum currently use?",
+          options: [
+            "Proof of Work",
+            "Proof of Stake",
+            "Delegated Proof of Stake",
+            "Proof of Authority",
           ],
           correct_answer: 1,
-          explanation: "The leaderboard reflects knowledge + speed - a signal of genuine protocol understanding, not just token wealth.",
-        },
-        {
-          body: "Who is BlockTrivia primarily built for?",
-          options: [
-            "Casual gamers looking for crypto prizes",
-            "Web3 projects that want to identify informed community members",
-            "Developers building smart contracts",
-            "Crypto influencers running giveaways",
-          ],
-          correct_answer: 1,
-          explanation: "BlockTrivia is a tool for protocols and DAOs to run knowledge-based events - separating real community from airdrop hunters.",
-        },
-        {
-          body: "Which of the following is NOT a feature of BlockTrivia?",
-          options: [
-            "Real-time leaderboard during the game",
-            "CSV export of player results after the event",
-            "On-chain token rewards distributed automatically",
-            "A host control panel to manage the game live",
-          ],
-          correct_answer: 2,
-          explanation: "BlockTrivia does not handle on-chain rewards. It provides data (leaderboard, CSV) that projects can use to distribute rewards however they choose.",
+          explanation: "Ethereum transitioned to Proof of Stake with The Merge in September 2022.",
         },
       ],
     },
+    // ── Round 2: True / False ─────────────────────────────────────────────
     {
-      title: "True or False Round",
+      title: "True or False",
       round_type: "true_false",
       time_limit_seconds: 15,
       base_points: 100,
       questions: [
         {
-          body: "BlockTrivia requires players to connect a crypto wallet to join.",
-          correct_answer: 1,
-          explanation: "False - players join with Google or email. No wallet needed to play.",
-        },
-        {
-          body: "Hosts can pause a live BlockTrivia game at any time.",
+          body: "Bitcoin has a maximum supply of 21 million coins.",
           correct_answer: 0,
-          explanation: "True - the host control panel includes a pause button that freezes the timer for all players.",
+          explanation: "True — Bitcoin's hard cap of 21 million is enforced by the protocol.",
         },
         {
-          body: "BlockTrivia automatically distributes token rewards to top-ranked players.",
+          body: "Smart contracts can be modified after deployment on Ethereum.",
           correct_answer: 1,
-          explanation: "False - BlockTrivia provides a CSV export with rankings. The project decides how to reward players.",
+          explanation: "False — deployed smart contracts are immutable. Upgradeable patterns use proxy contracts.",
         },
         {
-          body: "Faster correct answers earn more points in BlockTrivia.",
+          body: "Gas fees on Ethereum are paid in ETH.",
           correct_answer: 0,
-          explanation: "True - scoring includes a speed bonus, so answering quickly and correctly maximises your score.",
+          explanation: "True — all transaction fees on Ethereum are denominated and paid in ETH.",
         },
       ],
     },
+    // ── Round 3: WipeOut ──────────────────────────────────────────────────
     {
-      title: "WipeOut - Go All In",
+      title: "WipeOut — High Stakes",
       round_type: "wipeout",
       time_limit_seconds: 20,
       base_points: 100,
       questions: [
         {
-          body: "What happens to a player's score if they use the WipeOut wager and answer incorrectly?",
+          body: "What is the primary purpose of a liquidity pool in DeFi?",
           options: [
-            "Their wager is subtracted from their score",
-            "They lose all their points and are eliminated",
-            "Nothing - wrong answers are ignored in WipeOut",
-            "They drop to the bottom of the leaderboard",
+            "Enable decentralised token swaps without an order book",
+            "Store user passwords securely",
+            "Mine new cryptocurrency tokens",
+            "Validate blockchain transactions",
           ],
           correct_answer: 0,
-          explanation: "In WipeOut, players set a wager before answering. A wrong answer deducts the wagered amount — high risk, high reward.",
+          explanation: "Liquidity pools let AMMs like Uniswap facilitate trades without traditional market makers.",
         },
         {
-          body: "In a WipeOut round, what does wagering your maximum points mean?",
+          body: "What does 'impermanent loss' refer to?",
           options: [
-            "You double your score if correct, lose it all if wrong",
-            "You are guaranteed to win the round",
-            "Your answer is locked in before the question appears",
-            "You skip the question entirely",
+            "Loss from providing liquidity when token prices diverge",
+            "Losing your private key temporarily",
+            "A temporary network outage",
+            "Gas fees that are refunded later",
           ],
           correct_answer: 0,
-          explanation: "Maximum wager = maximum leverage. Correct answer doubles your points; wrong answer wipes them out.",
+          explanation: "Impermanent loss occurs when the price ratio of pooled tokens changes versus simply holding them.",
         },
         {
-          body: "Which player strategy is most rewarded in a WipeOut round?",
+          body: "Which protocol pioneered the automated market maker (AMM) model?",
           options: [
-            "Wager low and play it safe every time",
-            "Wager high only on questions you are confident about",
-            "Skip all questions to preserve your current score",
-            "Wager randomly to keep opponents guessing",
+            "Aave",
+            "Uniswap",
+            "Chainlink",
+            "OpenSea",
           ],
           correct_answer: 1,
-          explanation: "WipeOut rewards conviction — big wagers on confident answers can leapfrog multiple positions on the leaderboard.",
+          explanation: "Uniswap popularised the constant-product AMM formula (x * y = k) in DeFi.",
+        },
+      ],
+    },
+    // ── Round 4: Reversal ─────────────────────────────────────────────────
+    {
+      title: "Reversal — Find the False",
+      round_type: "reversal",
+      time_limit_seconds: 20,
+      base_points: 100,
+      questions: [
+        {
+          body: "Which statement about Bitcoin is FALSE?",
+          options: [
+            "Bitcoin uses a proof-of-work consensus mechanism",
+            "Bitcoin transactions are recorded on a public ledger",
+            "Bitcoin smart contracts support the same functionality as Ethereum",
+            "Bitcoin was created by the pseudonymous Satoshi Nakamoto",
+          ],
+          correct_answer: 2,
+          explanation: "Bitcoin's scripting language is intentionally limited compared to Ethereum's Turing-complete EVM.",
+        },
+        {
+          body: "Which statement about NFTs is FALSE?",
+          options: [
+            "NFTs can represent ownership of digital art",
+            "Each NFT has a unique token ID on the blockchain",
+            "NFTs guarantee the underlying asset cannot be copied",
+            "NFTs can be transferred between wallets",
+          ],
+          correct_answer: 2,
+          explanation: "NFTs prove ownership on-chain, but the underlying digital file can still be copied — ownership ≠ copy protection.",
+        },
+        {
+          body: "Which statement about stablecoins is FALSE?",
+          options: [
+            "USDC is backed by cash and short-term treasuries",
+            "DAI maintains its peg through overcollateralised crypto positions",
+            "All stablecoins are backed 1:1 by US dollars in a bank",
+            "Stablecoins are widely used for DeFi lending and borrowing",
+          ],
+          correct_answer: 2,
+          explanation: "Algorithmic and crypto-collateralised stablecoins (like DAI) don't rely on fiat bank reserves.",
+        },
+      ],
+    },
+    // ── Round 5: Pressure Cooker ──────────────────────────────────────────
+    {
+      title: "Pressure Cooker — Spotlight",
+      round_type: "pressure_cooker",
+      time_limit_seconds: 15,
+      base_points: 100,
+      questions: [
+        {
+          body: "What is a 'rug pull' in crypto?",
+          options: [
+            "When developers abandon a project after taking investor funds",
+            "When a token price suddenly increases",
+            "A type of blockchain consensus mechanism",
+            "A DeFi lending strategy",
+          ],
+          correct_answer: 0,
+          explanation: "A rug pull is a scam where developers drain liquidity or funds, leaving investors with worthless tokens.",
+        },
+        {
+          body: "What does 'DYOR' stand for in crypto communities?",
+          options: [
+            "Decentralise Your Own Resources",
+            "Do Your Own Research",
+            "Deposit Your Original Returns",
+            "Distribute Yield On Request",
+          ],
+          correct_answer: 1,
+          explanation: "DYOR = Do Your Own Research — a common reminder to verify claims before investing.",
+        },
+        {
+          body: "What is a 'gas war'?",
+          options: [
+            "A geopolitical conflict over natural gas",
+            "When users compete by bidding up gas fees to get transactions included faster",
+            "A game mode in blockchain-based video games",
+            "When miners refuse to process transactions",
+          ],
+          correct_answer: 1,
+          explanation: "Gas wars happen during high-demand events (NFT mints, token launches) when users outbid each other for block space.",
+        },
+      ],
+    },
+    // ── Round 6: Pixel Reveal ─────────────────────────────────────────────
+    {
+      title: "Pixel Reveal — Name That Logo",
+      round_type: "pixel_reveal",
+      time_limit_seconds: 20,
+      base_points: 100,
+      questions: [
+        {
+          body: "Which blockchain protocol does this logo belong to?",
+          options: ["Ethereum", "Solana", "Polygon", "Avalanche"],
+          correct_answer: 0,
+          explanation: "The diamond-shaped logo is Ethereum's iconic symbol.",
+          image_url: "https://cryptologos.cc/logos/ethereum-eth-logo.png",
+        },
+        {
+          body: "Identify this DeFi protocol from its logo.",
+          options: ["Aave", "Compound", "Uniswap", "SushiSwap"],
+          correct_answer: 2,
+          explanation: "The pink unicorn is Uniswap's recognisable brand mark.",
+          image_url: "https://cryptologos.cc/logos/uniswap-uni-logo.png",
+        },
+        {
+          body: "Which blockchain does this logo represent?",
+          options: ["Cardano", "Polkadot", "Solana", "Cosmos"],
+          correct_answer: 2,
+          explanation: "The gradient circle is Solana's logo.",
+          image_url: "https://cryptologos.cc/logos/solana-sol-logo.png",
+        },
+      ],
+    },
+    // ── Round 7: Closest Wins ─────────────────────────────────────────────
+    {
+      title: "Closest Wins — Numbers Game",
+      round_type: "closest_wins",
+      time_limit_seconds: 20,
+      base_points: 100,
+      questions: [
+        {
+          body: "How many mass (gwei) is 1 ETH? (enter a number)",
+          options: [],
+          correct_answer: 0,
+          correct_answer_numeric: 1000000000,
+          explanation: "1 ETH = 1,000,000,000 gwei (10^9).",
+        },
+        {
+          body: "What is Bitcoin's maximum supply? (enter a number)",
+          options: [],
+          correct_answer: 0,
+          correct_answer_numeric: 21000000,
+          explanation: "Bitcoin has a hard cap of 21,000,000 BTC.",
+        },
+        {
+          body: "In what year was the Ethereum mainnet launched? (enter the year)",
+          options: [],
+          correct_answer: 0,
+          correct_answer_numeric: 2015,
+          explanation: "Ethereum mainnet (Frontier) went live on July 30, 2015.",
+        },
+      ],
+    },
+    // ── Round 8: The Narrative ────────────────────────────────────────────
+    {
+      title: "The Narrative — Read the Room",
+      round_type: "the_narrative",
+      time_limit_seconds: 20,
+      base_points: 100,
+      questions: [
+        {
+          body: "Which sector will see the most crypto adoption in the next 2 years?",
+          options: ["Gaming / GameFi", "Real-world assets (RWA)", "Social media (SocialFi)", "AI + Crypto"],
+          correct_answer: 0,
+          explanation: "Majority vote wins — there's no objectively correct answer. Read the room!",
+        },
+        {
+          body: "What is the biggest barrier to mainstream crypto adoption?",
+          options: ["Poor UX and complex wallets", "Regulatory uncertainty", "Volatility and risk perception", "Lack of real utility"],
+          correct_answer: 0,
+          explanation: "The majority decides. The Narrative rewards social intuition, not factual knowledge.",
+        },
+        {
+          body: "Which L2 will have the most TVL by end of 2026?",
+          options: ["Arbitrum", "Base", "Optimism", "zkSync"],
+          correct_answer: 0,
+          explanation: "No right answer — just the crowd's consensus. Did you read the room?",
+        },
+      ],
+    },
+    // ── Round 9: Oracle's Dilemma ─────────────────────────────────────────
+    {
+      title: "Oracle's Dilemma — Trust or Doubt",
+      round_type: "oracles_dilemma",
+      time_limit_seconds: 25,
+      base_points: 100,
+      questions: [
+        {
+          body: "What is a 'flash loan' in DeFi?",
+          options: [
+            "An uncollateralised loan that must be repaid within one transaction",
+            "A loan with extremely high interest rates",
+            "A peer-to-peer lending arrangement",
+            "A government-backed emergency crypto loan",
+          ],
+          correct_answer: 0,
+          explanation: "Flash loans are borrowed and repaid atomically within a single block — no collateral needed.",
+        },
+        {
+          body: "What does MEV stand for?",
+          options: [
+            "Maximum Extractable Value",
+            "Minimum Ethereum Validation",
+            "Multi-chain Exchange Volume",
+            "Managed Escrow Vault",
+          ],
+          correct_answer: 0,
+          explanation: "MEV = Maximum Extractable Value — profit extracted by reordering, inserting, or censoring transactions.",
+        },
+        {
+          body: "What is an 'oracle' in blockchain context?",
+          options: [
+            "A service that feeds external data to smart contracts",
+            "A type of consensus algorithm",
+            "A blockchain explorer tool",
+            "A hardware wallet manufacturer",
+          ],
+          correct_answer: 0,
+          explanation: "Oracles bridge off-chain data (prices, weather, etc.) into on-chain smart contracts.",
         },
       ],
     },
@@ -346,6 +548,8 @@ export function JsonImportModal({
         correct_answer: q.correct_answer,
         explanation: q.explanation ?? null,
         sort_order: qi,
+        ...(q.image_url ? { image_url: q.image_url } : {}),
+        ...(q.correct_answer_numeric != null ? { correct_answer_numeric: q.correct_answer_numeric } : {}),
       }));
 
       if (rows.length > 0) {

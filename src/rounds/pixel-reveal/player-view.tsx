@@ -26,6 +26,7 @@
 import { Check, X } from "lucide-react";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { RoundPlayerViewProps } from "@/lib/game/round-registry";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 const OPTION_LABELS = ["A", "B", "C", "D"];
 
@@ -46,7 +47,7 @@ export function PixelRevealPlayerView({
   const isTimedOut = timeLeft === 0 && !hasAnswered;
 
   // Image URL from question data (set by question builder, stored in questions.image_url)
-  const imageUrl = question.image_url ?? null;
+  const imageUrl = question.image_url ? proxyImageUrl(question.image_url) : null;
 
   // Blur interpolation: full blur at timeLeft = timeLimit, 0 at timeLeft = 0
   const timeLimitMs = question.time_limit_seconds * 1000;

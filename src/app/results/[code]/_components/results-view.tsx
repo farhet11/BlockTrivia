@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Link } from "lucide-react";
 import { AppHeader } from "@/app/_components/app-header";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Entry = {
   player_id: string;
@@ -151,7 +152,7 @@ export function ResultsView({
     <div className="min-h-dvh bg-background flex flex-col">
       <AppHeader
         right={event.logoUrl ? (
-          <img src={event.logoUrl} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+          <img src={proxyImageUrl(event.logoUrl)} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
         ) : null}
       />
 
@@ -295,7 +296,7 @@ export function ResultsView({
                     {sponsors.map((s) => (
                       <img
                         key={s.id}
-                        src={s.logo_url}
+                        src={proxyImageUrl(s.logo_url)}
                         alt={s.name ?? "Sponsor"}
                         className="max-h-8 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all"
                       />

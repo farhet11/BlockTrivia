@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import type { Question, Round } from "./question-builder";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 export function QuestionRow({
   question,
@@ -263,8 +264,8 @@ export function QuestionRow({
                 className="w-full text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
               />
               {localImageUrl && (
-                <div className="mt-1 w-32 h-20 border border-border overflow-hidden bg-muted">
-                  <img src={localImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                <div className="mt-1 w-32 border border-border overflow-hidden bg-muted p-1">
+                  <img src={proxyImageUrl(localImageUrl)} alt="Preview" className="w-full h-auto object-contain" />
                 </div>
               )}
             </div>

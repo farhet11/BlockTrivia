@@ -1,5 +1,7 @@
 "use client";
 
+import { proxyImageUrl } from "@/lib/image-proxy";
+
 type Sponsor = {
   id: string;
   name: string | null;
@@ -21,7 +23,7 @@ export function SponsorBar({ sponsors }: { sponsors: Sponsor[] }) {
           .map((s) => (
             <img
               key={s.id}
-              src={s.logo_url}
+              src={proxyImageUrl(s.logo_url)}
               alt={s.name ?? "Sponsor"}
               title={s.name ?? undefined}
               className="h-5 md:h-8 max-w-[80px] md:max-w-[120px] object-contain grayscale opacity-60 dark:invert dark:brightness-200"

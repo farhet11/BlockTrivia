@@ -17,14 +17,15 @@
  */
 
 import { useEffect, useState } from "react";
+import { RoundTypeBadge } from "@/app/_components/round-type-badge";
 
 interface ModifierActivationOverlayProps {
   /** Display name of the modifier (e.g. "Jackpot Mode") */
   modifierName: string;
   /** Short subtitle (e.g. "First correct answer wins 5× points") */
   subtitle?: string;
-  /** Emoji or icon to show */
-  icon?: string;
+  /** Modifier type key — looked up against the round-type badge mapping. */
+  modifierType?: string;
   /** Called when the animation finishes (~2.5s) */
   onComplete: () => void;
 }
@@ -32,7 +33,7 @@ interface ModifierActivationOverlayProps {
 export function ModifierActivationOverlay({
   modifierName,
   subtitle,
-  icon = "🎰",
+  modifierType = "jackpot",
   onComplete,
 }: ModifierActivationOverlayProps) {
   const [phase, setPhase] = useState<"enter" | "hold" | "exit">("enter");
@@ -96,10 +97,10 @@ export function ModifierActivationOverlay({
           opacity: phase === "enter" ? 0 : undefined,
         }}
       >
-        {/* Icon */}
-        <span className="text-5xl" style={{ filter: "drop-shadow(0 0 20px rgba(245,158,11,0.6))" }}>
-          {icon}
-        </span>
+        {/* Icon — stage-size 48px badge */}
+        <div style={{ filter: "drop-shadow(0 0 20px rgba(245,158,11,0.6))" }}>
+          <RoundTypeBadge type={modifierType} size={48} />
+        </div>
 
         {/* Modifier name */}
         <h1

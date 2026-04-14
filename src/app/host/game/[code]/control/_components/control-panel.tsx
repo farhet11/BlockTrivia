@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase";
+import { useServerClock } from "@/lib/use-server-clock";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { AppHeader } from "@/app/_components/app-header";
 import { BrandedQR } from "@/app/_components/branded-qr";
@@ -104,6 +106,7 @@ export function ControlPanel({
   hostUser?: { id: string; displayName: string; email: string; avatarUrl: string | null };
 }) {
   const supabase = useMemo(() => createClient(), []);
+  const { serverNow } = useServerClock();
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [playerCount, setPlayerCount] = useState(initialPlayerCount);
   const [loading, setLoading] = useState(false);
@@ -184,7 +187,7 @@ export function ControlPanel({
   // Track how many players have answered the current question
   useEffect(() => {
     if (!gameState.current_question_id || gameState.phase !== "playing") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setAnsweredCount(0);
       return;
     }
@@ -257,7 +260,7 @@ export function ControlPanel({
   // Fetch leaderboard when phase is "leaderboard"
   useEffect(() => {
     if (gameState.phase !== "leaderboard") return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setLbLoading(true);
 
     // Snapshot current ranks for delta computation
@@ -316,12 +319,16 @@ export function ControlPanel({
         setLbDeltas(deltas);
         setLbLoading(false);
       });
-  }, [gameState.phase, event.id, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+    // `lbEntries` intentionally omitted: it's only read to snapshot previous
+    // ranks for delta computation; re-including it would cause the effect to
+    // re-fire on every setLbEntries() and create an infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.phase, event.id, supabase]);
 
   // Countdown timer (question)
   useEffect(() => {
     if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setTimeLeft(null);
       return;
     }
@@ -332,7 +339,7 @@ export function ControlPanel({
     const tick = () => {
       const remaining = Math.max(
         0,
-        Math.ceil((startedAt + duration - Date.now()) / 1000)
+        Math.ceil((startedAt + duration - serverNow()) / 1000)
       );
       setTimeLeft(remaining);
       if (remaining <= 0) clearInterval(interval);
@@ -341,12 +348,12 @@ export function ControlPanel({
     tick();
     const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [gameState.phase, gameState.question_started_at, currentQuestion]);
+  }, [gameState.phase, gameState.question_started_at, currentQuestion, serverNow]);
 
   // Interstitial auto-advance countdown (8s)
   useEffect(() => {
     if (gameState.phase !== "interstitial") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+       
       setInterstitialCountdown(null);
       if (interstitialTimerRef.current) {
         clearInterval(interstitialTimerRef.current);
@@ -370,7 +377,7 @@ export function ControlPanel({
     return () => {
       if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
     };
-  }, [gameState.phase, gameState.current_round_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gameState.phase, gameState.current_round_id]);
 
   const updateGameState = useCallback(
     async (updates: Partial<GameState>) => {
@@ -976,11 +983,11 @@ export function ControlPanel({
                   Hosted by
                 </p>
                 {event.logoUrl ? (
-                  <img src={event.logoUrl} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
+                  <Image src={event.logoUrl} alt={event.organizerName ?? "Organizer"} width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
                 ) : (
                   <>
-                    <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
-                    <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain hidden dark:block" />
+                    <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />
+                    <Image src="/logo-dark.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain hidden dark:block" />
                   </>
                 )}
               </div>
@@ -1164,7 +1171,7 @@ export function ControlPanel({
           <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
           <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
             {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-              <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+              <Image key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} width={100} height={24} unoptimized className="h-6 w-auto max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
             ))}
           </div>
         </div>
@@ -1178,7 +1185,7 @@ export function ControlPanel({
               <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
               <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
                 {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                  <img key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+                  <Image key={s.id} src={s.logo_url} alt={s.name ?? "Sponsor"} width={100} height={24} unoptimized className="h-6 w-auto max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
                 ))}
               </div>
             </div>
@@ -1213,8 +1220,8 @@ export function ControlPanel({
             </svg>
           </button>
 
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-10 mb-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-10 mb-6 hidden dark:block" />
+          <Image src="/logo-light.svg" alt="BlockTrivia" width={180} height={40} className="h-10 w-auto mb-6 dark:hidden" />
+          <Image src="/logo-dark.svg" alt="BlockTrivia" width={180} height={40} className="h-10 w-auto mb-6 hidden dark:block" />
 
           <h1 className="font-heading text-2xl font-bold text-center mb-8">{event.title}</h1>
 

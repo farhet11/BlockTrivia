@@ -41,7 +41,7 @@ const NAV_SECTIONS: NavSection[] = [
 
 export function HostSidebar({
   user,
-  role,
+  role: _role,
   collapsed,
   onToggleCollapse,
 }: {

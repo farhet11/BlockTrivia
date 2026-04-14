@@ -196,15 +196,6 @@ export function OnboardingFlow({
     setData((d) => ({ ...d, [key]: value }));
   }
 
-  function toggleChannel(ch: string) {
-    setData((d) => ({
-      ...d,
-      community_channels: d.community_channels.includes(ch)
-        ? d.community_channels.filter((c) => c !== ch)
-        : [...d.community_channels, ch],
-    }));
-  }
-
   /**
    * Persists the current data snapshot. Pass `completed = true` only when
    * the host explicitly clicks "Finish" on first-time onboarding.

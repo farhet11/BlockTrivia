@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PodiumLayout, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
@@ -52,8 +53,8 @@ export default function LeaderboardPinnedPreview() {
           <h2 className="font-heading text-xl font-semibold text-foreground">Real Assets</h2>
           <p className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">Hosted by</p>
           <div className="flex justify-center">
-            <img src="/logo-light.svg" alt="" className="h-5 object-contain dark:hidden" />
-            <img src="/logo-dark.svg" alt="" className="h-5 object-contain hidden dark:block" />
+            <Image src="/logo-light.svg" alt="" width={80} height={20} className="h-5 w-auto object-contain dark:hidden" />
+            <Image src="/logo-dark.svg" alt="" width={80} height={20} className="h-5 w-auto object-contain hidden dark:block" />
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 
@@ -107,9 +108,11 @@ export function SponsorsPanel({
           {sponsors.length === 0 && (
             <div className="border border-dashed border-border bg-background p-3">
               <div className="flex items-center gap-3">
-                <img
+                <Image
                   src="/logo-light.svg"
                   alt="Sample sponsor logo"
+                  width={64}
+                  height={32}
                   className="h-8 w-16 object-contain grayscale opacity-50 shrink-0"
                 />
                 <div className="flex-1 min-w-0">
@@ -137,9 +140,12 @@ export function SponsorsPanel({
             <div className="space-y-2">
               {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
                 <div key={s.id} className="flex items-center gap-3 border border-border bg-background p-3">
-                  <img
+                  <Image
                     src={s.logo_url}
                     alt={s.name ?? "Sponsor"}
+                    width={64}
+                    height={32}
+                    unoptimized
                     className="h-8 w-16 object-contain grayscale opacity-60 shrink-0"
                   />
                   <input
@@ -204,20 +210,25 @@ export function SponsorsPanel({
               <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg mx-auto">
                 {sponsors.length > 0
                   ? sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                      <img
+                      <Image
                         key={s.id}
                         src={s.logo_url}
                         alt={s.name ?? "Sponsor"}
-                        className={`h-8 max-w-[120px] object-contain grayscale opacity-60 ${
+                        width={120}
+                        height={32}
+                        unoptimized
+                        className={`h-8 w-auto max-w-[120px] object-contain grayscale opacity-60 ${
                           previewTheme === "dark" ? "invert brightness-200" : ""
                         }`}
                       />
                     ))
                   : (
-                      <img
+                      <Image
                         src="/logo-light.svg"
                         alt="Sample sponsor logo"
-                        className={`h-8 max-w-[120px] object-contain grayscale opacity-60 ${
+                        width={120}
+                        height={32}
+                        className={`h-8 w-auto max-w-[120px] object-contain grayscale opacity-60 ${
                           previewTheme === "dark" ? "invert brightness-200" : ""
                         }`}
                       />

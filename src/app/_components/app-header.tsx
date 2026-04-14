@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { AvatarDropdown } from "./avatar-dropdown";
 
 export function AppHeader({
@@ -21,15 +22,19 @@ export function AppHeader({
     <div className="border-b border-border w-full shrink-0">
       <header className={`px-5 h-14 flex items-center justify-between w-full ${fullWidth ? "" : "max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto"}`}>
         <a href={logoHref}>
-          <img
+          <Image
             src="/logo-light.svg"
             alt="BlockTrivia"
-            className="h-6 dark:hidden"
+            width={100}
+            height={24}
+            className="h-6 w-auto dark:hidden"
           />
-          <img
+          <Image
             src="/logo-dark.svg"
             alt="BlockTrivia"
-            className="h-6 hidden dark:block"
+            width={100}
+            height={24}
+            className="h-6 w-auto hidden dark:block"
           />
         </a>
 

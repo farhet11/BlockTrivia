@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase";
 
@@ -106,10 +107,13 @@ export function EventLogoPanel({
           {logoUrl ? (
             <div className="flex items-center gap-4">
               <div className="border border-border bg-background p-3 flex-shrink-0">
-                <img
+                <Image
                   src={logoUrl}
                   alt="Event logo"
-                  className="h-10 max-w-[160px] object-contain"
+                  width={160}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-auto max-w-[160px] object-contain"
                 />
               </div>
               <div className="flex flex-col gap-2">

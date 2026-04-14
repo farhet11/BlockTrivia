@@ -68,7 +68,7 @@ function PodiumSlot({
   large?: boolean;
   myPlayerId?: string;
 }) {
-  const isMe = myPlayerId != null && entry.player_id === myPlayerId;
+  const _isMe = myPlayerId != null && entry.player_id === myPlayerId;
   const barColor = RANK_BAR[entry.rank] ?? "#9ca3af";
   const avatarSize = large ? 56 : 48;
 

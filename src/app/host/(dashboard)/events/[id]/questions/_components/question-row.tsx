@@ -264,8 +264,8 @@ export function QuestionRow({
                 className="w-full text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
               />
               {localImageUrl && (
-                <div className="mt-1 w-32 h-20 border border-border overflow-hidden bg-muted">
-                  <img src={proxyImageUrl(localImageUrl)} alt="Preview" className="w-full h-full object-cover" />
+                <div className="mt-1 w-32 border border-border overflow-hidden bg-muted p-1">
+                  <img src={proxyImageUrl(localImageUrl)} alt="Preview" className="w-full h-auto object-contain" />
                 </div>
               )}
             </div>

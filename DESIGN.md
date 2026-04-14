@@ -78,6 +78,24 @@ What makes BlockTrivia's design genuinely distinctive is that it must survive co
 
 BlockTrivia is **gradient-free** in the traditional sense. No CSS gradients appear on surfaces, buttons, or backgrounds. The one exception is the timer bar, which transitions from Electric Violet → Timer Amber → Timer Critical as time runs out — a functional gradient that communicates urgency, not decoration. Visual richness comes from the interplay of warm surface tones, the breathing violet pattern overlay, and the light/dark section alternation.
 
+### Section Background Patterns
+
+For **marketing and info pages only** (landing, how-it-works, pricing) we layer three section backgrounds in alternating rhythm. Gameplay screens (question, leaderboard, lobby, results) **never** use these blocks — they stay on Warm Canvas / Night Canvas to keep zero distraction.
+
+| Block | Background | Headings | Body | Accent / borders | Cards / CTA |
+|-------|------------|----------|------|------------------|-------------|
+| **Warm Canvas** (default) | `#faf9f7` | Ink | Stone | Warm Border | as documented |
+| **Ink** (dark editorial) | Ink `#1a1917` | Snow `#fafafa` | Ash `#a1a1aa` | Night Border `#27272a` | Night Surface `#18181b` cards; Electric Violet pops on dark |
+| **Violet** (loud brand) | Electric Violet `#7c3aed` | `#ffffff` | `rgba(255,255,255,0.8)` | `rgba(255,255,255,0.15)` | Inverted CTA: Ink bg + white text |
+
+**Rules of the rhythm:**
+
+- Use Ink sections for hero stats, social proof, "how it works", testimonials, footer.
+- Use **one** Violet section per page maximum — it's the loudest moment, dilute it and it stops working. Typical use: a "join the arena" CTA block.
+- Every Warm Canvas section between blocks creates the breath that makes the dark / violet sections feel earned.
+
+Reusable React primitives live at `src/app/_components/marketing/section.tsx`: `<CanvasSection>`, `<InkSection>`, `<VioletSection>`.
+
 ---
 
 ## 3. Typography Rules
@@ -94,8 +112,8 @@ BlockTrivia is **gradient-free** in the traditional sense. No CSS gradients appe
 | Role | Font | Size | Weight | Line Height | Letter Spacing | Notes |
 |------|------|------|--------|-------------|----------------|-------|
 | Wordmark | Outfit | — | 800 | — | -0.02em | Logo only. Tight, geometric, confident. |
-| Hero / page title | Outfit | 28–36px | 600 | 1.20 | -0.02em | Display headings, marketing heroes |
-| Section heading | Outfit | 20–24px | 600 | 1.30 | -0.01em | Clear section anchors |
+| Hero / page title | Outfit | `clamp(52px, 8vw, 96px)` | **800** | 1.05 | **-0.03em** | Display headings, marketing heroes — bumped Apr 2026 for boldness |
+| Section heading | Outfit | 28–40px | **700** | 1.15 | **-0.03em** | Clear section anchors — bumped Apr 2026 |
 | Subheading | Inter | 17–18px | 500 | 1.40 | 0 | Card titles, feature names |
 | Question text | Inter | 18–20px | 500 | 1.40 | 0 | The most critical size — must be readable at arm's length in 2 seconds |
 | Body | Inter | 16px | 400 | 1.60 | 0 | Standard reading text |
@@ -245,6 +263,42 @@ BlockTrivia is **gradient-free** in the traditional sense. No CSS gradients appe
 
 Whitespace is the most important design element in BlockTrivia. It's not "empty space" — it's the room between a player's thumb and a wrong button tap. It's the breathing room that lets a question be parsed in 2 seconds instead of 4. When in doubt, add more space. A screen that feels "too empty" in Figma will feel "exactly right" at 3pm at ETH Denver with 200 people in the room.
 
+### Section Rhythm (marketing pages)
+
+On marketing/info pages — landing, how-it-works, pricing — sections alternate background blocks (see §2 "Section Background Patterns") to create visual rhythm and let the eye breathe between dense moments.
+
+Canonical landing-page rhythm:
+
+```
+[Warm Canvas]  hero
+[Ink]          social proof / stats
+[Warm Canvas]  how it works
+[Violet]       CTA block (one per page max)
+[Warm Canvas]  features
+[Ink]          footer
+```
+
+Gameplay screens do **not** alternate sections — they stay on Warm Canvas / Night Canvas only. The rhythm is for marketing surfaces where the goal is "make me feel something"; gameplay screens have one goal: "make me answer in 10 seconds."
+
+### Numbered Step Badges
+
+For "How it works" sequences and any numbered list rendered visually:
+
+- 32×32px (default), 6px radius, Outfit 16px weight 700, white text
+- 3-step rotation: Step 1 = Electric Violet · Step 2 = Ink · Step 3 = Timer Amber
+- Component: `<NumberedStep n={1} />` from `src/app/_components/marketing/numbered-step.tsx`
+
+### Landing Page Stats Bar
+
+Marketing-only stats row (e.g. "12k+ players · 340 events · 97% cheat-free"):
+
+- Number: Outfit 36px weight 800
+- Label: Inter 14px weight 400
+- Layout: horizontal, evenly spaced, centered
+- Component: `<StatsBar tone="light|dark" />` from `src/app/_components/marketing/stats-bar.tsx`
+
+In-app stats bars (profile, results) keep their current sizing — this section bar is louder by design because marketing pages are reaching, not reporting.
+
 ---
 
 ## 6. Depth & Elevation
@@ -289,6 +343,7 @@ BlockTrivia uses a **flat surface hierarchy** — the most extreme version of th
 - Respect `prefers-reduced-motion` — wrap all animations in the media query
 - Use Inter for any text a player reads under time pressure
 - Test every screen at maximum phone brightness
+- Alternate section backgrounds on marketing pages (Warm Canvas → Ink → Warm Canvas → Violet → Warm Canvas → Ink) — the rhythm creates breath
 
 ### Don't
 
@@ -302,6 +357,8 @@ BlockTrivia uses a **flat surface hierarchy** — the most extreme version of th
 - Don't use blue as an accent color — it's reserved for links and info states only
 - Don't default to dark mode — light is the default entry point; dark mode is a toggle
 - Don't clutter gameplay screens — every pixel must serve the 10-second decision window
+- Don't use color blocks (Ink, Violet) on gameplay screens — they're marketing-only. Gameplay stays on Warm Canvas / Night Canvas
+- Don't ship more than ONE Violet section per page — it's the loudest moment, dilute it and it stops working
 
 ---
 

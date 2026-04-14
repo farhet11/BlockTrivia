@@ -613,6 +613,23 @@ export function ControlPanel({
     });
   }
 
+  // Reset to lobby — recovers from corrupted game state
+  async function resetToLobby() {
+    await updateEventStatus("draft");
+    await updateGameState({
+      phase: "lobby",
+      current_round_id: null,
+      current_question_id: null,
+      question_started_at: null,
+      started_at: null,
+      ended_at: null,
+      round_state: {},
+      modifier_state: {},
+    } as Partial<GameState>);
+    setPrePausePhase(null);
+    setActiveModifier(null);
+  }
+
   function copyCode() {
     navigator.clipboard.writeText(event.joinCode).then(() => {
       setCopied(true);
@@ -1100,6 +1117,47 @@ export function ControlPanel({
               >
                 View Summary →
               </a>
+              <a
+                href="/host"
+                className="h-12 px-8 bg-surface border border-border font-medium flex items-center justify-center hover:bg-background transition-colors"
+              >
+                Dashboard
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Recovery — corrupted state (e.g. "revealing" with no current question) */}
+        {!(
+          (gameState.phase === "lobby" && !gameState.started_at) ||
+          (gameState.phase === "playing" && currentQuestion) ||
+          (gameState.phase === "revealing" && currentQuestion) ||
+          gameState.phase === "leaderboard" ||
+          gameState.phase === "interstitial" ||
+          gameState.phase === "ended"
+        ) && (
+          <div className="flex flex-col items-center justify-center py-20 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center justify-center size-16 border-2 border-wrong/30 bg-wrong/5 mb-2">
+                <svg className="size-8 text-wrong" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+              </div>
+              <h1 className="font-heading text-2xl font-bold">Game state out of sync</h1>
+              <p className="text-muted-foreground text-sm max-w-sm mx-auto">
+                The game got into an unexpected state
+                <span className="font-mono text-xs ml-1">({gameState.phase})</span>.
+                Reset to the lobby to start fresh.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={resetToLobby}
+                disabled={loading}
+                className="h-12 px-8 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+              >
+                Reset to Lobby
+              </button>
               <a
                 href="/host"
                 className="h-12 px-8 bg-surface border border-border font-medium flex items-center justify-center hover:bg-background transition-colors"

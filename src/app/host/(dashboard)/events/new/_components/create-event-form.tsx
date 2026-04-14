@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -157,10 +158,9 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
   // Organizer typeahead state
   const [organizerName, setOrganizerName] = useState(editEvent?.organizer_name ?? "");
   const [userId, setUserId] = useState<string | null>(null);
-  const [suggestions, setSuggestions] = useState<OrganizerSuggestion[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [_suggestions, setSuggestions] = useState<OrganizerSuggestion[]>([]);
+  const [_showSuggestions, setShowSuggestions] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(null);
-  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   // Project link (RootData) state
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -171,7 +171,7 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
   // at, and we want it independent from the larger Organizer / Host Logo
   // upload preview below, which only takes the full brand mark.
   const [inlineOrganizerLogo, setInlineOrganizerLogo] = useState<string | null>(null);
-  const [projectQuery, setProjectQuery] = useState("");
+  const [_projectQuery, setProjectQuery] = useState("");
   const [projectResults, setProjectResults] = useState<{ project_id: number; name: string; one_liner: string | null; logo: string | null }[]>([]);
   const [projectSearching, setProjectSearching] = useState(false);
   const projectDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
@@ -256,7 +256,7 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
           });
         }
       });
-  }, [fromEventId, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fromEventId, supabase]);  
 
   // ── Luma link detection + import ──────────────────────────────────────
   // Regex matches any lu.ma or luma.com URL so we detect the link whether
@@ -345,7 +345,7 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
   }
 
   // Debounced organizer name search
-  const searchOrganizers = useCallback(
+  const _searchOrganizers = useCallback(
     (query: string) => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
 
@@ -392,47 +392,6 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
     },
     [userId, supabase],
   );
-
-  function handleOrganizerChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = e.target.value;
-    setOrganizerName(value);
-    searchOrganizers(value);
-  }
-
-  function handleSelectSuggestion(suggestion: OrganizerSuggestion) {
-    setOrganizerName(suggestion.organizer_name);
-
-    if (suggestion.logo_url) {
-      setLogoPreview(suggestion.logo_url);
-      setLogoUrl(suggestion.logo_url);
-      setLogoFile(null);
-    }
-
-    if (suggestion.logo_dark_url) {
-      setLogoDarkPreview(suggestion.logo_dark_url);
-      setLogoDarkUrl(suggestion.logo_dark_url);
-      setLogoDarkFile(null);
-      setHasDarkLogo(true);
-    }
-
-    if (suggestion.logo_url || suggestion.logo_dark_url) {
-      setShowMore(true);
-    }
-
-    setShowSuggestions(false);
-    setSuggestions([]);
-  }
-
-  function handleOrganizerBlur() {
-    blurTimeoutRef.current = setTimeout(() => {
-      setShowSuggestions(false);
-    }, 200);
-  }
-
-  function handleOrganizerFocus() {
-    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    if (suggestions.length > 0) setShowSuggestions(true);
-  }
 
   function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1276,25 +1235,34 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
             <div className="grid grid-cols-2 gap-2">
               <div className="border border-border bg-[#faf9f7] p-5 flex flex-col items-center gap-2">
                 <p className="text-[10px] font-medium uppercase tracking-wider text-stone-400">Light Mode</p>
-                <img
+                <Image
                   src={logoPreview}
                   alt="Logo on light"
-                  className="h-10 max-w-[160px] object-contain"
+                  width={160}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-auto max-w-[160px] object-contain"
                 />
               </div>
               <div className="border border-border bg-[#09090b] p-5 flex flex-col items-center gap-2">
                 <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">Dark Mode</p>
                 {hasDarkLogo && logoDarkPreview ? (
-                  <img
+                  <Image
                     src={logoDarkPreview}
                     alt="Logo on dark"
-                    className="h-10 max-w-[160px] object-contain"
+                    width={160}
+                    height={40}
+                    unoptimized
+                    className="h-10 w-auto max-w-[160px] object-contain"
                   />
                 ) : (
-                  <img
+                  <Image
                     src={logoPreview}
                     alt="Logo on dark"
-                    className="h-10 max-w-[160px] object-contain"
+                    width={160}
+                    height={40}
+                    unoptimized
+                    className="h-10 w-auto max-w-[160px] object-contain"
                   />
                 )}
               </div>

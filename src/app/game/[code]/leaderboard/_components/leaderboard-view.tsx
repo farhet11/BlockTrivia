@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { resolvePlayerName } from "@/lib/player-name";
 import confetti from "canvas-confetti";
@@ -85,7 +87,7 @@ export function LeaderboardView({
     if (gamePhase !== "ended" || viewerType !== "player") return;
     supabase.rpc("get_event_spotlights", { p_event_id: event.id })
       .then(({ data }) => { if (data) setSpotlights(data as SpotlightEntry[]); });
-  }, [gamePhase, viewerType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gamePhase, viewerType, supabase, event.id]);
 
   // Confetti on final results
   useEffect(() => {
@@ -133,19 +135,22 @@ export function LeaderboardView({
   useEffect(() => {
     if (viewerType !== "player") return;
     router.prefetch(`/game/${event.joinCode}/play`);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [viewerType, router, event.joinCode]);
 
 
-  function applyPhase(newPhase: string) {
-    setGamePhase(newPhase);
-    gamePhaseRef.current = newPhase;
-    if (viewerType === "player" && newPhase === "playing") {
-      router.replace(`/game/${event.joinCode}/play`);
-    }
-    if (newPhase === "ended") {
-      router.replace(`/game/${event.joinCode}/leaderboard`);
-    }
-  }
+  const applyPhase = useCallback(
+    (newPhase: string) => {
+      setGamePhase(newPhase);
+      gamePhaseRef.current = newPhase;
+      if (viewerType === "player" && newPhase === "playing") {
+        router.replace(`/game/${event.joinCode}/play`);
+      }
+      if (newPhase === "ended") {
+        router.replace(`/game/${event.joinCode}/leaderboard`);
+      }
+    },
+    [viewerType, router, event.joinCode]
+  );
 
   // Realtime subscriptions
   useEffect(() => {
@@ -163,7 +168,7 @@ export function LeaderboardView({
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, event.id, event.joinCode, viewerType, router, refreshLeaderboard]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, event.id, refreshLeaderboard, applyPhase]);
 
   // Polling fallback — catches Realtime misses, same pattern as play-view
   useEffect(() => {
@@ -180,7 +185,7 @@ export function LeaderboardView({
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [supabase, event.id, viewerType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, event.id, viewerType, applyPhase]);
 
   const phaseConfig = PHASE_CONFIG[gamePhase] ?? PHASE_CONFIG.playing;
   const podiumEntries = leaderboard.slice(0, 3);
@@ -213,11 +218,11 @@ export function LeaderboardView({
               Hosted by
             </p>
             {event.logoUrl ? (
-              <img src={proxyImageUrl(event.logoUrl)} alt="Organizer" className="h-7 max-w-[120px] object-contain" />
+              <Image src={proxyImageUrl(event.logoUrl)} alt="Organizer" width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
             ) : (
               <>
-                <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
-                <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain hidden dark:block" />
+                <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />
+                <Image src="/logo-dark.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain hidden dark:block" />
               </>
             )}
           </div>
@@ -367,9 +372,9 @@ export function LeaderboardView({
             <p className="text-sm text-muted-foreground">
               Join the next <span className="font-semibold text-foreground">{event.title}</span> trivia and prove it.
             </p>
-            <a href="/join" className="inline-flex items-center h-11 px-8 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors">
+            <Link href="/join" className="inline-flex items-center h-11 px-8 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors">
               Join a Game →
-            </a>
+            </Link>
           </div>
         )}
       </div>

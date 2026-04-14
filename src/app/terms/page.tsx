@@ -19,10 +19,9 @@ export default function TermsPage() {
         <div className="prose prose-invert max-w-none space-y-6 text-sm text-muted-foreground leading-relaxed">
           <section>
             <p>
-              These Terms of Service ("Terms") govern your use of BlockTrivia ("we," "us," or "our"), including our
-              website at blocktrivia.com, our Telegram bot, and any events or games hosted on our platform.
+              {'These Terms of Service ("Terms") govern your use of BlockTrivia ("we," "us," or "our"), including our website at blocktrivia.com, our Telegram bot, and any events or games hosted on our platform.'}
             </p>
-            <p className="mt-3">By using BlockTrivia, you agree to these Terms. If you don't agree, don't use the platform.</p>
+            <p className="mt-3">{"By using BlockTrivia, you agree to these Terms. If you don't agree, don't use the platform."}</p>
           </section>
 
           <section>
@@ -43,7 +42,7 @@ export default function TermsPage() {
             </p>
 
             <h3 className="font-semibold text-foreground mt-5 mb-2">2.2 Accurate Information</h3>
-            <p>You agree to provide accurate information when setting up your account. Don't impersonate other people or create misleading display names.</p>
+            <p>{"You agree to provide accurate information when setting up your account. Don't impersonate other people or create misleading display names."}</p>
 
             <h3 className="font-semibold text-foreground mt-5 mb-2">2.3 One Account Per Person</h3>
             <p>Each person may maintain one account. Creating multiple accounts to gain competitive advantages or circumvent bans is prohibited.</p>
@@ -124,7 +123,7 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold text-foreground mt-8 mb-3">7. Intellectual Property</h2>
             <ul className="list-disc list-inside space-y-1 ml-2">
               <li>
-                <strong>BlockTrivia's IP:</strong> All platform code, design, branding, and content created by BlockTrivia is
+                <strong>{"BlockTrivia's IP:"}</strong> All platform code, design, branding, and content created by BlockTrivia is
                 owned by us
               </li>
               <li>
@@ -132,8 +131,7 @@ export default function TermsPage() {
                 non-exclusive license to use it to provide the service
               </li>
               <li>
-                <strong>Community-generated trivia:</strong> Questions created by hosts within the platform are the host's
-                intellectual property
+              <strong>Community-generated trivia:</strong> {"Questions created by hosts within the platform are the host's intellectual property"}
               </li>
             </ul>
           </section>
@@ -154,7 +152,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-8 mb-3">9. Disclaimers</h2>
-            <p>BlockTrivia is provided "as is" and "as available." We make no warranties about:</p>
+            <p>{'BlockTrivia is provided "as is" and "as available." We make no warranties about:'}</p>
             <ul className="list-disc list-inside space-y-1 ml-2 mt-2">
               <li>Uptime or availability (especially during live events on venue Wi-Fi)</li>
               <li>The accuracy of AI-generated questions</li>
@@ -174,8 +172,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-semibold text-foreground mt-8 mb-3">11. Changes to These Terms</h2>
             <p>
-              We may update these Terms as the platform grows. We'll notify you of material changes via email or
-              in-app notice. Continued use after changes constitutes acceptance.
+              {"We may update these Terms as the platform grows. We'll notify you of material changes via email or in-app notice. Continued use after changes constitutes acceptance."}
             </p>
           </section>
 

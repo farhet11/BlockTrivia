@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase";
+import { useServerClock } from "@/lib/use-server-clock";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { AppHeader } from "@/app/_components/app-header";
 import { BrandedQR } from "@/app/_components/branded-qr";
@@ -57,6 +59,8 @@ type GameState = {
   round_state: Record<string, unknown> | null;
   /** Live modifier state — set by host during game. */
   modifier_state: Record<string, unknown> | null;
+  /** Pause flag — when true, host and player freeze timer and show pause overlay without navigating. */
+  is_paused: boolean;
 };
 
 type EventInfo = {
@@ -106,12 +110,16 @@ export function ControlPanel({
   hostUser?: { id: string; displayName: string; email: string; avatarUrl: string | null };
 }) {
   const supabase = useMemo(() => createClient(), []);
+  const { serverNow } = useServerClock();
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [playerCount, setPlayerCount] = useState(initialPlayerCount);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Ref to always have the latest version of startFirstQuestionOfRound
+  // (defined later in the component — used by the interstitial countdown interval)
+  const startFirstQuestionOfRoundRef = useRef<(() => Promise<void>) | null>(null);
   const [copied, setCopied] = useState(false);
   const [stageView, setStageView] = useState(false);
   const [playerPulse, setPlayerPulse] = useState(false);
@@ -119,7 +127,6 @@ export function ControlPanel({
   const [lbLoading, setLbLoading] = useState(false);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const [prePausePhase, setPrePausePhase] = useState<string | null>(null);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
@@ -183,6 +190,7 @@ export function ControlPanel({
   // Track how many players have answered the current question
   useEffect(() => {
     if (!gameState.current_question_id || gameState.phase !== "playing") {
+       
       setAnsweredCount(0);
       return;
     }
@@ -255,6 +263,7 @@ export function ControlPanel({
   // Fetch leaderboard when phase is "leaderboard"
   useEffect(() => {
     if (gameState.phase !== "leaderboard") return;
+     
     setLbLoading(true);
 
     // Snapshot current ranks for delta computation
@@ -268,7 +277,7 @@ export function ControlPanel({
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(20)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
@@ -285,7 +294,7 @@ export function ControlPanel({
         if (entries.length === 0) {
           const { data: players } = await supabase
             .from("event_players")
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             .select(`player_id, profiles ( display_name, avatar_url )`)
             .eq("event_id", event.id)
             .limit(20);
@@ -313,37 +322,40 @@ export function ControlPanel({
         setLbDeltas(deltas);
         setLbLoading(false);
       });
-  }, [gameState.phase, event.id, supabase]); // eslint-disable-line react-hooks/exhaustive-deps
+    // `lbEntries` intentionally omitted: it's only read to snapshot previous
+    // ranks for delta computation; re-including it would cause the effect to
+    // re-fire on every setLbEntries() and create an infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.phase, event.id, supabase]);
 
-  // Countdown timer (question)
+  // Countdown timer (question) — freezes when paused
   useEffect(() => {
-    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion) {
-      setTimeLeft(null);
+    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion || gameState.is_paused) {
+      if (!gameState.is_paused) setTimeLeft(null);
       return;
     }
 
     const startedAt = new Date(gameState.question_started_at).getTime();
     const duration = currentQuestion.time_limit * 1000;
 
-    let interval: ReturnType<typeof setInterval>;
-
     const tick = () => {
       const remaining = Math.max(
         0,
-        Math.ceil((startedAt + duration - Date.now()) / 1000)
+        Math.ceil((startedAt + duration - serverNow()) / 1000)
       );
       setTimeLeft(remaining);
       if (remaining <= 0) clearInterval(interval);
     };
 
     tick();
-    interval = setInterval(tick, 200);
+    const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [gameState.phase, gameState.question_started_at, currentQuestion]);
+  }, [gameState.phase, gameState.question_started_at, gameState.is_paused, currentQuestion, serverNow]);
 
-  // Interstitial auto-advance countdown (8s)
+  // Interstitial auto-advance countdown (8s) — paused when game is paused
   useEffect(() => {
-    if (gameState.phase !== "interstitial") {
+    if (gameState.phase !== "interstitial" || gameState.is_paused) {
+
       setInterstitialCountdown(null);
       if (interstitialTimerRef.current) {
         clearInterval(interstitialTimerRef.current);
@@ -360,14 +372,14 @@ export function ControlPanel({
       setInterstitialCountdown(count);
       if (count <= 0) {
         if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
-        startFirstQuestionOfRound();
+        startFirstQuestionOfRoundRef.current?.();
       }
     }, 1000);
 
     return () => {
       if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
     };
-  }, [gameState.phase, gameState.current_round_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gameState.phase, gameState.current_round_id, gameState.is_paused]);
 
   const updateGameState = useCallback(
     async (updates: Partial<GameState>) => {
@@ -540,6 +552,10 @@ export function ControlPanel({
       modifier_state: {},
     } as Partial<GameState>);
   }
+  // Keep the ref in sync for the interstitial countdown to call the latest version
+  useEffect(() => {
+    startFirstQuestionOfRoundRef.current = startFirstQuestionOfRound;
+  });
 
   // Next question (or show interstitial at round boundary)
   async function nextQuestion() {
@@ -589,21 +605,21 @@ export function ControlPanel({
 
   // Pause — shows leaderboard, remembers where we were
   async function pauseGame() {
-    setPrePausePhase(gameState.phase);
+    // Keep phase intact — just set is_paused so players stay on /play (no route transition).
     await updateEventStatus("paused");
-    await updateGameState({ phase: "leaderboard" });
+    await updateGameState({ is_paused: true } as Partial<GameState>);
   }
 
-  // Resume — goes back to exactly where we paused
+  // Resume — clear pause flag and reset timer to full for the current question
   async function resumeGame() {
-    const phase = prePausePhase ?? "playing";
-    setPrePausePhase(null);
     await updateEventStatus("active");
-    if (phase === "revealing") {
-      await updateGameState({ phase: "revealing" });
-    } else {
-      await updateGameState({ phase: "playing", question_started_at: new Date().toISOString() });
+    // Only refresh question_started_at when we're in "playing" — revealing/interstitial
+    // don't have an active timer to reset.
+    const updates: Partial<GameState> = { is_paused: false };
+    if (gameState.phase === "playing") {
+      updates.question_started_at = new Date().toISOString();
     }
+    await updateGameState(updates);
   }
 
   // End game
@@ -627,8 +643,8 @@ export function ControlPanel({
       ended_at: null,
       round_state: {},
       modifier_state: {},
+      is_paused: false,
     } as Partial<GameState>);
-    setPrePausePhase(null);
     setActiveModifier(null);
   }
 
@@ -731,8 +747,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Playing — show current question */}
-        {gameState.phase === "playing" && currentQuestion && (
+        {/* Phase: Playing — show current question (hide when paused; leaderboard takes over) */}
+        {gameState.phase === "playing" && currentQuestion && !gameState.is_paused && (
           <div className="py-8 space-y-6">
             {/* Progress */}
             <div className="space-y-2">
@@ -931,8 +947,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Revealing — show correct answer, then advance */}
-        {gameState.phase === "revealing" && currentQuestion && (
+        {/* Phase: Revealing — show correct answer, then advance (hide when paused) */}
+        {gameState.phase === "revealing" && currentQuestion && !gameState.is_paused && (
           <div className="py-8 space-y-6">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-2">
@@ -979,8 +995,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Leaderboard */}
-        {gameState.phase === "leaderboard" && (
+        {/* Phase: Leaderboard — shown between rounds AND during pause (is_paused) */}
+        {(gameState.phase === "leaderboard" || gameState.is_paused) && (
           <div className="py-6 pb-36 space-y-5">
             {/* Event title + hosted by + status — matches leaderboard page */}
             <div className="text-center space-y-2" style={{ animation: "lb-fade-up 280ms ease-out both" }}>
@@ -990,23 +1006,25 @@ export function ControlPanel({
                   Hosted by
                 </p>
                 {event.logoUrl ? (
-                  <img src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
+                  <Image src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
                 ) : (
                   <>
-                    <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
-                    <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain hidden dark:block" />
+                    <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />
+                    <Image src="/logo-dark.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain hidden dark:block" />
                   </>
                 )}
               </div>
-              <div className="flex justify-center pt-1">
-                <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                  style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
-                >
-                  <span className="size-1.5 rounded-full shrink-0" style={{ background: "#f59e0b" }} />
-                  Paused
-                </span>
-              </div>
+              {gameState.is_paused && (
+                <div className="flex justify-center pt-1">
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                    style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                  >
+                    <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#f59e0b" }} />
+                    Paused
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Stats bar — 3 data cols + clickable join code */}
@@ -1069,8 +1087,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Interstitial — between rounds */}
-        {gameState.phase === "interstitial" && (
+        {/* Phase: Interstitial — between rounds (hide when paused) */}
+        {gameState.phase === "interstitial" && !gameState.is_paused && (
           <div className="flex flex-col items-center justify-center py-16 pb-28 space-y-8">
             <div className="text-center space-y-3">
               <p className="text-xs font-bold text-primary uppercase tracking-widest">
@@ -1219,21 +1237,21 @@ export function ControlPanel({
           <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
           <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
             {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-              <img key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+              <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} width={100} height={24} unoptimized className="h-6 w-auto max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
             ))}
           </div>
         </div>
       )}
 
-      {/* Sticky Sponsors + Next Question — leaderboard phase */}
-      {gameState.phase === "leaderboard" && (
+      {/* Sticky footer with Resume Game — only when paused */}
+      {gameState.is_paused && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
           {sponsors.length > 0 && (
             <div className="py-2 px-4">
               <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
               <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
                 {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                  <img key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} className="h-6 max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+                  <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} width={100} height={24} unoptimized className="h-6 w-auto max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
                 ))}
               </div>
             </div>
@@ -1268,8 +1286,8 @@ export function ControlPanel({
             </svg>
           </button>
 
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-10 mb-6 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-10 mb-6 hidden dark:block" />
+          <Image src="/logo-light.svg" alt="BlockTrivia" width={180} height={40} className="h-10 w-auto mb-6 dark:hidden" />
+          <Image src="/logo-dark.svg" alt="BlockTrivia" width={180} height={40} className="h-10 w-auto mb-6 hidden dark:block" />
 
           <h1 className="font-heading text-2xl font-bold text-center mb-8">{event.title}</h1>
 

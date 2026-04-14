@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { useServerClock } from "@/lib/use-server-clock";
 import { resolvePlayerName } from "@/lib/player-name";
 import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
-import { PlayerAvatar } from "@/app/_components/player-avatar";
-import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 import { resolvePlayerView } from "@/lib/game/round-registry";
@@ -103,6 +104,8 @@ type GameState = {
   round_state: Record<string, unknown> | null;
   /** Live modifier state — set by host during game. */
   modifier_state: Record<string, unknown> | null;
+  /** Pause flag — when true, freeze timer and show pause overlay without navigating. */
+  is_paused: boolean;
 };
 
 type LeaderboardEntry = LbEntry;
@@ -124,6 +127,7 @@ export function PlayView({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const { serverNow } = useServerClock();
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [answeredQuestionId, setAnsweredQuestionId] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
@@ -143,13 +147,15 @@ export function PlayView({
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
-  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const [_lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const [playerCount, setPlayerCount] = useState<number | null>(null);
+  const [_playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
+  // Track Realtime subscription health — only poll when disconnected
+  const realtimeHealthy = useRef(true);
 
   const currentQuestion = useMemo(
     () => questions.find((q) => q.id === gameState.current_question_id) ?? null,
@@ -231,36 +237,45 @@ export function PlayView({
   // Keep ref in sync with state (for use in polling interval)
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
-  // If already in leaderboard or ended phase on mount, go to leaderboard page
+  // If already in leaderboard or ended phase on mount, go to leaderboard page.
+  // Intentionally only runs on mount: later phase transitions are handled by
+  // applyGameState via Realtime + polling (adding gameState.phase here would
+  // cause double navigation with those handlers).
+  const mountRedirectRef = useRef(false);
   useEffect(() => {
+    if (mountRedirectRef.current) return;
+    mountRedirectRef.current = true;
     if (gameState.phase === "leaderboard" || gameState.phase === "ended") {
       router.replace(`/game/${event.joinCode}/leaderboard`);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gameState.phase, router, event.joinCode]);
 
   // Shared handler for any game state update (Realtime or polling)
-  function applyGameState(next: GameState) {
-    const prev = gameStateRef.current;
-    setGameState(next);
-    if (next.phase === "playing" && next.current_question_id !== prev.current_question_id) {
-      // New question — reset answer state + modifier activation tracking
-      setAnsweredQuestionId(null);
-      setSelectedAnswer(null);
-      setModifierJustActivated(false);
-      // Initialize leverage to the midpoint of this question's wager range so
-      // the preview math matches what the slider will actually allow.
-      const newQ = questions.find((q) => q.id === next.current_question_id);
-      // Reset ref so pre-configured defaults on the new question don't trigger animation
-      prevModifierTypeRef.current = newQ?.modifier_type ?? null;
-      const minW = (newQ?.config?.minWagerPct as number) ?? 0.10;
-      const maxW = (newQ?.config?.maxWagerPct as number) ?? 1.00;
-      setLeverage(Math.round(((minW + maxW) / 2) * 20) / 20); // round to nearest 0.05
-      setLastResult(null);
-      submitLockRef.current = false;
-    } else if (next.phase === "ended" || next.phase === "leaderboard") {
-      router.push(`/game/${event.joinCode}/leaderboard`);
-    }
-  }
+  const applyGameState = useCallback(
+    (next: GameState) => {
+      const prev = gameStateRef.current;
+      setGameState(next);
+      if (next.phase === "playing" && next.current_question_id !== prev.current_question_id) {
+        // New question — reset answer state + modifier activation tracking
+        setAnsweredQuestionId(null);
+        setSelectedAnswer(null);
+        setModifierJustActivated(false);
+        // Initialize leverage to the midpoint of this question's wager range so
+        // the preview math matches what the slider will actually allow.
+        const newQ = questions.find((q) => q.id === next.current_question_id);
+        // Reset ref so pre-configured defaults on the new question don't trigger animation
+        prevModifierTypeRef.current = newQ?.modifier_type ?? null;
+        const minW = (newQ?.config?.minWagerPct as number) ?? 0.10;
+        const maxW = (newQ?.config?.maxWagerPct as number) ?? 1.00;
+        setLeverage(Math.round(((minW + maxW) / 2) * 20) / 20); // round to nearest 0.05
+        setLastResult(null);
+        submitLockRef.current = false;
+      } else if (next.phase === "ended" || next.phase === "leaderboard") {
+        router.push(`/game/${event.joinCode}/leaderboard`);
+      }
+    },
+    [questions, router, event.joinCode]
+  );
 
   // Subscribe to game_state changes via Realtime
   useEffect(() => {
@@ -271,29 +286,37 @@ export function PlayView({
         { event: "UPDATE", schema: "public", table: "game_state", filter: `event_id=eq.${event.id}` },
         (payload) => applyGameState(payload.new as GameState)
       )
-      .subscribe();
+      .subscribe((status) => {
+        realtimeHealthy.current = status === "SUBSCRIBED";
+      });
 
     return () => { supabase.removeChannel(channel); };
-  }, [supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, event.id, applyGameState]);
 
-  // Polling fallback — syncs every 2s if Realtime misses an event
+  // Polling fallback — every 2s to catch any Realtime events that may have been missed.
+  // Correctness matters more than DB load at pilot scale. Revisit after pilot if load becomes an issue.
   useEffect(() => {
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from("game_state")
-        .select("*")
+        .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state, is_paused")
         .eq("event_id", event.id)
         .single();
 
       if (!data) return;
       const current = gameStateRef.current;
-      if (data.phase !== current.phase || data.current_question_id !== current.current_question_id) {
+      // Also sync question_started_at changes — host "resume" updates it without changing phase/question
+      if (
+        data.phase !== current.phase ||
+        data.current_question_id !== current.current_question_id ||
+        data.question_started_at !== current.question_started_at
+      ) {
         applyGameState(data as GameState);
       }
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, event.id, applyGameState]);
 
   // Check if player already answered current question (handles page refresh)
   useEffect(() => {
@@ -304,7 +327,8 @@ export function PlayView({
       .eq("question_id", gameState.current_question_id)
       .eq("player_id", player.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) { console.error("[play] failed to check existing answer:", error.message); return; }
         if (data) {
           setAnsweredQuestionId(gameState.current_question_id);
           setSelectedAnswer(data.selected_answer);
@@ -319,34 +343,35 @@ export function PlayView({
           });
         }
       });
-  }, [gameState.current_question_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gameState.current_question_id, supabase, player.id]);
 
-  // Countdown timer
+  // Countdown timer — freezes when paused (keeps last value on display)
   useEffect(() => {
-    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion || hasAnswered) {
-      setTimeLeft(null);
+    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion || hasAnswered || gameState.is_paused) {
+      if (!gameState.is_paused) setTimeLeft(null);
       return;
     }
 
     const startedAt = new Date(gameState.question_started_at).getTime();
     const duration = currentQuestion.time_limit_seconds * 1000;
-    let interval: ReturnType<typeof setInterval>;
 
     const tick = () => {
-      const remaining = Math.max(0, Math.ceil((startedAt + duration - Date.now()) / 1000));
+      // Use serverNow() so host and player derive timer from the same clock
+      const remaining = Math.max(0, Math.ceil((startedAt + duration - serverNow()) / 1000));
       setTimeLeft(remaining);
       if (remaining <= 0) clearInterval(interval);
     };
 
     tick();
-    interval = setInterval(tick, 200);
+    const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [gameState.phase, gameState.question_started_at, currentQuestion, hasAnswered]);
+  }, [gameState.phase, gameState.question_started_at, gameState.is_paused, currentQuestion, hasAnswered, serverNow]);
 
   // When host reveals answer, fetch correct answer for players who didn't submit
   useEffect(() => {
     if (gameState.phase !== "revealing" || hasAnswered || !currentQuestion) return;
-    supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data }) => {
+    supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data, error }) => {
+      if (error) { console.error("[play] failed to fetch revealed answer:", error.message); return; }
       if (data && !data.error) {
         setLastResult({
           isCorrect: false,
@@ -358,7 +383,7 @@ export function PlayView({
         });
       }
     });
-  }, [gameState.phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gameState.phase, hasAnswered, currentQuestion, supabase, event.id]);
 
   // Interstitial countdown display (mirrors host 8s countdown)
   useEffect(() => {
@@ -376,9 +401,10 @@ export function PlayView({
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.current_round_id]);
 
-  // Load leaderboard when phase is "leaderboard"
+  // Load leaderboard when phase is "leaderboard" or when game is paused
+  // (so the pause overlay can show the player's current rank/score)
   useEffect(() => {
-    if (gameState.phase !== "leaderboard") return;
+    if (gameState.phase !== "leaderboard" && !gameState.is_paused) return;
 
     // Snapshot current ranks for delta computation
     const snapshot = new Map<string, number>();
@@ -392,7 +418,7 @@ export function PlayView({
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
@@ -406,7 +432,7 @@ export function PlayView({
         if (entries.length === 0) {
           const { data: players } = await supabase
             .from("event_players")
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             .select(`player_id, game_alias, profiles ( username, display_name )`)
             .eq("event_id", event.id)
             .limit(10);
@@ -441,12 +467,13 @@ export function PlayView({
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data }) => {
+       
+      .then(({ data, error }) => {
+        if (error) { console.error("[play] failed to fetch own lb entry:", error.message); return; }
         if (data) {
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: resolvePlayerName(null, (data as any).profiles?.username, (data as any).profiles?.display_name),
+            display_name: resolvePlayerName(null, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.username, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.display_name),
             total_score: data.total_score,
             rank: data.rank,
           });
@@ -457,15 +484,22 @@ export function PlayView({
       .from("event_players")
       .select("player_id", { count: "exact", head: true })
       .eq("event_id", event.id)
-      .then(({ count }) => { if (count !== null) setPlayerCount(count); });
-  }, [gameState.phase, supabase, event.id]); // eslint-disable-line react-hooks/exhaustive-deps
+      .then(({ count, error }) => { if (!error && count !== null) setPlayerCount(count); });
+    // `leaderboard` and `player.id` intentionally omitted: `leaderboard` is
+    // only read to snapshot prior ranks for delta computation and re-including
+    // it would cause the effect to re-fire on every setLeaderboard(), creating
+    // an infinite loop. `player.id` is stable for the lifetime of this view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.phase, gameState.is_paused, supabase, event.id]);
 
   async function submitAnswer(answerIndex: number, metadata?: Record<string, unknown>) {
     if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
+    // Block submission while paused — host must resume first
+    if (gameState.is_paused) return;
 
-    // Reject if time has expired client-side
+    // Reject if time has expired — use serverNow() so the check matches the host's timer
     const startedAt = new Date(gameState.question_started_at).getTime();
-    const timeTakenMs = Date.now() - startedAt;
+    const timeTakenMs = serverNow() - startedAt;
     if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) return;
 
     submitLockRef.current = true;
@@ -524,7 +558,7 @@ export function PlayView({
         .eq("event_id", event.id)
         .eq("player_id", player.id)
         .single()
-        .then(({ data }) => { if (data) setMyLbEntry((prev) => prev ? { ...prev, ...data } : data as unknown as LeaderboardEntry); });
+        .then(({ data, error }) => { if (!error && data) setMyLbEntry((prev) => prev ? { ...prev, ...data } : data as unknown as LeaderboardEntry); });
     } catch (err) {
       console.error("submit_answer exception:", err);
       submitLockRef.current = false;
@@ -579,6 +613,52 @@ export function PlayView({
   const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered || isTimedOut);
   const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered && !isTimedOut;
 
+  // ── Paused overlay ─────────────────────────────────────────────────────────
+  // Keeps the player on /play (no route transition) so resume is instant.
+  // Shows current rank + score to keep the player engaged during the pause.
+  if (gameState.is_paused) {
+    return (
+      <div className="min-h-dvh bg-background flex flex-col">
+        <AppHeader
+          user={{ id: player.id, displayName: player.displayName, email: player.email }}
+          avatarUrl={player.avatarUrl}
+          right={event.logoUrl ? (
+            <Image src={event.logoUrl} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
+          ) : null}
+        />
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-8">
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
+              <span className="w-2 h-2 rounded-full bg-timer-warn animate-pulse" />
+              <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">Game Paused</span>
+            </div>
+            <h1 className="font-heading text-xl font-bold">{event.title}</h1>
+            <p className="text-sm text-muted-foreground">Waiting for the host to resume…</p>
+          </div>
+
+          {myLbEntry && (
+            <div className="w-full max-w-sm border border-border bg-surface p-5 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center" style={{ fontFamily: "Inter, sans-serif" }}>
+                Your standing
+              </p>
+              <div className="grid grid-cols-2 divide-x divide-border">
+                <div className="py-2 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Rank</p>
+                  <p className="font-heading text-2xl font-bold text-primary tabular-nums">#{myLbEntry.rank}</p>
+                </div>
+                <div className="py-2 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Score</p>
+                  <p className="font-heading text-2xl font-bold tabular-nums">{myLbEntry.total_score}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <SponsorBar sponsors={sponsors} />
+      </div>
+    );
+  }
+
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
@@ -588,7 +668,7 @@ export function PlayView({
           user={{ id: player.id, displayName: player.displayName, email: player.email }}
           avatarUrl={player.avatarUrl}
           right={event.logoUrl ? (
-            <img src={proxyImageUrl(event.logoUrl)} alt="Event logo" className="h-7 max-w-[110px] object-contain" />
+            <Image src={proxyImageUrl(event.logoUrl)} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
           ) : null}
         />
         <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
@@ -620,8 +700,9 @@ export function PlayView({
               <div className="w-full border-t border-border/50 bg-background/80 py-2 px-4">
                 <div className="flex items-center justify-center gap-6 flex-wrap">
                   {[...sponsors].sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                    <img key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"}
-                      className="h-6 max-w-[100px] object-contain" />
+                    <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"}
+                      width={100} height={24} unoptimized
+                      className="h-6 w-auto max-w-[100px] object-contain" />
                   ))}
                 </div>
               </div>
@@ -638,10 +719,10 @@ export function PlayView({
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
-          <a href="/join">
-            <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
-          </a>
+          <Link href="/join">
+            <Image src="/logo-light.svg" alt="BlockTrivia" width={140} height={32} className="h-8 w-auto dark:hidden" />
+            <Image src="/logo-dark.svg" alt="BlockTrivia" width={140} height={32} className="h-8 w-auto hidden dark:block" />
+          </Link>
           <div className="text-center space-y-2">
             <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
               <span className="w-2 h-2 rounded-full bg-timer-warn" />
@@ -660,10 +741,10 @@ export function PlayView({
   if (!currentQuestion) {
     return (
       <div className="min-h-dvh bg-background flex flex-col items-center justify-center px-5 gap-6">
-        <a href="/join">
-          <img src="/logo-light.svg" alt="BlockTrivia" className="h-8 dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlockTrivia" className="h-8 hidden dark:block" />
-        </a>
+        <Link href="/join">
+          <Image src="/logo-light.svg" alt="BlockTrivia" width={140} height={32} className="h-8 w-auto dark:hidden" />
+          <Image src="/logo-dark.svg" alt="BlockTrivia" width={140} height={32} className="h-8 w-auto hidden dark:block" />
+        </Link>
         <div className="text-center space-y-2">
           <h1 className="font-heading text-xl font-bold">{event.title}</h1>
           <p className="text-sm text-muted-foreground animate-pulse">Waiting for next question...</p>

@@ -256,15 +256,15 @@ export const roundRegistry = new Map<string, RoundModule>(
  * Falls back to MCQ if the type is unknown (defensive — should never happen in prod).
  */
 export function resolvePlayerView(roundType: string): ComponentType<RoundPlayerViewProps> {
-  const module = roundRegistry.get(roundType);
-  if (!module) {
+  const roundModule = roundRegistry.get(roundType);
+  if (!roundModule) {
     console.warn(
       `[round-registry] Unknown round type "${roundType}" — falling back to MCQ view. ` +
       "Register the module in src/lib/game/round-registry.ts."
     );
     return MCQPlayerView;
   }
-  return module.PlayerView;
+  return roundModule.PlayerView;
 }
 
 /**

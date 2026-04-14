@@ -29,7 +29,7 @@ import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { RoundPlayerViewProps } from "@/lib/game/round-registry";
 
 export function ClosestWinsPlayerView({
-  question,
+  question: _question,
   phase,
   hasAnswered,
   isSubmitting,

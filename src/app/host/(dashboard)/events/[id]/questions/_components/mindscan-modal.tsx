@@ -71,7 +71,7 @@ export function MindScanModal({
 
   // Custom instructions (persistent per host)
   const [customInstructions, setCustomInstructions] = useState("");
-  const [instructionsLoaded, setInstructionsLoaded] = useState(false);
+  const [_instructionsLoaded, setInstructionsLoaded] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load custom instructions from host_onboarding on mount

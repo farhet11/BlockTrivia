@@ -82,7 +82,9 @@ export function TelegramLoginButton({
   useEffect(() => {
     const pending = loadPending();
     if (pending) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setState("waiting");
+       
       setDeepLink(pending.deepLink);
       startPolling(pending.token);
     }

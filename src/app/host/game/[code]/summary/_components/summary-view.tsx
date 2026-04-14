@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { AppHeader } from "@/app/_components/app-header";
 import { ShareRow } from "./announce-results-button";
@@ -270,11 +271,14 @@ export function SummaryView({
                   <p className={SECTION_LABEL}>Sponsors</p>
                   <div className="flex flex-wrap items-center gap-6">
                     {sponsors.map((s) => (
-                      <img
+                      <Image
                         key={s.id}
                         src={proxyImageUrl(s.logo_url)}
                         alt={s.name ?? "Sponsor"}
-                        className="max-h-8 grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all"
+                        width={120}
+                        height={32}
+                        unoptimized
+                        className="max-h-8 w-auto grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all"
                       />
                     ))}
                   </div>

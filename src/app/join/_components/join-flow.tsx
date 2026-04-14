@@ -120,8 +120,8 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
       question_count,
       prizes: event.prizes ?? null,
       estimated_minutes,
-      host_name: (event as any).organizer_name ?? hostProfile,
-      access_mode: ((event as any).access_mode as "open" | "whitelist") ?? "open",
+      host_name: (event as { organizer_name?: string | null }).organizer_name ?? hostProfile,
+      access_mode: ((event as { access_mode?: "open" | "whitelist" }).access_mode) ?? "open",
     });
     setStep("identity");
     return true;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import { AppHeader } from "@/app/_components/app-header";
 import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
@@ -97,8 +98,6 @@ function calcPoints(correct: boolean, elapsedSeconds: number): number {
 }
 
 type Phase = "name" | "lobby" | "question" | "reveal" | "leaderboard" | "final";
-
-type PlayerScore = { id: string; display_name: string; total_score: number };
 
 export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: string }) {
   const [phase, setPhase] = useState<Phase>("name");
@@ -574,12 +573,12 @@ export function DemoView({ initialDisplayName = "" }: { initialDisplayName?: str
               Join a live event or host your own trivia for your community.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <a
+              <Link
                 href="/join"
                 className="inline-flex items-center justify-center h-11 px-6 bg-primary text-primary-foreground font-heading font-medium text-sm hover:bg-primary-hover transition-colors"
               >
                 Join a Game →
-              </a>
+              </Link>
               <a
                 href="/host"
                 className="inline-flex items-center justify-center h-11 px-6 border border-border font-heading font-medium text-sm hover:bg-accent transition-colors"

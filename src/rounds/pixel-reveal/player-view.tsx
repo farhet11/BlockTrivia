@@ -23,6 +23,7 @@
  *     correct_answer is MCQ-style (option index).
  */
 
+import Image from "next/image";
 import { Check, X } from "lucide-react";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { RoundPlayerViewProps } from "@/lib/game/round-registry";
@@ -72,10 +73,12 @@ export function PixelRevealPlayerView({
       {/* Image container */}
       {imageUrl ? (
         <div className="relative w-full aspect-video border border-border overflow-hidden bg-muted">
-          <img
+          <Image
             src={imageUrl}
             alt="Pixel reveal question"
-            className="w-full h-full object-cover transition-[filter] duration-300"
+            fill
+            unoptimized
+            className="object-cover transition-[filter] duration-300"
             style={{ filter: `blur(${blurPx}px)` }}
             draggable={false}
           />

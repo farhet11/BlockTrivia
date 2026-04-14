@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Send, Link2, Check } from "lucide-react";
 
 const ICON_CLASS = "text-stone-500 dark:text-zinc-400";

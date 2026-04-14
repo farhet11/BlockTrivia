@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Sponsor = {
@@ -21,12 +22,15 @@ export function SponsorBar({ sponsors }: { sponsors: Sponsor[] }) {
         {sponsors
           .sort((a, b) => a.sort_order - b.sort_order)
           .map((s) => (
-            <img
+            <Image
               key={s.id}
               src={proxyImageUrl(s.logo_url)}
               alt={s.name ?? "Sponsor"}
               title={s.name ?? undefined}
-              className="h-5 md:h-8 max-w-[80px] md:max-w-[120px] object-contain grayscale opacity-60 dark:invert dark:brightness-200"
+              width={120}
+              height={32}
+              unoptimized
+              className="h-5 md:h-8 w-auto max-w-[80px] md:max-w-[120px] object-contain grayscale opacity-60 dark:invert dark:brightness-200"
             />
           ))}
       </div>

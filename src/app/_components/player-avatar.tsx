@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo } from "react";
 import { createAvatar } from "@dicebear/core";
 import { thumbs } from "@dicebear/collection";
@@ -30,11 +31,12 @@ export function PlayerAvatar({
   const imgSrc = url || svg;
 
   return (
-    <img
+    <Image
       src={imgSrc}
       alt={name ? `${name}'s avatar` : "Player avatar"}
       width={size}
       height={size}
+      unoptimized
       style={{ borderRadius: 8, flexShrink: 0, objectFit: "cover" }}
     />
   );

@@ -9,7 +9,7 @@ import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { ConfirmModal } from "@/app/_components/confirm-modal";
 import { GlobalFooter } from "@/app/_components/global-footer";
 import { TelegramLoginButton, type TelegramAuthResult } from "@/app/_components/telegram-login-button";
-import { Pencil, Check, X, LogOut, Camera, ChevronRight, Trash2, ArrowRight } from "lucide-react";
+import { Pencil, Check, X, Camera, ChevronRight, ArrowRight } from "lucide-react";
 
 type GameEntry = {
   title: string;

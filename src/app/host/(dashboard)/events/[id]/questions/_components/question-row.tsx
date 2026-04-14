@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import type { Question, Round } from "./question-builder";
 import { useSortable } from "@dnd-kit/sortable";
@@ -78,11 +79,13 @@ export function QuestionRow({
 
   // Sync if question is replaced externally (e.g. JSON import)
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLocalBody(question.body);
     setLocalExplanation(question.explanation ?? "");
     setLocalImageUrl(question.image_url ?? "");
     setLocalNumericAnswer(question.correct_answer_numeric != null ? String(question.correct_answer_numeric) : "");
     if (!isTrueFalse) setLocalOptions(question.options as string[]);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [question.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Rounds this question can move to (exclude current round)
@@ -265,7 +268,7 @@ export function QuestionRow({
               />
               {localImageUrl && (
                 <div className="mt-1 w-32 border border-border overflow-hidden bg-muted p-1">
-                  <img src={proxyImageUrl(localImageUrl)} alt="Preview" className="w-full h-auto object-contain" />
+                  <Image src={proxyImageUrl(localImageUrl)} alt="Preview" width={128} height={80} unoptimized className="w-full h-auto object-contain" />
                 </div>
               )}
             </div>

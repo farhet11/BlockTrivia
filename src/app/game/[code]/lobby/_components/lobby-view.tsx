@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { resolvePlayerName } from "@/lib/player-name";
@@ -52,16 +53,21 @@ export function LobbyView({
   const [showShare, setShowShare] = useState(false);
 
   // Redirect helper — shared by Realtime + polling
-  function handlePhaseChange(phase: string) {
-    if (phase === "ended") {
-      router.push(`/game/${event.joinCode}/final`);
-    } else if (phase !== "lobby") {
-      router.push(`/game/${event.joinCode}/play`);
-    }
-  }
+  const handlePhaseChange = useCallback(
+    (phase: string) => {
+      if (phase === "ended") {
+        router.push(`/game/${event.joinCode}/final`);
+      } else if (phase !== "lobby") {
+        router.push(`/game/${event.joinCode}/play`);
+      }
+    },
+    [router, event.joinCode]
+  );
 
   // Check game state on mount + subscribe to changes — redirect when game starts
   useEffect(() => {
+    let gsChannel: ReturnType<typeof supabase.channel> | null = null;
+
     async function checkAndSubscribeGameState() {
       const { data: gs } = await supabase
         .from("game_state")
@@ -71,7 +77,7 @@ export function LobbyView({
 
       if (gs) handlePhaseChange(gs.phase);
 
-      supabase
+      gsChannel = supabase
         .channel(`game-state:${event.id}`)
         .on(
           "postgres_changes",
@@ -87,9 +93,13 @@ export function LobbyView({
     }
 
     checkAndSubscribeGameState();
-  }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Polling fallback — checks every 2s in case Realtime misses the game start
+    return () => {
+      if (gsChannel) supabase.removeChannel(gsChannel);
+    };
+  }, [supabase, event.id, handlePhaseChange]);
+
+  // Polling fallback — checks every 3s in case Realtime misses the game start
   useEffect(() => {
     const interval = setInterval(async () => {
       const { data } = await supabase
@@ -98,9 +108,9 @@ export function LobbyView({
         .eq("event_id", event.id)
         .single();
       if (data) handlePhaseChange(data.phase);
-    }, 2000);
+    }, 3000);
     return () => clearInterval(interval);
-  }, [supabase, event.id, event.joinCode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, event.id, handlePhaseChange]);
 
   // Fetch initial players + subscribe to realtime changes
   useEffect(() => {
@@ -179,11 +189,11 @@ export function LobbyView({
               Hosted by
             </p>
             {event.logoUrl ? (
-              <img src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} className="h-7 max-w-[120px] object-contain" />
+              <Image src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
             ) : (
               <>
-                <img src="/logo-light.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain dark:hidden" />
-                <img src="/logo-dark.svg" alt="BlockTrivia" className="h-7 max-w-[120px] object-contain hidden dark:block" />
+                <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />
+                <Image src="/logo-dark.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain hidden dark:block" />
               </>
             )}
           </div>

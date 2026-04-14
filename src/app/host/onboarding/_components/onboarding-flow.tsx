@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import {
-  coerceFollowupAnswers,
   isFollowupAnswered,
   type FollowupAnswer,
   type OnboardingFollowupQuestion,
@@ -195,15 +194,6 @@ export function OnboardingFlow({
     value: OnboardingData[K]
   ) {
     setData((d) => ({ ...d, [key]: value }));
-  }
-
-  function toggleChannel(ch: string) {
-    setData((d) => ({
-      ...d,
-      community_channels: d.community_channels.includes(ch)
-        ? d.community_channels.filter((c) => c !== ch)
-        : [...d.community_channels, ch],
-    }));
   }
 
   /**

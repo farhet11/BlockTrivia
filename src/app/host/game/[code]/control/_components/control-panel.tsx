@@ -57,6 +57,8 @@ type GameState = {
   round_state: Record<string, unknown> | null;
   /** Live modifier state — set by host during game. */
   modifier_state: Record<string, unknown> | null;
+  /** Pause flag — when true, host and player freeze timer and show pause overlay without navigating. */
+  is_paused: boolean;
 };
 
 type EventInfo = {
@@ -123,7 +125,6 @@ export function ControlPanel({
   const [lbLoading, setLbLoading] = useState(false);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const [prePausePhase, setPrePausePhase] = useState<string | null>(null);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
@@ -325,11 +326,10 @@ export function ControlPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState.phase, event.id, supabase]);
 
-  // Countdown timer (question)
+  // Countdown timer (question) — freezes when paused
   useEffect(() => {
-    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion) {
-       
-      setTimeLeft(null);
+    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion || gameState.is_paused) {
+      if (!gameState.is_paused) setTimeLeft(null);
       return;
     }
 
@@ -348,12 +348,12 @@ export function ControlPanel({
     tick();
     const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [gameState.phase, gameState.question_started_at, currentQuestion, serverNow]);
+  }, [gameState.phase, gameState.question_started_at, gameState.is_paused, currentQuestion, serverNow]);
 
-  // Interstitial auto-advance countdown (8s)
+  // Interstitial auto-advance countdown (8s) — paused when game is paused
   useEffect(() => {
-    if (gameState.phase !== "interstitial") {
-       
+    if (gameState.phase !== "interstitial" || gameState.is_paused) {
+
       setInterstitialCountdown(null);
       if (interstitialTimerRef.current) {
         clearInterval(interstitialTimerRef.current);
@@ -377,7 +377,7 @@ export function ControlPanel({
     return () => {
       if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
     };
-  }, [gameState.phase, gameState.current_round_id]);
+  }, [gameState.phase, gameState.current_round_id, gameState.is_paused]);
 
   const updateGameState = useCallback(
     async (updates: Partial<GameState>) => {
@@ -603,21 +603,21 @@ export function ControlPanel({
 
   // Pause — shows leaderboard, remembers where we were
   async function pauseGame() {
-    setPrePausePhase(gameState.phase);
+    // Keep phase intact — just set is_paused so players stay on /play (no route transition).
     await updateEventStatus("paused");
-    await updateGameState({ phase: "leaderboard" });
+    await updateGameState({ is_paused: true } as Partial<GameState>);
   }
 
-  // Resume — goes back to exactly where we paused
+  // Resume — clear pause flag and reset timer to full for the current question
   async function resumeGame() {
-    const phase = prePausePhase ?? "playing";
-    setPrePausePhase(null);
     await updateEventStatus("active");
-    if (phase === "revealing") {
-      await updateGameState({ phase: "revealing" });
-    } else {
-      await updateGameState({ phase: "playing", question_started_at: new Date().toISOString() });
+    // Only refresh question_started_at when we're in "playing" — revealing/interstitial
+    // don't have an active timer to reset.
+    const updates: Partial<GameState> = { is_paused: false };
+    if (gameState.phase === "playing") {
+      updates.question_started_at = new Date().toISOString();
     }
+    await updateGameState(updates);
   }
 
   // End game
@@ -728,8 +728,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Playing — show current question */}
-        {gameState.phase === "playing" && currentQuestion && (
+        {/* Phase: Playing — show current question (hide when paused; leaderboard takes over) */}
+        {gameState.phase === "playing" && currentQuestion && !gameState.is_paused && (
           <div className="py-8 space-y-6">
             {/* Progress */}
             <div className="space-y-2">
@@ -925,8 +925,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Revealing — show correct answer, then advance */}
-        {gameState.phase === "revealing" && currentQuestion && (
+        {/* Phase: Revealing — show correct answer, then advance (hide when paused) */}
+        {gameState.phase === "revealing" && currentQuestion && !gameState.is_paused && (
           <div className="py-8 space-y-6">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
@@ -972,8 +972,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Leaderboard */}
-        {gameState.phase === "leaderboard" && (
+        {/* Phase: Leaderboard — shown between rounds AND during pause (is_paused) */}
+        {(gameState.phase === "leaderboard" || gameState.is_paused) && (
           <div className="py-6 pb-36 space-y-5">
             {/* Event title + hosted by + status — matches leaderboard page */}
             <div className="text-center space-y-2" style={{ animation: "lb-fade-up 280ms ease-out both" }}>
@@ -991,15 +991,17 @@ export function ControlPanel({
                   </>
                 )}
               </div>
-              <div className="flex justify-center pt-1">
-                <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                  style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
-                >
-                  <span className="size-1.5 rounded-full shrink-0" style={{ background: "#f59e0b" }} />
-                  Paused
-                </span>
-              </div>
+              {gameState.is_paused && (
+                <div className="flex justify-center pt-1">
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                    style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                  >
+                    <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#f59e0b" }} />
+                    Paused
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Stats bar — 3 data cols + clickable join code */}
@@ -1062,8 +1064,8 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Interstitial — between rounds */}
-        {gameState.phase === "interstitial" && (
+        {/* Phase: Interstitial — between rounds (hide when paused) */}
+        {gameState.phase === "interstitial" && !gameState.is_paused && (
           <div className="flex flex-col items-center justify-center py-16 pb-28 space-y-8">
             <div className="text-center space-y-3">
               <p className="text-xs font-bold text-primary uppercase tracking-widest">
@@ -1177,8 +1179,8 @@ export function ControlPanel({
         </div>
       )}
 
-      {/* Sticky Sponsors + Next Question — leaderboard phase */}
-      {gameState.phase === "leaderboard" && (
+      {/* Sticky footer with Resume Game — only when paused */}
+      {gameState.is_paused && (
         <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
           {sponsors.length > 0 && (
             <div className="py-2 px-4">

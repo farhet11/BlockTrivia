@@ -36,7 +36,7 @@ export default async function PlayPage({
   // Load game state
   const { data: gameState } = await supabase
     .from("game_state")
-    .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state")
+    .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state, is_paused")
     .eq("event_id", event.id)
     .single();
 

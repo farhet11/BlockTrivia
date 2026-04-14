@@ -102,6 +102,8 @@ type GameState = {
   round_state: Record<string, unknown> | null;
   /** Live modifier state — set by host during game. */
   modifier_state: Record<string, unknown> | null;
+  /** Pause flag — when true, freeze timer and show pause overlay without navigating. */
+  is_paused: boolean;
 };
 
 type LeaderboardEntry = LbEntry;
@@ -295,7 +297,7 @@ export function PlayView({
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from("game_state")
-        .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state")
+        .select("id, event_id, phase, current_round_id, current_question_id, question_started_at, started_at, ended_at, modifier_state, round_state, is_paused")
         .eq("event_id", event.id)
         .single();
 
@@ -341,10 +343,10 @@ export function PlayView({
       });
   }, [gameState.current_question_id, supabase, player.id]);
 
-  // Countdown timer
+  // Countdown timer — freezes when paused (keeps last value on display)
   useEffect(() => {
-    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion || hasAnswered) {
-      setTimeLeft(null);
+    if (gameState.phase !== "playing" || !gameState.question_started_at || !currentQuestion || hasAnswered || gameState.is_paused) {
+      if (!gameState.is_paused) setTimeLeft(null);
       return;
     }
 
@@ -361,7 +363,7 @@ export function PlayView({
     tick();
     const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
     return () => clearInterval(interval);
-  }, [gameState.phase, gameState.question_started_at, currentQuestion, hasAnswered, serverNow]);
+  }, [gameState.phase, gameState.question_started_at, gameState.is_paused, currentQuestion, hasAnswered, serverNow]);
 
   // When host reveals answer, fetch correct answer for players who didn't submit
   useEffect(() => {
@@ -397,9 +399,10 @@ export function PlayView({
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.current_round_id]);
 
-  // Load leaderboard when phase is "leaderboard"
+  // Load leaderboard when phase is "leaderboard" or when game is paused
+  // (so the pause overlay can show the player's current rank/score)
   useEffect(() => {
-    if (gameState.phase !== "leaderboard") return;
+    if (gameState.phase !== "leaderboard" && !gameState.is_paused) return;
 
     // Snapshot current ranks for delta computation
     const snapshot = new Map<string, number>();
@@ -485,10 +488,12 @@ export function PlayView({
     // it would cause the effect to re-fire on every setLeaderboard(), creating
     // an infinite loop. `player.id` is stable for the lifetime of this view.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState.phase, supabase, event.id]);
+  }, [gameState.phase, gameState.is_paused, supabase, event.id]);
 
   async function submitAnswer(answerIndex: number, metadata?: Record<string, unknown>) {
     if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
+    // Block submission while paused — host must resume first
+    if (gameState.is_paused) return;
 
     // Reject if time has expired — use serverNow() so the check matches the host's timer
     const startedAt = new Date(gameState.question_started_at).getTime();
@@ -605,6 +610,52 @@ export function PlayView({
   const isTimedOut = timeLeft === 0;
   const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered || isTimedOut);
   const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered && !isTimedOut;
+
+  // ── Paused overlay ─────────────────────────────────────────────────────────
+  // Keeps the player on /play (no route transition) so resume is instant.
+  // Shows current rank + score to keep the player engaged during the pause.
+  if (gameState.is_paused) {
+    return (
+      <div className="min-h-dvh bg-background flex flex-col">
+        <AppHeader
+          user={{ id: player.id, displayName: player.displayName, email: player.email }}
+          avatarUrl={player.avatarUrl}
+          right={event.logoUrl ? (
+            <Image src={event.logoUrl} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
+          ) : null}
+        />
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-8">
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
+              <span className="w-2 h-2 rounded-full bg-timer-warn animate-pulse" />
+              <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">Game Paused</span>
+            </div>
+            <h1 className="font-heading text-xl font-bold">{event.title}</h1>
+            <p className="text-sm text-muted-foreground">Waiting for the host to resume…</p>
+          </div>
+
+          {myLbEntry && (
+            <div className="w-full max-w-sm border border-border bg-surface p-5 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center" style={{ fontFamily: "Inter, sans-serif" }}>
+                Your standing
+              </p>
+              <div className="grid grid-cols-2 divide-x divide-border">
+                <div className="py-2 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Rank</p>
+                  <p className="font-heading text-2xl font-bold text-primary tabular-nums">#{myLbEntry.rank}</p>
+                </div>
+                <div className="py-2 text-center">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Score</p>
+                  <p className="font-heading text-2xl font-bold tabular-nums">{myLbEntry.total_score}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <SponsorBar sponsors={sponsors} />
+      </div>
+    );
+  }
 
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {

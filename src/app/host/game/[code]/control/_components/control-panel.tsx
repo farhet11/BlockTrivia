@@ -338,17 +338,20 @@ export function ControlPanel({
     const startedAt = new Date(gameState.question_started_at).getTime();
     const duration = currentQuestion.time_limit * 1000;
 
+    // `let` because `tick` references `interval` and runs before assignment
+    // eslint-disable-next-line prefer-const
+    let interval: ReturnType<typeof setInterval>;
     const tick = () => {
       const remaining = Math.max(
         0,
         Math.ceil((startedAt + duration - serverNow()) / 1000)
       );
       setTimeLeft(remaining);
-      if (remaining <= 0) clearInterval(interval);
+      if (remaining <= 0 && interval) clearInterval(interval);
     };
 
     tick();
-    const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
+    interval = setInterval(tick, 200);
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, gameState.is_paused, currentQuestion, serverNow]);
 

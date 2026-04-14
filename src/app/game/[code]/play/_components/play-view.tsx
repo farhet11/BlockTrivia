@@ -312,7 +312,8 @@ export function PlayView({
       if (
         data.phase !== current.phase ||
         data.current_question_id !== current.current_question_id ||
-        data.question_started_at !== current.question_started_at
+        data.question_started_at !== current.question_started_at ||
+        data.is_paused !== current.is_paused
       ) {
         applyGameState(data as GameState);
       }
@@ -358,15 +359,19 @@ export function PlayView({
     const startedAt = new Date(gameState.question_started_at).getTime();
     const duration = currentQuestion.time_limit_seconds * 1000;
 
+    // `let` because `tick` references `interval` and `tick` runs before the
+    // assignment below (both inside tick() and in the initial tick() call).
+    // eslint-disable-next-line prefer-const
+    let interval: ReturnType<typeof setInterval>;
     const tick = () => {
       // Use serverNow() so host and player derive timer from the same clock
       const remaining = Math.max(0, Math.ceil((startedAt + duration - serverNow()) / 1000));
       setTimeLeft(remaining);
-      if (remaining <= 0) clearInterval(interval);
+      if (remaining <= 0 && interval) clearInterval(interval);
     };
 
     tick();
-    const interval: ReturnType<typeof setInterval> = setInterval(tick, 200);
+    interval = setInterval(tick, 200);
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, gameState.is_paused, currentQuestion, hasAnswered, serverNow]);
 

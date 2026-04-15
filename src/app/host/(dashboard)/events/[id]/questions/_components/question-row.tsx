@@ -65,6 +65,7 @@ export function QuestionRow({
 
   const isClosestWins = roundType === "closest_wins";
   const isPixelReveal = roundType === "pixel_reveal";
+  const isNarrative = roundType === "the_narrative";
 
   // Local state — avoids Supabase round-trip on every keystroke
   const [localBody, setLocalBody] = useState(question.body);
@@ -73,6 +74,9 @@ export function QuestionRow({
   );
   const [localExplanation, setLocalExplanation] = useState(question.explanation ?? "");
   const [localImageUrl, setLocalImageUrl] = useState(question.image_url ?? "");
+  const [localRevealMode, setLocalRevealMode] = useState<"pixelated" | "tile_reveal">(
+    (question.reveal_mode as "pixelated" | "tile_reveal" | null | undefined) ?? "pixelated"
+  );
   const [localNumericAnswer, setLocalNumericAnswer] = useState(
     question.correct_answer_numeric != null ? String(question.correct_answer_numeric) : ""
   );
@@ -83,6 +87,9 @@ export function QuestionRow({
     setLocalBody(question.body);
     setLocalExplanation(question.explanation ?? "");
     setLocalImageUrl(question.image_url ?? "");
+    setLocalRevealMode(
+      (question.reveal_mode as "pixelated" | "tile_reveal" | null | undefined) ?? "pixelated"
+    );
     setLocalNumericAnswer(question.correct_answer_numeric != null ? String(question.correct_answer_numeric) : "");
     if (!isTrueFalse) setLocalOptions(question.options as string[]);
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -253,24 +260,62 @@ export function QuestionRow({
       {/* Options (expanded) */}
       {expanded && (
         <div className="pl-8 space-y-2">
-          {/* Pixel Reveal: image URL */}
+          {/* Pixel Reveal: image URL + reveal mode */}
           {isPixelReveal && (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                Image URL <span className="normal-case">(progressively revealed to players)</span>
-              </p>
-              <input
-                value={localImageUrl}
-                onChange={(e) => setLocalImageUrl(e.target.value)}
-                onBlur={() => onUpdate(question.id, { image_url: localImageUrl || null })}
-                placeholder="https://example.com/image.jpg"
-                className="w-full text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
-              />
-              {localImageUrl && (
-                <div className="mt-1 w-32 border border-border overflow-hidden bg-muted p-1">
-                  <Image src={proxyImageUrl(localImageUrl)} alt="Preview" width={128} height={80} unoptimized className="w-full h-auto object-contain" />
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Image URL <span className="normal-case">(progressively revealed to players)</span>
+                </p>
+                <input
+                  value={localImageUrl}
+                  onChange={(e) => setLocalImageUrl(e.target.value)}
+                  onBlur={() => onUpdate(question.id, { image_url: localImageUrl || null })}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full text-sm bg-transparent border-b border-border text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary py-1"
+                />
+                {localImageUrl && (
+                  <div className="mt-1 w-32 border border-border overflow-hidden bg-muted p-1">
+                    <Image src={proxyImageUrl(localImageUrl)} alt="Preview" width={128} height={80} unoptimized className="w-full h-auto object-contain" />
+                  </div>
+                )}
+              </div>
+
+              {/* Reveal mode toggle — pixelated vs tile_reveal.
+                  Logos survive even heavy pixelation (distinctive silhouette
+                  leaks the answer), so hosts can pick tile mode to hide the
+                  outline and drip-feed fragments. */}
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                  Reveal style
+                </p>
+                <div className="inline-flex border border-border bg-background/60 text-xs">
+                  {([
+                    { value: "pixelated", label: "Pixelated", hint: "Canvas blur — best for photos/textures" },
+                    { value: "tile_reveal", label: "Tile Reveal", hint: "8×8 grid — best for logos" },
+                  ] as const).map((opt) => {
+                    const active = localRevealMode === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setLocalRevealMode(opt.value);
+                          onUpdate(question.id, { reveal_mode: opt.value });
+                        }}
+                        title={opt.hint}
+                        className={`px-3 py-1.5 transition-colors ${
+                          active
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -330,7 +375,9 @@ export function QuestionRow({
                 </div>
               ))}
               <p className="text-xs text-muted-foreground mt-1">
-                Click a letter to mark the correct answer.
+                {isNarrative
+                  ? "Mark the textbook-correct answer. The room's majority becomes the \u201croom answer\u201d at reveal \u2014 the gap between the two is the Herd Index."
+                  : "Click a letter to mark the correct answer."}
               </p>
             </>
           )}

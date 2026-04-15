@@ -55,6 +55,8 @@ export type Question = {
   ai_generated?: boolean;
   /** Pixel Reveal: URL of the image to progressively reveal. */
   image_url?: string | null;
+  /** Pixel Reveal: 'pixelated' (classic blocky) or 'tile_reveal' (8×8 grid). */
+  reveal_mode?: "pixelated" | "tile_reveal" | null;
   /** Closest Wins: the numeric correct answer for distance scoring. */
   correct_answer_numeric?: number | null;
 };

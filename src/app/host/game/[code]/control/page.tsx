@@ -31,14 +31,14 @@ export default async function HostControlPage({
   // eslint-disable-next-line prefer-const -- rounds is reassigned in the fallback path below
   let { data: rounds, error: roundsError } = await supabase
     .from("rounds")
-    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, interstitial_text")
+    .select("id, title, round_type, sort_order, time_limit_seconds, base_points, interstitial_text, config")
     .eq("event_id", event.id)
     .order("sort_order");
 
   if (roundsError) {
     const fallback = await supabase
       .from("rounds")
-      .select("id, title, round_type, sort_order, time_limit_seconds, base_points")
+      .select("id, title, round_type, sort_order, time_limit_seconds, base_points, config")
       .eq("event_id", event.id)
       .order("sort_order");
     rounds = (fallback.data ?? []).map((r) => ({ ...r, interstitial_text: null }));
@@ -74,7 +74,7 @@ export default async function HostControlPage({
   const { data: questions } = roundIds.length
     ? await supabase
         .from("questions")
-        .select("id, round_id, body, options, correct_answer, sort_order")
+        .select("id, round_id, body, options, correct_answer, correct_answer_numeric, explanation, image_url, reveal_mode, sort_order")
         .in("round_id", roundIds)
         .order("sort_order")
     : { data: [] };
@@ -152,6 +152,12 @@ export default async function HostControlPage({
       time_limit: round.time_limit_seconds,
       base_points: round.base_points,
       round_interstitial_text: round.interstitial_text ?? null,
+      round_config: (round.config as Record<string, unknown> | null) ?? {},
+      correct_answer_numeric: (q as { correct_answer_numeric?: number | null }).correct_answer_numeric ?? null,
+      explanation: (q as { explanation?: string | null }).explanation ?? null,
+      image_url: (q as { image_url?: string | null }).image_url ?? null,
+      reveal_mode:
+        (q as { reveal_mode?: "pixelated" | "tile_reveal" | null }).reveal_mode ?? null,
     }));
   });
 

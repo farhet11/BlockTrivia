@@ -21,7 +21,7 @@ import {
   RefreshCcw,
   Gauge,
   UsersRound,
-  Image as ImageIcon,
+  ScanEye,
   BookOpen,
   Eye,
 } from "lucide-react";
@@ -38,7 +38,7 @@ const ROUND_ICONS = {
   pressure_cooker: Gauge,
   consensus: UsersRound,
   // Extended round types from src/lib/game/round-registry.ts
-  pixel_reveal: ImageIcon,
+  pixel_reveal: ScanEye,
   the_narrative: BookOpen,
   oracles_dilemma: Eye,
 } as const satisfies Record<string, LucideIcon>;

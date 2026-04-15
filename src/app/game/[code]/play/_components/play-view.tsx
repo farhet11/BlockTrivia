@@ -13,10 +13,12 @@ import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 import { resolvePlayerView } from "@/lib/game/round-registry";
+import { InterstitialCard } from "@/rounds/_shared/interstitial-card";
 import { resolveModifierOverlay, modifierRegistry } from "@/lib/game/modifier-registry";
 import { ModifierActivationOverlay } from "@/modifiers/shared/modifier-activation-overlay";
 import { proxyImageUrl } from "@/lib/image-proxy";
 import { RoundTypeBadge } from "@/app/_components/round-type-badge";
+import { ShareDrawer } from "@/app/_components/share-drawer";
 
 function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
   if (isAnswered || pct > 0.5) return "none";
@@ -89,6 +91,8 @@ type QuestionData = {
   modifier_config: Record<string, unknown>;
   /** Pixel Reveal: image URL for the question. */
   image_url?: string | null;
+  /** Pixel Reveal: 'pixelated' (default) or 'tile_reveal'. */
+  reveal_mode?: "pixelated" | "tile_reveal" | null;
 };
 
 type GameState = {
@@ -149,8 +153,11 @@ export function PlayView({
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
   const [_lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const [_playerCount, setPlayerCount] = useState<number | null>(null);
-  const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
+  const [playerCount, setPlayerCount] = useState<number | null>(null);
+  const [showShare, setShowShare] = useState(false);
+  // Interstitial is now host-manual — player only sees a waiting indicator.
+  // Setter retained to reset any legacy residual countdown on phase change.
+  const [, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
@@ -381,11 +388,18 @@ export function PlayView({
     supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data, error }) => {
       if (error) { console.error("[play] failed to fetch revealed answer:", error.message); return; }
       if (data && !data.error) {
+        // Closest Wins answers live in correct_answer_numeric (the MCQ `correct_answer`
+        // field is 0 for numeric rounds). Pick the right field so non-submitters see the
+        // actual target instead of "0".
+        const isNumericRound = currentQuestion.round_type === "closest_wins";
+        const revealed = isNumericRound
+          ? data.correct_answer_numeric ?? data.correct_answer
+          : data.correct_answer;
         setLastResult({
           isCorrect: false,
           pointsAwarded: 0,
           selectedAnswer: -1,
-          correctAnswer: data.correct_answer,
+          correctAnswer: revealed,
           explanation: data.explanation ?? null,
           didNotAnswer: true,
         });
@@ -393,20 +407,11 @@ export function PlayView({
     });
   }, [gameState.phase, hasAnswered, currentQuestion, supabase, event.id]);
 
-  // Interstitial countdown display (mirrors host 8s countdown)
+  // Interstitial: host now advances manually (so they can verbally explain
+  // the rules). No client-side countdown — the player just sees a waiting
+  // indicator until the host taps "Start Round" and the phase flips to "playing".
   useEffect(() => {
-    if (gameState.phase !== "interstitial") {
-      setInterstitialCountdown(null);
-      return;
-    }
-    setInterstitialCountdown(8);
-    let count = 8;
-    const interval = setInterval(() => {
-      count -= 1;
-      setInterstitialCountdown(Math.max(0, count));
-      if (count <= 0) clearInterval(interval);
-    }, 1000);
-    return () => clearInterval(interval);
+    setInterstitialCountdown(null);
   }, [gameState.phase, gameState.current_round_id]);
 
   // Load leaderboard when phase is "leaderboard" or when game is paused
@@ -422,16 +427,17 @@ export function PlayView({
     // Fetch top 10 (with fallback to event_players at 0 pts if no scores yet)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
-       
+
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
           player_id: row.player_id,
           display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
+          avatar_url: row.profiles?.avatar_url ?? null,
           total_score: row.total_score,
           rank: row.rank,
         }));
@@ -440,8 +446,8 @@ export function PlayView({
         if (entries.length === 0) {
           const { data: players } = await supabase
             .from("event_players")
-             
-            .select(`player_id, game_alias, profiles ( username, display_name )`)
+
+            .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
             .eq("event_id", event.id)
             .limit(10);
           if (players) {
@@ -449,6 +455,7 @@ export function PlayView({
             entries = players.map((p: any, i: number) => ({
               player_id: p.player_id,
               display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
+              avatar_url: p.profiles?.avatar_url ?? null,
               total_score: 0,
               rank: i + 1,
             }));
@@ -471,17 +478,19 @@ export function PlayView({
     // Also fetch current player's own entry (for pinned rank when outside top 10)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
-       
+
       .then(({ data, error }) => {
         if (error) { console.error("[play] failed to fetch own lb entry:", error.message); return; }
         if (data) {
+          const profile = (data as { profiles?: { username?: string; display_name?: string; avatar_url?: string | null } }).profiles;
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: resolvePlayerName(null, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.username, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.display_name),
+            display_name: resolvePlayerName(null, profile?.username, profile?.display_name),
+            avatar_url: profile?.avatar_url ?? null,
             total_score: data.total_score,
             rank: data.rank,
           });
@@ -621,10 +630,130 @@ export function PlayView({
   const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered || isTimedOut);
   const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered && !isTimedOut;
 
-  // ── Paused overlay ─────────────────────────────────────────────────────────
-  // Keeps the player on /play (no route transition) so resume is instant.
-  // Shows current rank + score to keep the player engaged during the pause.
+  // ── Paused — mirrors host control-panel paused layout ─────────────────────
+  // Title + Hosted by + logo + Paused badge + info cards + blurred leaderboard.
+  // Kept on /play so resume is instant (no route transition).
   if (gameState.is_paused) {
+    const podiumEntries = leaderboard.slice(0, 3);
+    const rankingEntries = leaderboard.slice(3);
+    const firstScore = leaderboard[0]?.total_score ?? 1;
+    const inTop3 = myLbEntry ? podiumEntries.some((e) => e.player_id === myLbEntry.player_id) : false;
+    const currentQIdx = gameState.current_question_id
+      ? questions.findIndex((q) => q.id === gameState.current_question_id)
+      : -1;
+    const currentRIdx = gameState.current_round_id
+      ? roundsInfo.findIndex((r) => r.id === gameState.current_round_id)
+      : -1;
+    return (
+      <div className="min-h-dvh bg-background flex flex-col">
+        <AppHeader
+          user={{ id: player.id, displayName: player.displayName, email: player.email }}
+          avatarUrl={player.avatarUrl}
+          right={event.logoUrl ? (
+            <Image src={proxyImageUrl(event.logoUrl)} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
+          ) : null}
+        />
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full flex flex-col px-5">
+          <div className="py-6 space-y-5">
+            {/* Title + hosted by + paused badge — matches host */}
+            <div className="text-center space-y-2" style={{ animation: "lb-fade-up 280ms ease-out both" }}>
+              <h2 className="font-heading text-2xl font-bold leading-tight">{event.title}</h2>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "Inter, sans-serif" }}>
+                  Hosted by
+                </p>
+                {event.logoUrl ? (
+                  <Image src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
+                ) : (
+                  <>
+                    <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />
+                    <Image src="/logo-dark.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain hidden dark:block" />
+                  </>
+                )}
+              </div>
+              <div className="flex justify-center pt-1">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                >
+                  <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#f59e0b" }} />
+                  Paused
+                </span>
+              </div>
+            </div>
+
+            {/* Stats bar — mirrors host's info cards */}
+            <div
+              className="grid grid-cols-4 border border-border divide-x divide-border"
+              style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
+            >
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{playerCount ?? "—"}</p>
+              </div>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentQIdx >= 0 ? `${currentQIdx + 1}/${questions.length}` : "—"}</p>
+              </div>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentRIdx >= 0 ? `${currentRIdx + 1}/${roundsInfo.length}` : "—"}</p>
+              </div>
+              <button
+                onClick={() => setShowShare(true)}
+                className="px-3 py-2.5 text-center hover:bg-accent transition-colors"
+              >
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
+                <p className="font-heading text-lg font-bold text-primary font-mono tracking-wider">{event.joinCode}</p>
+              </button>
+            </div>
+
+            {/* Leaderboard — blur context + pinned personal rank */}
+            {leaderboard.length === 0 ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-14 bg-surface border border-border animate-pulse" />
+                ))}
+              </div>
+            ) : myLbEntry && !inTop3 ? (
+              <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+                <PinnedRankSection
+                  entry={myLbEntry as LbEntry}
+                  firstScore={firstScore}
+                  topEntries={podiumEntries}
+                  allEntries={leaderboard}
+                />
+              </div>
+            ) : (
+              <div className="space-y-4" style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+                <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+                {rankingEntries.length > 0 && (
+                  <div className="border-t border-border pt-2">
+                    {rankingEntries.map((e, i) => (
+                      <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="text-center text-xs text-muted-foreground">Waiting for the host to resume…</p>
+          </div>
+        </div>
+        <SponsorBar sponsors={sponsors} />
+        {showShare && <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />}
+      </div>
+    );
+  }
+
+  // ── Mid-game leaderboard (between rounds) ──────────────────────────────────
+  // Rendered inline so the player never leaves /play during round boundaries —
+  // host's "Next Round" then shows the next question instantly (no route transition).
+  if (phase === "leaderboard") {
+    const podiumEntries = leaderboard.slice(0, 3);
+    const rankingEntries = leaderboard.slice(3);
+    const firstScore = leaderboard[0]?.total_score ?? 1;
+    const inTop3 = myLbEntry ? podiumEntries.some((e) => e.player_id === myLbEntry.player_id) : false;
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <AppHeader
@@ -634,33 +763,35 @@ export function PlayView({
             <Image src={event.logoUrl} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
           ) : null}
         />
-        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-8">
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
-              <span className="w-2 h-2 rounded-full bg-timer-warn animate-pulse" />
-              <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">Game Paused</span>
-            </div>
-            <h1 className="font-heading text-xl font-bold">{event.title}</h1>
-            <p className="text-sm text-muted-foreground">Waiting for the host to resume…</p>
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full flex flex-col">
+          <div className="text-center px-5 pt-5 pb-2 space-y-2">
+            <h1 className="font-heading text-2xl font-bold leading-tight">{event.title}</h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "Inter, sans-serif" }}>
+              Round standings
+            </p>
           </div>
-
-          {myLbEntry && (
-            <div className="w-full max-w-sm border border-border bg-surface p-5 space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center" style={{ fontFamily: "Inter, sans-serif" }}>
-                Your standing
-              </p>
-              <div className="grid grid-cols-2 divide-x divide-border">
-                <div className="py-2 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Rank</p>
-                  <p className="font-heading text-2xl font-bold text-primary tabular-nums">#{myLbEntry.rank}</p>
+          {leaderboard.length > 0 ? (
+            <div className="px-5 py-4 space-y-4">
+              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+              {rankingEntries.length > 0 && (
+                <div className="border-t border-border pt-2">
+                  {rankingEntries.map((e, i) => (
+                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                  ))}
                 </div>
-                <div className="py-2 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Score</p>
-                  <p className="font-heading text-2xl font-bold tabular-nums">{myLbEntry.total_score}</p>
-                </div>
-              </div>
+              )}
+              {myLbEntry && !inTop3 && (
+                <PinnedRankSection entry={myLbEntry as LbEntry} firstScore={firstScore} />
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-sm text-muted-foreground animate-pulse">Loading standings…</p>
             </div>
           )}
+          <div className="text-center pb-4">
+            <p className="text-xs text-muted-foreground">Waiting for host to start the next round…</p>
+          </div>
         </div>
         <SponsorBar sponsors={sponsors} />
       </div>
@@ -722,6 +853,12 @@ export function PlayView({
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
+    // Pull round metadata from the first question in this round (round_type
+    // and config live on questions because the client never loads rounds directly).
+    const questionsInThisRound = questions.filter(
+      (q) => q.round_id === gameState.current_round_id
+    );
+    const firstQ = questionsInThisRound[0];
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <AppHeader
@@ -731,44 +868,25 @@ export function PlayView({
             <Image src={proxyImageUrl(event.logoUrl)} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
           ) : null}
         />
-        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
-          <div className="text-center space-y-3 max-w-sm">
-            <p className="text-xs font-bold text-primary uppercase tracking-widest">
-              Next Round
-            </p>
-            <h2 className="font-heading text-3xl font-bold">
-              {interstitialRound?.title ?? "Next Round"}
-            </h2>
-            {interstitialRound?.interstitial_text && (
-              <p className="text-muted-foreground leading-relaxed">
-                {interstitialRound.interstitial_text}
-              </p>
-            )}
-            {interstitialCountdown !== null && (
-              <p className="text-sm text-muted-foreground">
-                Starting in{" "}
-                <span className="font-bold text-foreground tabular-nums">
-                  {interstitialCountdown}s
-                </span>
-              </p>
-            )}
-          </div>
-
-          {sponsors.length > 0 && (
-            <div className="w-full max-w-sm pt-4">
-              {/* Full color during interstitial */}
-              <div className="w-full border-t border-border/50 bg-background/80 py-2 px-4">
-                <div className="flex items-center justify-center gap-6 flex-wrap">
-                  {[...sponsors].sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                    <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"}
-                      width={100} height={24} unoptimized
-                      className="h-6 w-auto max-w-[100px] object-contain" />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+        {/* pb-32 so the centered content isn't hidden by the fixed sponsor footer */}
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6 pb-32">
+          <InterstitialCard
+            roundType={firstQ?.round_type ?? "mcq"}
+            roundTitle={interstitialRound?.title ?? "Next Round"}
+            description={interstitialRound?.interstitial_text ?? null}
+            questionCount={questionsInThisRound.length}
+            timePerQuestionSeconds={firstQ?.time_limit_seconds ?? 15}
+            basePoints={firstQ?.base_points ?? 100}
+            mode="player"
+          />
         </div>
+
+        {/* Sticky grayscale sponsor footer — mirrors host. */}
+        {sponsors.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
+            <SponsorBar sponsors={sponsors} />
+          </div>
+        )}
       </div>
     );
   }

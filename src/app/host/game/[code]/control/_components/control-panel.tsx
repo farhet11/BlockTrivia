@@ -260,9 +260,10 @@ export function ControlPanel({
     };
   }, [supabase, event.id]);
 
-  // Fetch leaderboard when phase is "leaderboard"
+  // Fetch leaderboard when phase is "leaderboard" OR when the game is paused
+  // (pause re-uses the leaderboard UI to keep players engaged).
   useEffect(() => {
-    if (gameState.phase !== "leaderboard") return;
+    if (gameState.phase !== "leaderboard" && !gameState.is_paused) return;
      
     setLbLoading(true);
 
@@ -326,7 +327,7 @@ export function ControlPanel({
     // ranks for delta computation; re-including it would cause the effect to
     // re-fire on every setLbEntries() and create an infinite loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameState.phase, event.id, supabase]);
+  }, [gameState.phase, gameState.is_paused, event.id, supabase]);
 
   // Countdown timer (question) — freezes when paused
   useEffect(() => {

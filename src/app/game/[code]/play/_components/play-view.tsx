@@ -149,7 +149,7 @@ export function PlayView({
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
   const [_lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
-  const [_playerCount, setPlayerCount] = useState<number | null>(null);
+  const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
@@ -422,16 +422,17 @@ export function PlayView({
     // Fetch top 10 (with fallback to event_players at 0 pts if no scores yet)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(10)
-       
+
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
           player_id: row.player_id,
           display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
+          avatar_url: row.profiles?.avatar_url ?? null,
           total_score: row.total_score,
           rank: row.rank,
         }));
@@ -440,8 +441,8 @@ export function PlayView({
         if (entries.length === 0) {
           const { data: players } = await supabase
             .from("event_players")
-             
-            .select(`player_id, game_alias, profiles ( username, display_name )`)
+
+            .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
             .eq("event_id", event.id)
             .limit(10);
           if (players) {
@@ -449,6 +450,7 @@ export function PlayView({
             entries = players.map((p: any, i: number) => ({
               player_id: p.player_id,
               display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
+              avatar_url: p.profiles?.avatar_url ?? null,
               total_score: 0,
               rank: i + 1,
             }));
@@ -471,17 +473,19 @@ export function PlayView({
     // Also fetch current player's own entry (for pinned rank when outside top 10)
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name )`)
+      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .eq("player_id", player.id)
       .maybeSingle()
-       
+
       .then(({ data, error }) => {
         if (error) { console.error("[play] failed to fetch own lb entry:", error.message); return; }
         if (data) {
+          const profile = (data as { profiles?: { username?: string; display_name?: string; avatar_url?: string | null } }).profiles;
           setMyLbEntry({
             player_id: data.player_id,
-            display_name: resolvePlayerName(null, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.username, (data as { profiles?: { username?: string; display_name?: string } }).profiles?.display_name),
+            display_name: resolvePlayerName(null, profile?.username, profile?.display_name),
+            avatar_url: profile?.avatar_url ?? null,
             total_score: data.total_score,
             rank: data.rank,
           });
@@ -621,54 +625,120 @@ export function PlayView({
   const heatEdgeBoxShadow = getHeatEdgeStyle(heatPct, hasAnswered || isTimedOut);
   const isHeatPulsing = heatPct <= 0.2 && heatPct > 0 && phase === "playing" && !hasAnswered && !isTimedOut;
 
-  // ── Paused overlay ─────────────────────────────────────────────────────────
-  // Keeps the player on /play (no route transition) so resume is instant.
-  // Shows current rank + score to keep the player engaged during the pause.
+  // ── Paused — mirrors host control-panel paused layout ─────────────────────
+  // Title + Hosted by + logo + Paused badge + info cards + blurred leaderboard.
+  // Kept on /play so resume is instant (no route transition).
   if (gameState.is_paused) {
+    const podiumEntries = leaderboard.slice(0, 3);
+    const rankingEntries = leaderboard.slice(3);
+    const firstScore = leaderboard[0]?.total_score ?? 1;
+    const inTop3 = myLbEntry ? podiumEntries.some((e) => e.player_id === myLbEntry.player_id) : false;
+    const currentQIdx = gameState.current_question_id
+      ? questions.findIndex((q) => q.id === gameState.current_question_id)
+      : -1;
+    const currentRIdx = gameState.current_round_id
+      ? roundsInfo.findIndex((r) => r.id === gameState.current_round_id)
+      : -1;
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <AppHeader
           user={{ id: player.id, displayName: player.displayName, email: player.email }}
           avatarUrl={player.avatarUrl}
           right={event.logoUrl ? (
-            <Image src={event.logoUrl} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
+            <Image src={proxyImageUrl(event.logoUrl)} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
           ) : null}
         />
-        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-8">
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center gap-2 bg-timer-warn/10 px-4 py-1.5 mb-1">
-              <span className="w-2 h-2 rounded-full bg-timer-warn animate-pulse" />
-              <span className="text-xs font-bold text-timer-warn uppercase tracking-wider">Game Paused</span>
-            </div>
-            <h1 className="font-heading text-xl font-bold">{event.title}</h1>
-            <p className="text-sm text-muted-foreground">Waiting for the host to resume…</p>
-          </div>
-
-          {myLbEntry && (
-            <div className="w-full max-w-sm border border-border bg-surface p-5 space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center" style={{ fontFamily: "Inter, sans-serif" }}>
-                Your standing
-              </p>
-              <div className="grid grid-cols-2 divide-x divide-border">
-                <div className="py-2 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Rank</p>
-                  <p className="font-heading text-2xl font-bold text-primary tabular-nums">#{myLbEntry.rank}</p>
-                </div>
-                <div className="py-2 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-0.5" style={{ fontFamily: "Inter, sans-serif" }}>Score</p>
-                  <p className="font-heading text-2xl font-bold tabular-nums">{myLbEntry.total_score}</p>
-                </div>
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full flex flex-col px-5">
+          <div className="py-6 space-y-5">
+            {/* Title + hosted by + paused badge — matches host */}
+            <div className="text-center space-y-2" style={{ animation: "lb-fade-up 280ms ease-out both" }}>
+              <h2 className="font-heading text-2xl font-bold leading-tight">{event.title}</h2>
+              <div className="flex flex-col items-center gap-1">
+                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "Inter, sans-serif" }}>
+                  Hosted by
+                </p>
+                {event.logoUrl ? (
+                  <Image src={proxyImageUrl(event.logoUrl)} alt={event.organizerName ?? "Organizer"} width={120} height={28} unoptimized className="h-7 w-auto max-w-[120px] object-contain" />
+                ) : (
+                  <>
+                    <Image src="/logo-light.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain dark:hidden" />
+                    <Image src="/logo-dark.svg" alt="BlockTrivia" width={120} height={28} className="h-7 w-auto max-w-[120px] object-contain hidden dark:block" />
+                  </>
+                )}
+              </div>
+              <div className="flex justify-center pt-1">
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
+                  style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                >
+                  <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#f59e0b" }} />
+                  Paused
+                </span>
               </div>
             </div>
-          )}
+
+            {/* Stats bar — mirrors host's info cards */}
+            <div
+              className="grid grid-cols-4 border border-border divide-x divide-border"
+              style={{ animation: "lb-fade-up 280ms ease-out 80ms both" }}
+            >
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Players</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{playerCount ?? "—"}</p>
+              </div>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Question</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentQIdx >= 0 ? `${currentQIdx + 1}/${questions.length}` : "—"}</p>
+              </div>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
+                <p className="font-heading text-lg font-bold tabular-nums">{currentRIdx >= 0 ? `${currentRIdx + 1}/${roundsInfo.length}` : "—"}</p>
+              </div>
+              <div className="px-3 py-2.5 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
+                <p className="font-heading text-lg font-bold text-primary font-mono tracking-wider">{event.joinCode}</p>
+              </div>
+            </div>
+
+            {/* Leaderboard — blur context + pinned personal rank */}
+            {leaderboard.length === 0 ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-14 bg-surface border border-border animate-pulse" />
+                ))}
+              </div>
+            ) : myLbEntry && !inTop3 ? (
+              <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+                <PinnedRankSection
+                  entry={myLbEntry as LbEntry}
+                  firstScore={firstScore}
+                  topEntries={podiumEntries}
+                  allEntries={leaderboard}
+                />
+              </div>
+            ) : (
+              <div className="space-y-4" style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
+                <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+                {rankingEntries.length > 0 && (
+                  <div className="border-t border-border pt-2">
+                    {rankingEntries.map((e, i) => (
+                      <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="text-center text-xs text-muted-foreground">Waiting for the host to resume…</p>
+          </div>
         </div>
         <SponsorBar sponsors={sponsors} />
       </div>
     );
   }
 
-  // ── Mid-game leaderboard ───────────────────────────────────────────────────
-  // Rendered inline so the player never leaves /play during a round boundary —
+  // ── Mid-game leaderboard (between rounds) ──────────────────────────────────
+  // Rendered inline so the player never leaves /play during round boundaries —
   // host's "Next Round" then shows the next question instantly (no route transition).
   if (phase === "leaderboard") {
     const podiumEntries = leaderboard.slice(0, 3);

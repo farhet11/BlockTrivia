@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GlobalNav } from "./_components/global-nav";
 import { GlobalFooter } from "./_components/global-footer";
-import { CanvasSection, InkSection, VioletSection } from "./_components/marketing/section";
+import { CanvasSection, MintSection, VioletSection } from "./_components/marketing/section";
 import { NumberedStep } from "./_components/marketing/numbered-step";
-import { StatsBar } from "./_components/marketing/stats-bar";
+import { ValuePropsBar } from "./_components/marketing/stats-bar";
 
 export default function Home() {
   return (
@@ -12,8 +12,8 @@ export default function Home() {
       <GlobalNav />
 
       <main className="flex-1 pt-14">
-        {/* ── Hero (Warm Canvas) ────────────────────────────────────────── */}
-        <CanvasSection size="tall">
+        {/* ── Hero (transparent so BlockPatternBg shows through) ──────── */}
+        <CanvasSection size="tall" transparent>
           <div className="text-center space-y-8">
             <div className="space-y-5">
               <h1
@@ -25,39 +25,36 @@ export default function Home() {
                   lineHeight: 1.05,
                 }}
               >
-                Community Intelligence,{" "}
-                <span className="text-primary">Gamified.</span>
+                Find out who really{" "}
+                <span className="text-primary">knows.</span>
               </h1>
               <p className="text-base sm:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
                 Real-time trivia for Web3 communities. Instant leaderboard. Zero cheating.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-              <Link href="/join" className="w-full sm:w-auto">
-                <Button className="w-full sm:w-auto h-12 px-6 bg-primary text-primary-foreground hover:bg-primary-hover font-heading font-medium">
-                  Join a Game
+              <Link href="/host" className="w-full sm:w-auto">
+                <Button
+                  className="w-full sm:w-auto sm:min-w-[200px] h-14 px-12 text-lg font-heading font-semibold bg-[#1a1917] text-white hover:bg-[#1a1917]/90 dark:bg-white dark:text-[#1a1917] dark:hover:bg-white/90"
+                >
+                  Host an Event
                 </Button>
               </Link>
-              <Link href="/host" className="w-full sm:w-auto">
-                <Button variant="outline" className="w-full sm:w-auto h-12 px-6 font-heading font-medium">
-                  Host an Event
+              <Link href="/join" className="w-full sm:w-auto">
+                <Button
+                  className="w-full sm:w-auto sm:min-w-[200px] h-14 px-12 text-lg font-heading font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
+                >
+                  Join a Game
                 </Button>
               </Link>
             </div>
           </div>
         </CanvasSection>
 
-        {/* ── Stats / social proof (Ink) ────────────────────────────────── */}
-        <InkSection>
-          <StatsBar
-            tone="dark"
-            stats={[
-              { number: "12k+", label: "Players competing" },
-              { number: "340", label: "Live events run" },
-              { number: "97%", label: "Cheat-free finishes" },
-            ]}
-          />
-        </InkSection>
+        {/* ── Value props / positioning (Mint) ─────────────────────────── */}
+        <MintSection>
+          <ValuePropsBar tone="mint" />
+        </MintSection>
 
         {/* ── How it works (Warm Canvas + numbered steps) ────────────────── */}
         <CanvasSection>
@@ -106,7 +103,7 @@ export default function Home() {
                 color: "#ffffff",
               }}
             >
-              Find out who really knows.
+              Community Intelligence, Gamified.
             </h2>
             <p className="text-lg" style={{ color: "rgba(255,255,255,0.8)" }}>
               Run your first event in under five minutes. Free for the first 100 players.
@@ -138,14 +135,14 @@ export default function Home() {
             >
               Built for live rooms.
             </h2>
-            <div className="grid sm:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="grid sm:grid-cols-3 gap-4 sm:gap-5 max-w-4xl mx-auto">
               <Feature
                 title="Server-authoritative scoring"
                 body="Answers are validated server-side. The leaderboard is the truth."
               />
               <Feature
                 title="Eight round types"
-                body="MCQ, True/False, WipeOut, Closest Wins, and four more — mix and match."
+                body="MCQ, True/False, WipeOut, Closest Wins, and four more. Mix and match."
               />
               <Feature
                 title="CSV export"
@@ -175,11 +172,22 @@ function Step({ n, title, body }: { n: number; title: string; body: string }) {
 
 function Feature({ title, body }: { title: string; body: string }) {
   return (
-    <div className="space-y-2">
-      <h3 className="font-heading text-lg" style={{ fontWeight: 700, letterSpacing: "-0.01em" }}>
+    <div
+      className="space-y-2 bg-white border border-[#e8e5e0] dark:bg-[#18181b] dark:border-[#27272a]"
+      style={{ padding: 20, borderRadius: 0, borderLeft: "3px solid #7c3aed" }}
+    >
+      <h3
+        className="font-heading text-[#1a1917] dark:text-[#fafafa]"
+        style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}
+      >
         {title}
       </h3>
-      <p className="text-sm text-muted-foreground leading-relaxed">{body}</p>
+      <p
+        className="leading-relaxed text-[#78756e] dark:text-[#a1a1aa]"
+        style={{ fontSize: 14, fontWeight: 400 }}
+      >
+        {body}
+      </p>
     </div>
   );
 }

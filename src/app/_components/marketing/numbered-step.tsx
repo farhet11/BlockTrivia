@@ -2,10 +2,11 @@
  * 32×32 numbered badge for "How it works" sequences.
  *
  * Per DESIGN.md §5 "Numbered Step Badges".
- * For 3-step sequences, the rotation goes: Violet → Ink → Amber.
+ * For 3-step sequences, the rotation goes: Violet → Mint → Amber.
+ * Mint replaces Ink for step 2 so the badge stays visible in dark mode.
  */
 
-const STEP_COLORS = ["#7c3aed", "#1a1917", "#f59e0b"] as const;
+const STEP_COLORS = ["#7c3aed", "#3ddabe", "#f59e0b"] as const;
 
 export function NumberedStep({
   n,

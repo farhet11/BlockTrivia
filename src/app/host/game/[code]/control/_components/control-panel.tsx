@@ -11,6 +11,7 @@ import { ShareDrawer } from "@/app/_components/share-drawer";
 import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-podium";
 import { proxyImageUrl } from "@/lib/image-proxy";
 import { RoundTypeBadge } from "@/app/_components/round-type-badge";
+import { resolvePlayerName } from "@/lib/player-name";
 
 type Question = {
   id: string;
@@ -274,16 +275,16 @@ export function ControlPanel({
 
     supabase
       .from("leaderboard_entries")
-      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( display_name, avatar_url )`)
+      .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
       .limit(20)
-       
+
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
           player_id: row.player_id,
-          display_name: row.profiles?.display_name ?? "Player",
+          display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
           avatar_url: row.profiles?.avatar_url ?? null,
           total_score: row.total_score,
           rank: row.rank,
@@ -295,15 +296,15 @@ export function ControlPanel({
         if (entries.length === 0) {
           const { data: players } = await supabase
             .from("event_players")
-             
-            .select(`player_id, profiles ( display_name, avatar_url )`)
+
+            .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
             .eq("event_id", event.id)
             .limit(20);
           if (players) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             entries = players.map((p: any, i: number) => ({
               player_id: p.player_id,
-              display_name: p.profiles?.display_name ?? "Player",
+              display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
               avatar_url: p.profiles?.avatar_url ?? null,
               total_score: 0,
               rank: i + 1,

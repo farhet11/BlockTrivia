@@ -17,6 +17,7 @@ import { resolveModifierOverlay, modifierRegistry } from "@/lib/game/modifier-re
 import { ModifierActivationOverlay } from "@/modifiers/shared/modifier-activation-overlay";
 import { proxyImageUrl } from "@/lib/image-proxy";
 import { RoundTypeBadge } from "@/app/_components/round-type-badge";
+import { ShareDrawer } from "@/app/_components/share-drawer";
 
 function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
   if (isAnswered || pct > 0.5) return "none";
@@ -150,6 +151,7 @@ export function PlayView({
   const [_lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
+  const [showShare, setShowShare] = useState(false);
   const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
@@ -694,10 +696,13 @@ export function PlayView({
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Round</p>
                 <p className="font-heading text-lg font-bold tabular-nums">{currentRIdx >= 0 ? `${currentRIdx + 1}/${roundsInfo.length}` : "—"}</p>
               </div>
-              <div className="px-3 py-2.5 text-center">
+              <button
+                onClick={() => setShowShare(true)}
+                className="px-3 py-2.5 text-center hover:bg-accent transition-colors"
+              >
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join Code</p>
                 <p className="font-heading text-lg font-bold text-primary font-mono tracking-wider">{event.joinCode}</p>
-              </div>
+              </button>
             </div>
 
             {/* Leaderboard — blur context + pinned personal rank */}
@@ -733,6 +738,7 @@ export function PlayView({
           </div>
         </div>
         <SponsorBar sponsors={sponsors} />
+        {showShare && <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />}
       </div>
     );
   }

@@ -13,6 +13,7 @@ import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { PodiumLayout, RankingRow, PinnedRankSection, type LbEntry } from "@/app/_components/lb-podium";
 import { Check, X } from "lucide-react";
 import { resolvePlayerView } from "@/lib/game/round-registry";
+import { InterstitialCard } from "@/rounds/_shared/interstitial-card";
 import { resolveModifierOverlay, modifierRegistry } from "@/lib/game/modifier-registry";
 import { ModifierActivationOverlay } from "@/modifiers/shared/modifier-activation-overlay";
 import { proxyImageUrl } from "@/lib/image-proxy";
@@ -90,6 +91,8 @@ type QuestionData = {
   modifier_config: Record<string, unknown>;
   /** Pixel Reveal: image URL for the question. */
   image_url?: string | null;
+  /** Pixel Reveal: 'pixelated' (default) or 'tile_reveal'. */
+  reveal_mode?: "pixelated" | "tile_reveal" | null;
 };
 
 type GameState = {
@@ -152,7 +155,9 @@ export function PlayView({
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [showShare, setShowShare] = useState(false);
-  const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
+  // Interstitial is now host-manual — player only sees a waiting indicator.
+  // Setter retained to reset any legacy residual countdown on phase change.
+  const [, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
@@ -383,11 +388,18 @@ export function PlayView({
     supabase.rpc("get_revealed_answer", { p_event_id: event.id }).then(({ data, error }) => {
       if (error) { console.error("[play] failed to fetch revealed answer:", error.message); return; }
       if (data && !data.error) {
+        // Closest Wins answers live in correct_answer_numeric (the MCQ `correct_answer`
+        // field is 0 for numeric rounds). Pick the right field so non-submitters see the
+        // actual target instead of "0".
+        const isNumericRound = currentQuestion.round_type === "closest_wins";
+        const revealed = isNumericRound
+          ? data.correct_answer_numeric ?? data.correct_answer
+          : data.correct_answer;
         setLastResult({
           isCorrect: false,
           pointsAwarded: 0,
           selectedAnswer: -1,
-          correctAnswer: data.correct_answer,
+          correctAnswer: revealed,
           explanation: data.explanation ?? null,
           didNotAnswer: true,
         });
@@ -395,20 +407,11 @@ export function PlayView({
     });
   }, [gameState.phase, hasAnswered, currentQuestion, supabase, event.id]);
 
-  // Interstitial countdown display (mirrors host 8s countdown)
+  // Interstitial: host now advances manually (so they can verbally explain
+  // the rules). No client-side countdown — the player just sees a waiting
+  // indicator until the host taps "Start Round" and the phase flips to "playing".
   useEffect(() => {
-    if (gameState.phase !== "interstitial") {
-      setInterstitialCountdown(null);
-      return;
-    }
-    setInterstitialCountdown(8);
-    let count = 8;
-    const interval = setInterval(() => {
-      count -= 1;
-      setInterstitialCountdown(Math.max(0, count));
-      if (count <= 0) clearInterval(interval);
-    }, 1000);
-    return () => clearInterval(interval);
+    setInterstitialCountdown(null);
   }, [gameState.phase, gameState.current_round_id]);
 
   // Load leaderboard when phase is "leaderboard" or when game is paused
@@ -850,6 +853,12 @@ export function PlayView({
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);
+    // Pull round metadata from the first question in this round (round_type
+    // and config live on questions because the client never loads rounds directly).
+    const questionsInThisRound = questions.filter(
+      (q) => q.round_id === gameState.current_round_id
+    );
+    const firstQ = questionsInThisRound[0];
     return (
       <div className="min-h-dvh bg-background flex flex-col">
         <AppHeader
@@ -859,44 +868,25 @@ export function PlayView({
             <Image src={proxyImageUrl(event.logoUrl)} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
           ) : null}
         />
-        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
-          <div className="text-center space-y-3 max-w-sm">
-            <p className="text-xs font-bold text-primary uppercase tracking-widest">
-              Next Round
-            </p>
-            <h2 className="font-heading text-3xl font-bold">
-              {interstitialRound?.title ?? "Next Round"}
-            </h2>
-            {interstitialRound?.interstitial_text && (
-              <p className="text-muted-foreground leading-relaxed">
-                {interstitialRound.interstitial_text}
-              </p>
-            )}
-            {interstitialCountdown !== null && (
-              <p className="text-sm text-muted-foreground">
-                Starting in{" "}
-                <span className="font-bold text-foreground tabular-nums">
-                  {interstitialCountdown}s
-                </span>
-              </p>
-            )}
-          </div>
-
-          {sponsors.length > 0 && (
-            <div className="w-full max-w-sm pt-4">
-              {/* Full color during interstitial */}
-              <div className="w-full border-t border-border/50 bg-background/80 py-2 px-4">
-                <div className="flex items-center justify-center gap-6 flex-wrap">
-                  {[...sponsors].sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                    <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"}
-                      width={100} height={24} unoptimized
-                      className="h-6 w-auto max-w-[100px] object-contain" />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+        {/* pb-32 so the centered content isn't hidden by the fixed sponsor footer */}
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6 pb-32">
+          <InterstitialCard
+            roundType={firstQ?.round_type ?? "mcq"}
+            roundTitle={interstitialRound?.title ?? "Next Round"}
+            description={interstitialRound?.interstitial_text ?? null}
+            questionCount={questionsInThisRound.length}
+            timePerQuestionSeconds={firstQ?.time_limit_seconds ?? 15}
+            basePoints={firstQ?.base_points ?? 100}
+            mode="player"
+          />
         </div>
+
+        {/* Sticky grayscale sponsor footer — mirrors host. */}
+        {sponsors.length > 0 && (
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
+            <SponsorBar sponsors={sponsors} />
+          </div>
+        )}
       </div>
     );
   }

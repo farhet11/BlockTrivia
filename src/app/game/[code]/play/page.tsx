@@ -94,13 +94,28 @@ export default async function PlayPage({
   const { data: questions } = roundIds.length
     ? await supabase
         .from("questions")
-        .select("id, round_id, body, options, sort_order, image_url")
+        .select("id, round_id, body, options, sort_order, image_url, reveal_mode")
         .in("round_id", roundIds)
         .order("sort_order")
     : { data: [] };
 
+  // Group questions by round so the flat list matches the host's ordering
+  // (round.sort_order → question.sort_order). A global order("sort_order")
+  // interleaves rounds whenever their sort_orders overlap, which makes the
+  // player's "Question X/Y" disagree with the host's.
   const roundMap = Object.fromEntries(rounds.map((r) => [r.id, r]));
-  const questionList = (questions ?? []).map((q) => ({
+  const questionsByRound = new Map<string, typeof questions>();
+  for (const q of questions ?? []) {
+    const arr = questionsByRound.get(q.round_id) ?? [];
+    arr.push(q);
+    questionsByRound.set(q.round_id, arr);
+  }
+  const orderedQuestions = rounds.flatMap((r) =>
+    (questionsByRound.get(r.id) ?? [])
+      .slice()
+      .sort((a, b) => a.sort_order - b.sort_order)
+  );
+  const questionList = orderedQuestions.map((q) => ({
     ...q,
     options: q.options as string[],
     round_title: roundMap[q.round_id]?.title ?? "Round",

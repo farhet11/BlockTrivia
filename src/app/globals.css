@@ -48,6 +48,10 @@
   --color-timer-warn: var(--timer-warn);
   --color-warm-hover: var(--warm-hover);
 
+  /* Brand accent — Mint (theme-invariant) */
+  --color-mint: var(--mint);
+  --color-mint-hover: var(--mint-hover);
+
   /* Radius */
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -97,6 +101,10 @@
 
   --warm-hover: #f5f3ef;
 
+  /* Mint (same in both themes) */
+  --mint: #3ddabe;
+  --mint-hover: #2cc4a8;
+
   --radius: 0rem;
 }
 
@@ -137,6 +145,10 @@
   --timer-warn: #f59e0b;
 
   --warm-hover: #1f1f23;
+
+  /* Mint (theme-invariant — same as light) */
+  --mint: #3ddabe;
+  --mint-hover: #2cc4a8;
 }
 
 @layer base {

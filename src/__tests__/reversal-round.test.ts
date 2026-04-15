@@ -29,9 +29,12 @@ describe("reversal round — registry", () => {
     expect(mod?.description.length).toBeGreaterThan(20);
   });
 
-  it("description mentions 'false' (mechanic clarity for host)", () => {
+  it("description communicates the 3-true-1-lie mechanic", () => {
     const mod = roundRegistry.get("reversal");
-    expect(mod?.description.toLowerCase()).toContain("false");
+    const desc = mod?.description.toLowerCase() ?? "";
+    // Player-facing copy: "3 are true, 1 is a lie. Spot the lie."
+    // We just require the mechanic is encoded — either 'false' or 'lie'.
+    expect(desc).toMatch(/false|lie/);
   });
 
   it("has a PlayerView component", () => {
@@ -191,8 +194,10 @@ describe("reversal mechanic invariants", () => {
   it("correct_answer = index of the FALSE statement (mechanic contract)", () => {
     // Documented contract: the host marks the false statement as
     // correct_answer in the builder. The engine finds it by index.
-    // This test verifies the design intent is documented in the module.
+    // This test verifies the design intent is documented in the module —
+    // the description must communicate the lie/false-statement mechanic
+    // (phrasing is player-facing, so either 'false' or 'lie' is acceptable).
     const mod = roundRegistry.get("reversal");
-    expect(mod?.description.toLowerCase()).toContain("false statement");
+    expect(mod?.description.toLowerCase()).toMatch(/false|lie/);
   });
 });

@@ -170,7 +170,8 @@ export function LeaderboardView({
     return () => { supabase.removeChannel(channel); };
   }, [supabase, event.id, refreshLeaderboard, applyPhase]);
 
-  // Polling fallback — catches Realtime misses, same pattern as play-view
+  // Polling fallback — 10s safety net. Realtime on game_state (via migration 063)
+  // is the primary path; this only catches rare gaps.
   useEffect(() => {
     if (viewerType !== "player") return;
     const interval = setInterval(async () => {
@@ -183,7 +184,7 @@ export function LeaderboardView({
       if (data.phase !== gamePhaseRef.current) {
         applyPhase(data.phase);
       }
-    }, 2000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [supabase, event.id, viewerType, applyPhase]);
 

@@ -303,8 +303,10 @@ export function PlayView({
     return () => { supabase.removeChannel(channel); };
   }, [supabase, event.id, applyGameState]);
 
-  // Polling fallback — every 2s to catch any Realtime events that may have been missed.
-  // Correctness matters more than DB load at pilot scale. Revisit after pilot if load becomes an issue.
+  // Polling fallback — every 10s as a safety net. Realtime (via migration 063) is the
+  // primary path; this only catches rare Realtime gaps. Bumped from 2s after the Apr 2026
+  // pilot: responses/game_state/event_players were not in supabase_realtime publication,
+  // so the 2s poll was carrying the entire app and showing up as ~2s delay on Next Q.
   useEffect(() => {
     const interval = setInterval(async () => {
       const { data } = await supabase
@@ -324,7 +326,7 @@ export function PlayView({
       ) {
         applyGameState(data as GameState);
       }
-    }, 2000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [supabase, event.id, applyGameState]);

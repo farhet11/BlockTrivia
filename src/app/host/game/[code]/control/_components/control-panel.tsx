@@ -226,9 +226,9 @@ export function ControlPanel({
 
     fetchCount();
 
-    // Realtime: fires once responses is in the supabase_realtime publication (migration 041).
-    // Polling every 2s is the belt-and-suspenders fallback for any Realtime gap.
-    const poll = setInterval(fetchCount, 2000);
+    // Realtime: fires via supabase_realtime publication (migration 041).
+    // Polling every 10s is the safety net; Realtime is the primary path.
+    const poll = setInterval(fetchCount, 10000);
 
     const channel = supabase
       .channel(`answers:${qId}`)
@@ -295,7 +295,8 @@ export function ControlPanel({
     }
 
     fetchPlayerCount();
-    const pollInterval = setInterval(fetchPlayerCount, 3000);
+    // 15s reconciliation; Realtime on event_players (migration 063) is primary.
+    const pollInterval = setInterval(fetchPlayerCount, 15000);
 
     const channel = supabase
       .channel(`control-players:${event.id}`)

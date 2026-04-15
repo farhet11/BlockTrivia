@@ -174,7 +174,7 @@ function Feature({ title, body }: { title: string; body: string }) {
   return (
     <div
       className="space-y-2 bg-white border border-[#e8e5e0] dark:bg-[#18181b] dark:border-[#27272a]"
-      style={{ padding: 20, borderRadius: 8 }}
+      style={{ padding: 20, borderRadius: 0, borderLeft: "3px solid #7c3aed" }}
     >
       <h3
         className="font-heading text-[#1a1917] dark:text-[#fafafa]"

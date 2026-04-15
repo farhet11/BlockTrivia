@@ -17,6 +17,7 @@ import type { RoundPlayerViewProps } from "@/lib/game/round-registry";
 export function MCQPlayerView({
   question,
   phase,
+  timeLeft,
   hasAnswered,
   isSubmitting,
   selectedAnswer,
@@ -26,7 +27,6 @@ export function MCQPlayerView({
   const isTrueFalse = question.round_type === "true_false";
   const optionLabels = isTrueFalse ? ["A", "B"] : ["A", "B", "C", "D"];
   const options = isTrueFalse ? question.options.slice(0, 2) : question.options;
-  const timeLeft = null; // timeLeft is managed by PlayView and not needed in the view directly
   const isTimedOut = timeLeft === 0 && !hasAnswered;
 
   return (

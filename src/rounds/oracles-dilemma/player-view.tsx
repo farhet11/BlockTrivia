@@ -31,6 +31,7 @@ const OPTION_LABELS = ["A", "B", "C", "D"];
 export function OraclesDilemmaPlayerView({
   question,
   phase,
+  timeLeft,
   hasAnswered,
   isSubmitting,
   selectedAnswer,
@@ -40,6 +41,7 @@ export function OraclesDilemmaPlayerView({
   currentPlayerId,
 }: RoundPlayerViewProps) {
   const isRevealing = phase === "revealing" && lastResult !== null;
+  const isTimedOut = timeLeft === 0 && !hasAnswered;
 
   // Oracle state from round_state
   const oraclePlayerId = roundState?.oracle_player_id as string | undefined;
@@ -149,7 +151,7 @@ export function OraclesDilemmaPlayerView({
         {selectedPath && suggestedOption !== null && (
           <button
             onClick={handleOracleSubmit}
-            disabled={isSubmitting}
+            disabled={isTimedOut || isSubmitting}
             className="px-6 py-3 bg-primary text-primary-foreground font-semibold text-sm border border-primary hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-40"
           >
             {isSubmitting ? (
@@ -250,7 +252,7 @@ export function OraclesDilemmaPlayerView({
           return (
             <button
               key={i}
-              disabled={hasAnswered || phase !== "playing" || isSubmitting || !oracleHasChosen}
+              disabled={hasAnswered || isTimedOut || phase !== "playing" || isSubmitting || !oracleHasChosen}
               onClick={() => onSubmit(i)}
               className={cls}
               style={

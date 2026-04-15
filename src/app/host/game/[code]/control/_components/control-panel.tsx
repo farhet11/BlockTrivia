@@ -12,6 +12,9 @@ import { PodiumLayout, RankingRow, type LbEntry } from "@/app/_components/lb-pod
 import { proxyImageUrl } from "@/lib/image-proxy";
 import { RoundTypeBadge } from "@/app/_components/round-type-badge";
 import { resolvePlayerName } from "@/lib/player-name";
+import { resolveHostRevealView } from "@/lib/game/round-registry";
+import { HostRevealShell } from "@/rounds/_shared/host-reveal-shell";
+import { InterstitialCard } from "@/rounds/_shared/interstitial-card";
 
 type Question = {
   id: string;
@@ -19,12 +22,18 @@ type Question = {
   body: string;
   options: string[];
   correct_answer: number;
+  correct_answer_numeric?: number | null;
+  explanation?: string | null;
+  image_url?: string | null;
+  /** Pixel Reveal: 'pixelated' (default) or 'tile_reveal'. */
+  reveal_mode?: "pixelated" | "tile_reveal" | null;
   sort_order: number;
   round_title: string;
   round_type: string;
   time_limit: number;
   base_points: number;
   round_interstitial_text?: string | null;
+  round_config?: Record<string, unknown>;
 };
 
 type RoundInfo = {
@@ -116,7 +125,9 @@ export function ControlPanel({
   const [playerCount, setPlayerCount] = useState(initialPlayerCount);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [interstitialCountdown, setInterstitialCountdown] = useState<number | null>(null);
+  // Interstitial: manual advance only (host taps Start Round). No countdown
+  // state — kept only as a timer ref for legacy cleanup paths.
+  const [, setInterstitialCountdown] = useState<number | null>(null);
   const interstitialTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Ref to always have the latest version of startFirstQuestionOfRound
   // (defined later in the component — used by the interstitial countdown interval)
@@ -129,6 +140,9 @@ export function ControlPanel({
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [answeredCount, setAnsweredCount] = useState(0);
+  const [revealStats, setRevealStats] = useState<{ correctCount: number; avgTimeSeconds: number | null }>(
+    { correctCount: -1, avgTimeSeconds: null }
+  );
   const [showShare, setShowShare] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
@@ -190,9 +204,14 @@ export function ControlPanel({
 
   // Track how many players have answered the current question
   useEffect(() => {
-    if (!gameState.current_question_id || gameState.phase !== "playing") {
-       
+    if (!gameState.current_question_id) {
+      // No active question — hard reset.
       setAnsweredCount(0);
+      return;
+    }
+    if (gameState.phase !== "playing") {
+      // Revealing / leaderboard / etc. — keep the tally from the playing phase
+      // so the reveal screen still shows "X/Y answered" rather than "0/Y".
       return;
     }
     const qId = gameState.current_question_id;
@@ -223,6 +242,47 @@ export function ControlPanel({
       supabase.removeChannel(channel);
     };
   }, [gameState.current_question_id, gameState.phase, supabase]);
+
+  // Fetch reveal-phase stats (correct count, avg time) for the host reveal
+  // screen. Runs only when phase === "revealing" — avoids unnecessary load
+  // during the playing phase when the answer shouldn't be visible yet.
+  useEffect(() => {
+    if (gameState.phase !== "revealing" || !gameState.current_question_id) {
+      setRevealStats({ correctCount: -1, avgTimeSeconds: null });
+      return;
+    }
+    const qId = gameState.current_question_id;
+    let cancelled = false;
+
+    async function fetchStats() {
+      // Column is time_taken_ms (migration 001) — NOT response_time_ms.
+      const { data, error } = await supabase
+        .from("responses")
+        .select("is_correct, time_taken_ms")
+        .eq("question_id", qId);
+      if (cancelled) return;
+      if (error || !data) {
+        // Fetch failed — flip to "0 responses" state so the cards render
+        // real zeros instead of the "—" fallback (which looks like a bug).
+        setRevealStats({ correctCount: 0, avgTimeSeconds: null });
+        return;
+      }
+      const correctCount = data.filter((r) => r.is_correct).length;
+      const times = data
+        .map((r) => r.time_taken_ms)
+        .filter((t): t is number => typeof t === "number" && t > 0);
+      const avgTimeSeconds =
+        times.length > 0
+          ? times.reduce((a, b) => a + b, 0) / times.length / 1000
+          : null;
+      setRevealStats({ correctCount, avgTimeSeconds });
+    }
+
+    fetchStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [gameState.phase, gameState.current_question_id, supabase]);
 
   // Subscribe to player count changes + polling fallback every 3s
   useEffect(() => {
@@ -357,33 +417,18 @@ export function ControlPanel({
     return () => clearInterval(interval);
   }, [gameState.phase, gameState.question_started_at, gameState.is_paused, currentQuestion, serverNow]);
 
-  // Interstitial auto-advance countdown (8s) — paused when game is paused
+  // Interstitial: MANUAL advance. Host must click "Start Round" to proceed —
+  // this gives them time to verbally explain the round mechanic (especially
+  // important for non-MCQ rounds like Pixel Reveal, WipeOut, Oracle's Dilemma
+  // where first-time players won't know what to do).
+  // The state + ref are kept for backwards compatibility with the startFirstQuestionOfRound
+  // flow, but no timer is scheduled.
   useEffect(() => {
-    if (gameState.phase !== "interstitial" || gameState.is_paused) {
-
-      setInterstitialCountdown(null);
-      if (interstitialTimerRef.current) {
-        clearInterval(interstitialTimerRef.current);
-        interstitialTimerRef.current = null;
-      }
-      return;
+    setInterstitialCountdown(null);
+    if (interstitialTimerRef.current) {
+      clearInterval(interstitialTimerRef.current);
+      interstitialTimerRef.current = null;
     }
-
-    setInterstitialCountdown(8);
-    let count = 8;
-
-    interstitialTimerRef.current = setInterval(() => {
-      count -= 1;
-      setInterstitialCountdown(count);
-      if (count <= 0) {
-        if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
-        startFirstQuestionOfRoundRef.current?.();
-      }
-    }, 1000);
-
-    return () => {
-      if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
-    };
   }, [gameState.phase, gameState.current_round_id, gameState.is_paused]);
 
   const updateGameState = useCallback(
@@ -522,20 +567,21 @@ export function ControlPanel({
       .eq("event_id", event.id);
   }
 
-  // Start game — go to first question
+  // Start game — route through interstitial so round 1 gets the same mechanic
+  // primer as rounds 2+. The host clicks "Start Round →" from the interstitial
+  // card to actually begin the first question (via startFirstQuestionOfRound).
   async function startGame() {
     if (questions.length === 0) return;
     const first = questions[0];
-    const roundState = await buildRoundState(first.round_type);
     setActiveModifier(null);
     await updateEventStatus("active");
     await updateGameState({
-      phase: "playing",
+      phase: "interstitial",
       current_round_id: first.round_id,
-      current_question_id: first.id,
-      question_started_at: new Date().toISOString(),
+      current_question_id: null,
+      question_started_at: null,
       started_at: new Date().toISOString(),
-      round_state: roundState,
+      round_state: null,
       modifier_state: {},
     } as Partial<GameState>);
   }
@@ -952,53 +998,57 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Revealing — show correct answer, then advance (hide when paused) */}
-        {gameState.phase === "revealing" && currentQuestion && !gameState.is_paused && (
-          <div className="py-8 space-y-6">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-2">
-                <RoundTypeBadge type={currentQuestion.round_type} size={20} />
-                {currentQuestion.round_title}
-                {rounds.length > 1 && (
-                  <span className="ml-1.5 text-muted-foreground/60">
-                    · Round {currentRoundIndex + 1}/{rounds.length}
-                  </span>
-                )}
-              </span>
-              <span>Q{indexInRound + 1}/{questionsInRound.length}</span>
-            </div>
-
-            <div className="border border-correct bg-correct/5 p-6 space-y-4">
-              <p className="text-xs font-bold text-correct uppercase tracking-wider">
-                Correct Answer
-              </p>
-              <h2 className="font-heading text-xl font-bold">
-                {currentQuestion.body}
-              </h2>
-              <p className="text-lg font-semibold text-correct">
-                {String.fromCharCode(65 + currentQuestion.correct_answer)}.{" "}
-                {((currentQuestion.options ?? []) as string[])[currentQuestion.correct_answer]}
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={pauseGame}
-                disabled={loading}
-                className="h-12 px-6 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
-              >
-                Pause
-              </button>
-              <button
-                onClick={isLastQuestion ? endGame : nextQuestion}
-                disabled={loading}
-                className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-              >
-                {nextLabel}
-              </button>
-            </div>
-          </div>
-        )}
+        {/* Phase: Revealing — delegated to per-round HostRevealView via registry.
+            Shell owns the chrome (progress, stats, WHY, actions); round module
+            owns the answer presentation. Hidden when paused (leaderboard takes over). */}
+        {gameState.phase === "revealing" && currentQuestion && !gameState.is_paused && (() => {
+          const HostRevealView = resolveHostRevealView(currentQuestion.round_type);
+          const revealQuestion = {
+            id: currentQuestion.id,
+            round_id: currentQuestion.round_id,
+            body: currentQuestion.body,
+            options: (currentQuestion.options ?? []) as string[],
+            correct_answer: currentQuestion.correct_answer,
+            correct_answer_numeric: currentQuestion.correct_answer_numeric ?? null,
+            explanation: currentQuestion.explanation ?? null,
+            sort_order: currentQuestion.sort_order,
+            round_title: currentQuestion.round_title,
+            round_type: currentQuestion.round_type,
+            time_limit_seconds: currentQuestion.time_limit,
+            base_points: currentQuestion.base_points,
+            time_bonus_enabled: true,
+            config: currentQuestion.round_config ?? {},
+            image_url: currentQuestion.image_url ?? null,
+            reveal_mode: currentQuestion.reveal_mode ?? null,
+          };
+          return (
+            <HostRevealShell
+              roundType={currentQuestion.round_type}
+              roundTitle={currentQuestion.round_title}
+              roundIndex={currentRoundIndex}
+              roundCount={rounds.length}
+              questionIndexInRound={indexInRound}
+              questionCountInRound={questionsInRound.length}
+              questionBody={currentQuestion.body}
+              answered={answeredCount}
+              playerCount={playerCount}
+              correctCount={revealStats.correctCount}
+              avgTimeSeconds={revealStats.avgTimeSeconds}
+              answerNode={
+                <HostRevealView
+                  question={revealQuestion}
+                  roundConfig={currentQuestion.round_config ?? {}}
+                  roundState={gameState.round_state ?? undefined}
+                />
+              }
+              explanation={currentQuestion.explanation ?? null}
+              loading={loading}
+              onPause={pauseGame}
+              onNext={isLastQuestion ? endGame : nextQuestion}
+              nextLabel={nextLabel}
+            />
+          );
+        })()}
 
         {/* Phase: Leaderboard — shown between rounds AND during pause (is_paused) */}
         {(gameState.phase === "leaderboard" || gameState.is_paused) && (
@@ -1092,43 +1142,31 @@ export function ControlPanel({
           </div>
         )}
 
-        {/* Phase: Interstitial — between rounds (hide when paused) */}
-        {gameState.phase === "interstitial" && !gameState.is_paused && (
-          <div className="flex flex-col items-center justify-center py-16 pb-28 space-y-8">
-            <div className="text-center space-y-3">
-              <p className="text-xs font-bold text-primary uppercase tracking-widest">
-                Next Up
-              </p>
-              <h2 className="font-heading text-3xl font-bold">
-                {interstitialRound?.title ?? "Next Round"}
-              </h2>
-              {interstitialRound?.interstitial_text && (
-                <p className="text-muted-foreground max-w-sm mx-auto">
-                  {interstitialRound.interstitial_text}
-                </p>
-              )}
-              {interstitialCountdown !== null && (
-                <p className="text-sm text-muted-foreground">
-                  Auto-starting in{" "}
-                  <span className="font-bold text-foreground tabular-nums">
-                    {interstitialCountdown}s
-                  </span>
-                </p>
-              )}
+        {/* Phase: Interstitial — between rounds (hide when paused).
+            Manual advance: host reads the rules to the room, then taps Start Round. */}
+        {gameState.phase === "interstitial" && !gameState.is_paused && (() => {
+          // Find the full round data (not just RoundInfo) so we can read round_type/time_limit/base_points
+          const fullRound = rounds.find((r) => r.id === gameState.current_round_id) ?? null;
+          const firstQuestionInRound = fullRound?.questions?.[0] ?? null;
+          return (
+            <div className="flex flex-col items-center justify-center py-14 pb-28">
+              <InterstitialCard
+                roundType={firstQuestionInRound?.round_type ?? "mcq"}
+                roundTitle={interstitialRound?.title ?? "Next Round"}
+                description={interstitialRound?.interstitial_text ?? null}
+                questionCount={fullRound?.questions?.length ?? 0}
+                timePerQuestionSeconds={firstQuestionInRound?.time_limit ?? 15}
+                basePoints={firstQuestionInRound?.base_points ?? 100}
+                mode="host"
+                loading={loading}
+                onStart={() => {
+                  if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
+                  startFirstQuestionOfRound();
+                }}
+              />
             </div>
-
-            <button
-              onClick={() => {
-                if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
-                startFirstQuestionOfRound();
-              }}
-              disabled={loading}
-              className="h-12 px-10 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-            >
-              Start Round →
-            </button>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Phase: Ended */}
         {gameState.phase === "ended" && (
@@ -1236,15 +1274,11 @@ export function ControlPanel({
       )}
 
 
-      {/* Sticky Sponsors — interstitial phase */}
+      {/* Sticky Sponsors — interstitial phase. Uses shared SponsorBar so the
+          grayscale treatment + sizing stays consistent with player view. */}
       {gameState.phase === "interstitial" && sponsors.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border py-2 px-4">
-          <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
-          <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
-            {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-              <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} width={100} height={24} unoptimized className="h-6 w-auto max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
-            ))}
-          </div>
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
+          <SponsorBar sponsors={sponsors} />
         </div>
       )}
 

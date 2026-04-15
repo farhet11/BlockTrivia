@@ -41,6 +41,8 @@ export interface QuestionData {
   config: Record<string, unknown>;
   /** Pixel Reveal: image URL for the question. */
   image_url?: string | null;
+  /** Pixel Reveal: which reveal mechanic to use. Defaults to 'pixelated'. */
+  reveal_mode?: "pixelated" | "tile_reveal" | null;
 }
 
 /** Round-specific config stored in the JSONB `config` column on the rounds table. */
@@ -85,6 +87,30 @@ export interface RoundPlayerViewProps {
 }
 
 // ---------------------------------------------------------------------------
+// Host reveal view — rendered on the host/stage screen during the "revealing"
+// phase. The surrounding chrome (progress bar, stats strip, WHY card, action
+// buttons) lives in HostRevealShell; each round type only supplies the
+// "answer presentation" primitive (options grid, numeric target, image, etc.)
+// so reveals stay visually consistent across 8+ round types while still
+// respecting each round's unique answer shape.
+// ---------------------------------------------------------------------------
+
+/** Question data shape as it lands on the host reveal screen. Superset of QuestionData. */
+export interface HostRevealQuestion extends QuestionData {
+  correct_answer: number;
+  correct_answer_numeric?: number | null;
+  explanation?: string | null;
+}
+
+export interface HostRevealViewProps {
+  question: HostRevealQuestion;
+  /** Round-level config (passed through from the rounds row). */
+  roundConfig?: Record<string, unknown>;
+  /** Ephemeral per-question state (e.g. Pressure Cooker spotlight player, The Narrative vote tallies). */
+  roundState?: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
 // Governance constraints
 // ---------------------------------------------------------------------------
 
@@ -109,6 +135,13 @@ export interface RoundModule {
   description: string;
   /** React component rendered on the player's play screen. */
   PlayerView: ComponentType<RoundPlayerViewProps>;
+  /**
+   * Optional host-side reveal component. When omitted, the engine falls back
+   * to DefaultHostRevealView (options grid with correct highlighted) — which
+   * covers most round types. Override only when the answer shape is different
+   * (numeric target, image, multi-option tally, etc.).
+   */
+  HostRevealView?: ComponentType<HostRevealViewProps>;
   /** Governance rules for this round type. */
   constraints: ModuleConstraints;
   /**
@@ -131,12 +164,20 @@ import { ClosestWinsPlayerView } from "@/rounds/closest-wins/player-view";
 import { TheNarrativePlayerView } from "@/rounds/the-narrative/player-view";
 import { OraclesDilemmaPlayerView } from "@/rounds/oracles-dilemma/player-view";
 
+// Host reveal views — most rounds use the default (options grid).
+// Only rounds with non-options answer shapes override.
+import { DefaultHostRevealView } from "@/rounds/_shared/default-host-reveal-view";
+import { ClosestWinsHostRevealView } from "@/rounds/closest-wins/host-reveal-view";
+import { PixelRevealHostRevealView } from "@/rounds/pixel-reveal/host-reveal-view";
+import { TheNarrativeHostRevealView } from "@/rounds/the-narrative/host-reveal-view";
+
 const modules: RoundModule[] = [
   {
     type: "mcq",
     displayName: "Multiple Choice",
     description: "4 answer options, one correct. Speed bonus rewards fast conviction.",
     PlayerView: MCQPlayerView,
+    HostRevealView: DefaultHostRevealView,
     mindScanAutoGen: true,
     constraints: {
       minPlayers: 1,
@@ -146,8 +187,9 @@ const modules: RoundModule[] = [
   {
     type: "true_false",
     displayName: "True / False",
-    description: "Binary conviction test. No hedging. Use only when the wrong answer is tempting.",
+    description: "One statement. True or false — no hedging. Pick a side fast.",
     PlayerView: MCQPlayerView,  // reuses MCQ view — options capped to 2 by question data
+    HostRevealView: DefaultHostRevealView,
     mindScanAutoGen: true,
     constraints: {
       minPlayers: 1,
@@ -159,6 +201,7 @@ const modules: RoundModule[] = [
     displayName: "WipeOut",
     description: "MCQ + wager slider. Bet 10%–100% of your banked score. Right = gain. Wrong = lose.",
     PlayerView: WipeOutPlayerView,
+    HostRevealView: DefaultHostRevealView,
     mindScanAutoGen: false,
     constraints: {
       minPlayers: 2,
@@ -170,10 +213,9 @@ const modules: RoundModule[] = [
   {
     type: "reversal",
     displayName: "Reversal",
-    description:
-      "4 statements shown — 3 are true, 1 is false. Players identify the false one. " +
-      "Mark the false statement as the correct answer in the builder.",
+    description: "4 statements. 3 are true, 1 is a lie. Spot the lie.",
     PlayerView: ReversalPlayerView,
+    HostRevealView: DefaultHostRevealView,
     mindScanAutoGen: true,
     constraints: {
       minPlayers: 1,
@@ -187,6 +229,7 @@ const modules: RoundModule[] = [
       "One player is randomly spotlighted per question — they answer while everyone watches. " +
       "Everyone scores normally. The hot seat rotates each question.",
     PlayerView: PressureCookerPlayerView,
+    HostRevealView: DefaultHostRevealView,
     mindScanAutoGen: false,
     constraints: {
       minPlayers: 2,             // spotlight is meaningless with only one player
@@ -201,6 +244,7 @@ const modules: RoundModule[] = [
     description:
       "Image starts blurred, progressively clears. Early correct answers earn a quadratic time bonus.",
     PlayerView: PixelRevealPlayerView,
+    HostRevealView: PixelRevealHostRevealView,
     mindScanAutoGen: false,
     constraints: {
       minPlayers: 1,
@@ -213,6 +257,7 @@ const modules: RoundModule[] = [
     description:
       "Players type a numeric answer. Scoring based on distance from the correct value — closer = more points.",
     PlayerView: ClosestWinsPlayerView,
+    HostRevealView: ClosestWinsHostRevealView,
     mindScanAutoGen: false,
     constraints: {
       minPlayers: 1,
@@ -223,8 +268,9 @@ const modules: RoundModule[] = [
     type: "the_narrative",
     displayName: "The Narrative",
     description:
-      "All players vote. The majority vote becomes 'correct.' Rewards reading the room, not knowing facts.",
+      "All players vote. The majority's pick scores. The reveal exposes where the room herds wrong vs. the textbook.",
     PlayerView: TheNarrativePlayerView,
+    HostRevealView: TheNarrativeHostRevealView,
     mindScanAutoGen: false,
     constraints: {
       minPlayers: 3,
@@ -237,6 +283,7 @@ const modules: RoundModule[] = [
     description:
       "One random Oracle sees the answer and chooses: truth or deception. Others decide whether to trust them.",
     PlayerView: OraclesDilemmaPlayerView,
+    HostRevealView: DefaultHostRevealView,
     mindScanAutoGen: false,
     constraints: {
       minPlayers: 3,
@@ -273,6 +320,19 @@ export function resolvePlayerView(roundType: string): ComponentType<RoundPlayerV
  */
 export function getRoundConstraints(roundType: string): ModuleConstraints {
   return roundRegistry.get(roundType)?.constraints ?? {};
+}
+
+/**
+ * Resolve the HostRevealView for a given round type.
+ * Falls back to DefaultHostRevealView (options grid) if the module doesn't
+ * declare one — which is fine for any round whose "correct answer" is an
+ * index into the options array.
+ */
+export function resolveHostRevealView(
+  roundType: string
+): ComponentType<HostRevealViewProps> {
+  const roundModule = roundRegistry.get(roundType);
+  return roundModule?.HostRevealView ?? DefaultHostRevealView;
 }
 
 /**

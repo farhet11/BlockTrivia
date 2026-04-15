@@ -795,6 +795,58 @@ export function PlayView({
     );
   }
 
+  // ── Mid-game leaderboard ───────────────────────────────────────────────────
+  // Rendered inline so the player never leaves /play during a round boundary —
+  // host's "Next Round" then shows the next question instantly (no route transition).
+  if (phase === "leaderboard") {
+    const podiumEntries = leaderboard.slice(0, 3);
+    const rankingEntries = leaderboard.slice(3);
+    const firstScore = leaderboard[0]?.total_score ?? 1;
+    const inTop3 = myLbEntry ? podiumEntries.some((e) => e.player_id === myLbEntry.player_id) : false;
+    return (
+      <div className="min-h-dvh bg-background flex flex-col">
+        <AppHeader
+          user={{ id: player.id, displayName: player.displayName, email: player.email }}
+          avatarUrl={player.avatarUrl}
+          right={event.logoUrl ? (
+            <Image src={event.logoUrl} alt="Event logo" width={110} height={28} unoptimized className="h-7 w-auto max-w-[110px] object-contain" />
+          ) : null}
+        />
+        <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full flex flex-col">
+          <div className="text-center px-5 pt-5 pb-2 space-y-2">
+            <h1 className="font-heading text-2xl font-bold leading-tight">{event.title}</h1>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground" style={{ fontFamily: "Inter, sans-serif" }}>
+              Round standings
+            </p>
+          </div>
+          {leaderboard.length > 0 ? (
+            <div className="px-5 py-4 space-y-4">
+              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+              {rankingEntries.length > 0 && (
+                <div className="border-t border-border pt-2">
+                  {rankingEntries.map((e, i) => (
+                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                  ))}
+                </div>
+              )}
+              {myLbEntry && !inTop3 && (
+                <PinnedRankSection entry={myLbEntry as LbEntry} firstScore={firstScore} />
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-sm text-muted-foreground animate-pulse">Loading standings…</p>
+            </div>
+          )}
+          <div className="text-center pb-4">
+            <p className="text-xs text-muted-foreground">Waiting for host to start the next round…</p>
+          </div>
+        </div>
+        <SponsorBar sponsors={sponsors} />
+      </div>
+    );
+  }
+
   // ── Interstitial phase ─────────────────────────────────────────────────────
   if (phase === "interstitial") {
     const interstitialRound = roundsInfo.find((r) => r.id === gameState.current_round_id);

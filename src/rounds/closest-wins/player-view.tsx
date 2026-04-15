@@ -24,9 +24,40 @@
  */
 
 import { useState } from "react";
-import { Check, X, Target } from "lucide-react";
+import { Check, X, Ruler } from "lucide-react";
 import { BlockSpinner } from "@/components/ui/block-spinner";
 import type { RoundPlayerViewProps } from "@/lib/game/round-registry";
+
+/**
+ * Format a raw digit string with thousands separators while preserving a
+ * trailing decimal point (so the user can keep typing "1234." → "1,234.").
+ * Returns an empty string for inputs that can't form a number.
+ */
+function formatWithSeparators(raw: string): string {
+  if (raw === "" || raw === "-" || raw === "." || raw === "-.") return raw;
+  // Split optional sign + integer + optional decimal
+  const match = /^(-?)(\d*)(\.\d*)?$/.exec(raw);
+  if (!match) return raw;
+  const [, sign, intPart, decPart = ""] = match;
+  const intFormatted = intPart ? Number(intPart).toLocaleString("en-US") : "";
+  return `${sign}${intFormatted}${decPart}`;
+}
+
+/** Strip non-numeric formatting so the raw value can be parsed / kept in state. */
+function sanitizeNumericInput(input: string): string {
+  // Remove everything except digits, dot and leading minus
+  let cleaned = input.replace(/[^0-9.-]/g, "");
+  // Only one leading minus
+  const hasLeadingMinus = cleaned.startsWith("-");
+  cleaned = cleaned.replace(/-/g, "");
+  if (hasLeadingMinus) cleaned = "-" + cleaned;
+  // Only one decimal
+  const firstDot = cleaned.indexOf(".");
+  if (firstDot !== -1) {
+    cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, "");
+  }
+  return cleaned;
+}
 
 export function ClosestWinsPlayerView({
   question: _question,
@@ -57,7 +88,7 @@ export function ClosestWinsPlayerView({
       {/* Instruction pill */}
       <div className="flex items-center justify-center">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[#f5f3ef] dark:bg-[#1f1f23] border border-border px-3 py-1.5">
-          <Target size={14} strokeWidth={2} />
+          <Ruler size={14} strokeWidth={2} />
           Type your best guess — closest answer wins
         </span>
       </div>
@@ -66,10 +97,10 @@ export function ClosestWinsPlayerView({
       {!isRevealing ? (
         <div className="flex flex-col items-center gap-3">
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
-            value={numericValue}
-            onChange={(e) => setNumericValue(e.target.value)}
+            value={formatWithSeparators(numericValue)}
+            onChange={(e) => setNumericValue(sanitizeNumericInput(e.target.value))}
             onKeyDown={handleKeyDown}
             disabled={hasAnswered || phase !== "playing" || isSubmitting}
             placeholder="Enter a number..."
@@ -141,12 +172,18 @@ export function ClosestWinsPlayerView({
             </span>
             <div className="flex flex-col">
               <span className="text-sm font-medium">
-                Your answer: {numericValue || "—"}
+                {lastResult.didNotAnswer
+                  ? "No answer submitted"
+                  : `Your answer: ${
+                      numericValue ? formatWithSeparators(numericValue) : "—"
+                    }`}
               </span>
               <span className="text-xs opacity-80">
                 {lastResult.pointsAwarded > 0
                   ? `+${lastResult.pointsAwarded} points`
-                  : "0 points — too far off"}
+                  : lastResult.didNotAnswer
+                    ? "Time ran out — 0 points"
+                    : "0 points — too far off"}
               </span>
             </div>
           </div>

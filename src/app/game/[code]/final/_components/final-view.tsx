@@ -6,6 +6,8 @@ import { AppHeader } from "@/app/_components/app-header";
 import { SponsorBar } from "@/app/_components/sponsor-bar";
 import { ShareResultButton } from "./share-result-button";
 import { PodiumLayout, RankingRow, PinnedRankSection } from "@/app/_components/lb-podium";
+import { SpotlightCards } from "@/app/_components/spotlight-cards";
+import type { SpotlightCard } from "@/lib/game/spotlight-stats";
 
 type Sponsor = {
   id: string;
@@ -33,6 +35,7 @@ export function FinalView({
   myEntry,
   totalPlayers,
   sponsors,
+  spotlights = [],
 }: {
   event: { id?: string; title: string; joinCode: string; twitter_handle?: string | null; hashtags?: string[] | null; logoUrl?: string | null };
   player: { id: string };
@@ -40,6 +43,7 @@ export function FinalView({
   myEntry: Entry | null;
   totalPlayers?: number;
   sponsors: Sponsor[];
+  spotlights?: SpotlightCard[];
 }) {
   const podiumEntries = leaderboard.slice(0, 3);
   const rankingEntries = leaderboard.slice(3);
@@ -123,6 +127,9 @@ export function FinalView({
             )}
           </div>
         )}
+
+        {/* Spotlight stats */}
+        <SpotlightCards cards={spotlights} myPlayerId={player.id} />
 
         {/* Share result */}
         {myEntry && event.id && (

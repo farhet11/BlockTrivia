@@ -123,7 +123,8 @@ export default async function LeaderboardPage({ params }: Props) {
     ? { current: currentQIdx >= 0 ? currentQIdx + 1 : null, total: sortedQuestions.length }
     : null;
 
-  // Build leaderboard — real scores or 0-pt fallback from joined players
+  // Build leaderboard — real scores, with any non-scoring players appended at 0 pts.
+  // Important: always include ALL event_players, even those who never answered.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let leaderboard: any[] = [];
   if (entries && entries.length > 0) {
@@ -140,7 +141,27 @@ export default async function LeaderboardPage({ params }: Props) {
       avg_speed_ms: row.avg_speed_ms ?? 0,
       is_top_10_pct: row.is_top_10_pct ?? false,
     }));
+
+    // Append any players who have no leaderboard_entries row (scored 0 / never answered).
+    const scoredIds = new Set(leaderboard.map((e) => e.player_id));
+    const maxRank = leaderboard.length;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const zeroPlayers = (allPlayers ?? []).filter((p: any) => !scoredIds.has(p.player_id));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    leaderboard = leaderboard.concat(zeroPlayers.map((p: any, i: number) => ({
+      player_id: p.player_id,
+      display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
+      avatar_url: p.profiles?.avatar_url ?? null,
+      total_score: 0,
+      rank: maxRank + i + 1,
+      correct_count: 0,
+      total_questions: 0,
+      accuracy: 0,
+      avg_speed_ms: 0,
+      is_top_10_pct: false,
+    })));
   } else if (allPlayers && allPlayers.length > 0) {
+    // No scores at all yet — show everyone at 0 pts
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     leaderboard = allPlayers.map((p: any, i: number) => ({
       player_id: p.player_id,
@@ -148,6 +169,11 @@ export default async function LeaderboardPage({ params }: Props) {
       avatar_url: p.profiles?.avatar_url ?? null,
       total_score: 0,
       rank: i + 1,
+      correct_count: 0,
+      total_questions: 0,
+      accuracy: 0,
+      avg_speed_ms: 0,
+      is_top_10_pct: false,
     }));
   }
 

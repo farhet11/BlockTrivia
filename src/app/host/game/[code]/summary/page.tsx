@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { resolvePlayerName } from "@/lib/player-name";
 import { SummaryView } from "./_components/summary-view";
+import { computeSpotlightStats, type SpotlightCard } from "@/lib/game/spotlight-stats";
 
 export default async function SummaryPage({
   params,
@@ -73,6 +74,17 @@ export default async function SummaryPage({
     is_suspicious: row.is_suspicious ?? false,
   }));
 
+  // Compute Phase 1 spotlight stats (host already has responses access)
+  let spotlights: SpotlightCard[] = [];
+  try {
+    spotlights = await computeSpotlightStats(supabase, event.id, leaderboard.map(e => ({
+      ...e,
+      total_questions: e.total_questions ?? 0,
+    })));
+  } catch {
+    // Non-fatal — show page without spotlights on error
+  }
+
   // Total player count, host profile, and sponsors in parallel
   const [{ count: playerCount }, { data: profile }, { data: sponsors }] = await Promise.all([
     supabase.from("event_players").select("*", { count: "exact", head: true }).eq("event_id", event.id),
@@ -96,6 +108,7 @@ export default async function SummaryPage({
       }}
       leaderboard={leaderboard}
       playerCount={playerCount ?? 0}
+      spotlights={spotlights}
       hostUser={{
         id: user.id,
         displayName: profile?.display_name ?? "Host",

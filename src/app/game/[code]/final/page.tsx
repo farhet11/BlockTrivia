@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { FinalView } from "./_components/final-view";
 import { resolvePlayerName } from "@/lib/player-name";
+import { computeSpotlightStats, type SpotlightCard } from "@/lib/game/spotlight-stats";
 
 export default async function FinalPage({
   params,
@@ -57,6 +58,17 @@ export default async function FinalPage({
 
   const myEntry = leaderboard.find((e) => e.player_id === user.id) ?? null;
 
+  // Compute Phase 1 spotlight stats (needs responses access — granted by policy 065)
+  let spotlights: SpotlightCard[] = [];
+  try {
+    spotlights = await computeSpotlightStats(supabase, event.id, leaderboard.map(e => ({
+      ...e,
+      total_questions: e.total_questions ?? 0,
+    })));
+  } catch {
+    // Non-fatal — show page without spotlights if responses aren't accessible yet
+  }
+
   return (
     <FinalView
       event={{
@@ -72,6 +84,7 @@ export default async function FinalPage({
       myEntry={myEntry}
       totalPlayers={totalPlayers ?? leaderboard.length}
       sponsors={sponsors ?? []}
+      spotlights={spotlights}
     />
   );
 }

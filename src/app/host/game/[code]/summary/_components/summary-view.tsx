@@ -5,6 +5,8 @@ import { useState } from "react";
 import { AppHeader } from "@/app/_components/app-header";
 import { ShareRow } from "./announce-results-button";
 import { proxyImageUrl } from "@/lib/image-proxy";
+import { SpotlightCards } from "@/app/_components/spotlight-cards";
+import type { SpotlightCard } from "@/lib/game/spotlight-stats";
 
 type Entry = {
   player_id: string;
@@ -33,6 +35,7 @@ export function SummaryView({
   playerCount,
   hostUser,
   sponsors,
+  spotlights = [],
 }: {
   event: {
     id: string;
@@ -50,6 +53,7 @@ export function SummaryView({
   playerCount: number;
   hostUser?: { id: string; displayName: string; email: string; avatarUrl: string | null };
   sponsors: Sponsor[];
+  spotlights?: SpotlightCard[];
 }) {
   const [descExpanded, setDescExpanded] = useState(false);
 
@@ -212,10 +216,13 @@ export function SummaryView({
           </div>
         </div>
 
-        {/* 1.4 Share Row */}
+        {/* 1.4 Spotlight Stats */}
+        <SpotlightCards cards={spotlights} />
+
+        {/* 1.5 Share Row */}
         <ShareRow event={{ title: event.title, joinCode: event.joinCode }} playerCount={playerCount} />
 
-        {/* 1.5 Action Buttons — host only */}
+        {/* 1.6 Action Buttons — host only */}
         <div className="flex gap-3">
           <a
             href="/host"

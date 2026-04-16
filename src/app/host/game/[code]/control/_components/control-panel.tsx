@@ -466,12 +466,12 @@ export function ControlPanel({
   async function pickSpotlightPlayer(): Promise<{ id: string; display_name: string } | null> {
     const { data, error } = await supabase
       .from("event_players")
-      .select("player_id, display_name")
+      .select("player_id, game_alias")
       .eq("event_id", event.id)
       .limit(100);
     if (error || !data || data.length === 0) return null;
     const pick = data[Math.floor(Math.random() * data.length)];
-    return { id: pick.player_id as string, display_name: pick.display_name as string };
+    return { id: pick.player_id as string, display_name: pick.game_alias as string };
   }
 
   /**

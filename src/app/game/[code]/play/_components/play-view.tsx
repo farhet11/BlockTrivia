@@ -444,28 +444,41 @@ export function PlayView({
           rank: row.rank,
         }));
 
-        // Fallback: no scores yet — show all joined players at 0 pts
-        if (entries.length === 0) {
-          const { data: players } = await supabase
-            .from("event_players")
+        // Always include all event_players — append any with no leaderboard_entries row at 0 pts.
+        const { data: allPlayers } = await supabase
+          .from("event_players")
+          .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
+          .eq("event_id", event.id)
+          .limit(50);
 
-            .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
-            .eq("event_id", event.id)
-            .limit(10);
-          if (players) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            entries = players.map((p: any, i: number) => ({
-              player_id: p.player_id,
-              display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
-              avatar_url: p.profiles?.avatar_url ?? null,
-              total_score: 0,
-              rank: i + 1,
-            }));
-            // Also set the current player's entry from the fallback list
-            const myFallback = entries.find((e) => e.player_id === player.id);
-            if (myFallback) setMyLbEntry(myFallback);
-          }
+        if (entries.length === 0 && allPlayers) {
+          // No scores yet — show everyone at 0 pts
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          entries = allPlayers.map((p: any, i: number) => ({
+            player_id: p.player_id,
+            display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
+            avatar_url: p.profiles?.avatar_url ?? null,
+            total_score: 0,
+            rank: i + 1,
+          }));
+        } else if (allPlayers) {
+          // Some players scored — append anyone missing from leaderboard_entries at the bottom
+          const scoredIds = new Set(entries.map((e) => e.player_id));
+          const maxRank = entries.length;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const zeroPlayers = allPlayers.filter((p: any) => !scoredIds.has(p.player_id));
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          entries = entries.concat(zeroPlayers.map((p: any, i: number) => ({
+            player_id: p.player_id,
+            display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
+            avatar_url: p.profiles?.avatar_url ?? null,
+            total_score: 0,
+            rank: maxRank + i + 1,
+          })));
         }
+        // Sync current player's entry from the merged list (covers 0-score players too)
+        const myMerged = entries.find((e) => e.player_id === player.id);
+        if (myMerged) setMyLbEntry(myMerged);
 
         const deltas = new Map<string, number | null>();
         entries.forEach((e) => {
@@ -497,6 +510,8 @@ export function PlayView({
             rank: data.rank,
           });
         }
+        // data is null when player never answered — myLbEntry is already set via the
+        // merged leaderboard list above (0 pts, last rank). Nothing more to do.
       });
 
     supabase

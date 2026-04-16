@@ -28,43 +28,69 @@ export default async function FinalPage({
   // If game is still running, route to the correct phase
   if (event.status !== "ended") redirect(`/game/${code}`);
 
-  const [{ data: entries }, { count: totalPlayers }, { data: sponsors }] = await Promise.all([
+  const [{ data: entries }, { count: totalPlayers }, { data: sponsors }, { data: allPlayers }] = await Promise.all([
     supabase
       .from("leaderboard_entries")
       .select(`player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( username, display_name )`)
       .eq("event_id", event.id)
       .order("total_score", { ascending: false })
       .limit(20),
-    supabase.from("leaderboard_entries").select("*", { count: "exact", head: true }).eq("event_id", event.id),
+    supabase.from("event_players").select("*", { count: "exact", head: true }).eq("event_id", event.id),
     supabase
       .from("event_sponsors")
       .select("id, name, logo_url, sort_order")
       .eq("event_id", event.id)
       .order("sort_order"),
+    supabase
+      .from("event_players")
+      .select(`player_id, game_alias, profiles ( username, display_name )`)
+      .eq("event_id", event.id),
   ]);
 
-  const leaderboard = (entries ?? []).map((row) => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let leaderboard = (entries ?? []).map((row: any) => ({
     player_id: row.player_id,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    display_name: resolvePlayerName(null, (row.profiles as any)?.username, (row.profiles as any)?.display_name),
+    display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
     total_score: row.total_score,
-    correct_count: row.correct_count,
-    total_questions: row.total_questions,
-    accuracy: row.accuracy,
-    avg_speed_ms: row.avg_speed_ms,
+    correct_count: row.correct_count ?? 0,
+    total_questions: row.total_questions ?? 0,
+    accuracy: row.accuracy ?? 0,
+    avg_speed_ms: row.avg_speed_ms ?? 0,
     rank: row.rank,
-    is_top_10_pct: row.is_top_10_pct,
+    is_top_10_pct: row.is_top_10_pct ?? false,
   }));
+
+  // Append players with 0 score who have no leaderboard_entries row
+  const scoredIds = new Set(leaderboard.map((e) => e.player_id));
+  const maxRank = leaderboard.length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const zeroPlayers = (allPlayers ?? []).filter((p: any) => !scoredIds.has(p.player_id));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  leaderboard = leaderboard.concat(zeroPlayers.map((p: any, i: number) => ({
+    player_id: p.player_id,
+    display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
+    total_score: 0,
+    correct_count: 0,
+    total_questions: 0,
+    accuracy: 0,
+    avg_speed_ms: 0,
+    rank: maxRank + i + 1,
+    is_top_10_pct: false,
+  })));
 
   const myEntry = leaderboard.find((e) => e.player_id === user.id) ?? null;
 
   // Compute Phase 1 spotlight stats (needs responses access — granted by policy 065)
+  // minPlayers=2 so small games and testing still show spotlights
   let spotlights: SpotlightCard[] = [];
   try {
-    spotlights = await computeSpotlightStats(supabase, event.id, leaderboard.map(e => ({
-      ...e,
-      total_questions: e.total_questions ?? 0,
-    })));
+    spotlights = await computeSpotlightStats(
+      supabase,
+      event.id,
+      leaderboard.filter((e) => e.total_questions > 0), // only pass players who answered
+      2,  // minPlayers
+      3   // minQuestions
+    );
   } catch {
     // Non-fatal — show page without spotlights if responses aren't accessible yet
   }

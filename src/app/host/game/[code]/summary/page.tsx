@@ -25,7 +25,7 @@ export default async function SummaryPage({
 
   if (!event || event.created_by !== user.id) redirect("/host");
 
-  // Load top 10 leaderboard — try with profile join, fall back without
+  // Load leaderboard + all players (to include 0-score participants)
   // eslint-disable-next-line prefer-const -- entries is reassigned in the fallback path below
   let { data: entries, error: lbError } = await supabase
     .from("leaderboard_entries")
@@ -43,7 +43,7 @@ export default async function SummaryPage({
     `)
     .eq("event_id", event.id)
     .order("rank", { ascending: true })
-    .limit(10);
+    .limit(50);
 
   // Fallback: if join fails (FK name mismatch), load without profiles
   if (lbError) {
@@ -52,35 +52,66 @@ export default async function SummaryPage({
       .select("player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct, is_suspicious")
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
-      .limit(10);
+      .limit(50);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     entries = (fallback.data ?? []).map((r: any) => ({ ...r, profiles: null })) as typeof entries;
   }
 
+  // All joined players (for merging 0-score participants)
+  const { data: allPlayers } = await supabase
+    .from("event_players")
+    .select(`player_id, game_alias, profiles ( display_name, username, full_name, email )`)
+    .eq("event_id", event.id);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const leaderboard = (entries ?? []).map((row: any) => ({
+  let leaderboard = (entries ?? []).map((row: any) => ({
     player_id: row.player_id,
     display_name: resolvePlayerName(null, row.profiles?.username, row.profiles?.display_name),
     username: row.profiles?.username ?? "",
     full_name: row.profiles?.full_name ?? "",
     email: row.profiles?.email ?? "",
     total_score: row.total_score,
-    correct_count: row.correct_count,
-    total_questions: row.total_questions,
-    accuracy: row.accuracy,
-    avg_speed_ms: row.avg_speed_ms,
+    correct_count: row.correct_count ?? 0,
+    total_questions: row.total_questions ?? 0,
+    accuracy: row.accuracy ?? 0,
+    avg_speed_ms: row.avg_speed_ms ?? 0,
     rank: row.rank,
-    is_top_10_pct: row.is_top_10_pct,
+    is_top_10_pct: row.is_top_10_pct ?? false,
     is_suspicious: row.is_suspicious ?? false,
   }));
 
-  // Compute Phase 1 spotlight stats (host already has responses access)
+  // Append any players with no leaderboard_entries row (scored 0 / never answered)
+  const scoredIds = new Set(leaderboard.map((e) => e.player_id));
+  const maxRank = leaderboard.length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const zeroPlayers = (allPlayers ?? []).filter((p: any) => !scoredIds.has(p.player_id));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  leaderboard = leaderboard.concat(zeroPlayers.map((p: any, i: number) => ({
+    player_id: p.player_id,
+    display_name: resolvePlayerName(p.game_alias, p.profiles?.username, p.profiles?.display_name),
+    username: p.profiles?.username ?? "",
+    full_name: p.profiles?.full_name ?? "",
+    email: p.profiles?.email ?? "",
+    total_score: 0,
+    correct_count: 0,
+    total_questions: 0,
+    accuracy: 0,
+    avg_speed_ms: 0,
+    rank: maxRank + i + 1,
+    is_top_10_pct: false,
+    is_suspicious: false,
+  })));
+
+  // Compute Phase 1 spotlight stats — minPlayers=2 so small games show spotlights
   let spotlights: SpotlightCard[] = [];
   try {
-    spotlights = await computeSpotlightStats(supabase, event.id, leaderboard.map(e => ({
-      ...e,
-      total_questions: e.total_questions ?? 0,
-    })));
+    spotlights = await computeSpotlightStats(
+      supabase,
+      event.id,
+      leaderboard.filter((e) => e.total_questions > 0), // only players who answered
+      2,  // minPlayers
+      3   // minQuestions
+    );
   } catch {
     // Non-fatal — show page without spotlights on error
   }

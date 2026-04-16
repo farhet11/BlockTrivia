@@ -46,8 +46,8 @@ export function WipeOutPlayerView({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Wager slider — hidden once answered */}
-      {!hasAnswered && phase === "playing" && (
+      {/* Wager slider — hidden once answered or timed out */}
+      {!hasAnswered && !isTimedOut && phase === "playing" && (
         <div className="space-y-2 border border-border p-4 bg-surface">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground font-medium">Wager</span>

@@ -159,6 +159,9 @@ export function PlayView({
   // Setter retained to reset any legacy residual countdown on phase change.
   const [, setInterstitialCountdown] = useState<number | null>(null);
   const submitLockRef = useRef(false);
+  // 3-2-1 "Get Ready" transition overlay shown when a new question starts
+  const [transitionCountdown, setTransitionCountdown] = useState<number | null>(null);
+  const transitionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Ref copy of gameState for use inside polling interval without stale closure
   const gameStateRef = useRef<GameState>(initialGameState);
   // Track Realtime subscription health — only poll when disconnected
@@ -279,6 +282,21 @@ export function PlayView({
         setLeverage(Math.round(((minW + maxW) / 2) * 20) / 20); // round to nearest 0.05
         setLastResult(null);
         submitLockRef.current = false;
+
+        // 3-2-1 "Get Ready" overlay (BUG-004)
+        if (transitionTimerRef.current) clearInterval(transitionTimerRef.current);
+        setTransitionCountdown(3);
+        let count = 3;
+        transitionTimerRef.current = setInterval(() => {
+          count -= 1;
+          if (count <= 0) {
+            clearInterval(transitionTimerRef.current!);
+            transitionTimerRef.current = null;
+            setTransitionCountdown(null);
+          } else {
+            setTransitionCountdown(count);
+          }
+        }, 1000);
       } else if (next.phase === "ended") {
         // Final leaderboard lives on its own route. Mid-game leaderboard renders inline.
         router.push(`/game/${event.joinCode}/leaderboard`);
@@ -1106,6 +1124,27 @@ export function PlayView({
         </div>
       )}
 
+      {/* 3-2-1 "Get Ready" overlay — shown when a new question arrives (BUG-004) */}
+      {transitionCountdown !== null && (
+        <div className="fixed inset-0 z-50 bg-background flex flex-col items-center justify-center gap-6">
+          <p className="text-[11px] font-bold text-primary uppercase tracking-widest">
+            Get Ready
+          </p>
+          <div
+            key={transitionCountdown}
+            className="font-heading text-8xl font-bold tabular-nums"
+            style={{ animation: "countdown-pop 400ms cubic-bezier(0.34,1.56,0.64,1)" }}
+          >
+            {transitionCountdown}
+          </div>
+          {currentQuestion && (
+            <p className="text-sm text-muted-foreground font-medium">
+              {currentQuestion.round_title} · Question {indexInRound + 1} of {questionsInRound.length}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Modifier activation animation — full-screen overlay on live activation */}
       {modifierJustActivated && effectiveModType && (
         <ModifierActivationOverlay
@@ -1189,8 +1228,10 @@ export function PlayView({
         </h1>
 
         {/* Round PlayerView — resolved from round registry. Zero engine coupling. */}
+        {/* key=currentQuestion.id forces remount on question change, resetting local state (e.g. numericValue in ClosestWins) */}
         {RoundPlayerView && (
           <RoundPlayerView
+            key={currentQuestion.id}
             question={currentQuestion}
             phase={phase as import("@/lib/game/round-registry").GamePhase}
             timeLeft={timeLeft}
@@ -1226,8 +1267,8 @@ export function PlayView({
             the top of the screen now carries points, descriptor, and rank, which
             avoids crowding the Why explanation. */}
 
-        {/* Submitted / waiting */}
-        {hasAnswered && phase === "playing" && (
+        {/* Submitted / waiting — hide for round types that render their own waiting UI */}
+        {hasAnswered && phase === "playing" && currentQuestion?.round_type !== "closest_wins" && (
           <p className="text-center text-sm text-muted-foreground animate-pulse">
             Answer locked in - waiting for host to reveal...
           </p>

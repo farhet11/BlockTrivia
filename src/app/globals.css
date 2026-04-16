@@ -202,6 +202,13 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Get Ready countdown pop ────────────────────────────────────────── */
+
+@keyframes countdown-pop {
+  from { opacity: 0.4; transform: scale(1.6); }
+  to   { opacity: 1;   transform: scale(1); }
+}
+
 /* ─── Answer reveal animations ──────────────────────────────────────── */
 
 @keyframes reveal-banner {

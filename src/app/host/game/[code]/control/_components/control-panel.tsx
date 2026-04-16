@@ -648,9 +648,22 @@ export function ControlPanel({
 
   // Show reveal (correct answer)
   async function revealAnswer() {
-    // The Narrative: tally votes before reveal so scoring uses majority
+    // The Narrative: tally votes + retroactively rescore all responses (migration 066)
     if (currentQuestion?.round_type === "the_narrative") {
+      // tallyNarrativeVotes still updates round_state for the UI display
       await tallyNarrativeVotes();
+      // rescore_the_narrative fixes is_correct + points_awarded + leaderboard
+      await supabase.rpc("rescore_the_narrative", {
+        p_question_id: currentQuestion.id,
+        p_event_id: event.id,
+      });
+    }
+    // Closest Wins: distribute pot-based scores before reveal (migration 064)
+    if (currentQuestion?.round_type === "closest_wins") {
+      await supabase.rpc("rescore_closest_wins", {
+        p_question_id: currentQuestion.id,
+        p_event_id: event.id,
+      });
     }
     await updateGameState({ phase: "revealing" });
   }

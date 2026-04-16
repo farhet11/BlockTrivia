@@ -1,0 +1,32 @@
+name: Migration drift check
+
+# Runs on any PR that touches migrations, and on every push to main as a
+# backstop. Fails if supabase/migrations/ and supabase_migrations.schema_migrations
+# in production are out of sync.
+#
+# Requires repo secret:
+#   SUPABASE_DB_URL — direct postgres connection string (not pooler). Copy from
+#   Supabase dashboard → Project Settings → Database → Connection string.
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/check-migration-drift.sh'
+      - '.github/workflows/migration-drift.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check migration drift
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: bash scripts/check-migration-drift.sh

@@ -62,6 +62,7 @@ function sanitizeNumericInput(input: string): string {
 export function ClosestWinsPlayerView({
   question: _question,
   phase,
+  timeLeft,
   hasAnswered,
   isSubmitting,
   lastResult,
@@ -69,6 +70,7 @@ export function ClosestWinsPlayerView({
 }: RoundPlayerViewProps) {
   const [numericValue, setNumericValue] = useState("");
   const isRevealing = phase === "revealing" && lastResult !== null;
+  const isTimedOut = timeLeft === 0 && !hasAnswered;
 
   const handleSubmit = () => {
     const parsed = parseFloat(numericValue);
@@ -102,7 +104,7 @@ export function ClosestWinsPlayerView({
             value={formatWithSeparators(numericValue)}
             onChange={(e) => setNumericValue(sanitizeNumericInput(e.target.value))}
             onKeyDown={handleKeyDown}
-            disabled={hasAnswered || phase !== "playing" || isSubmitting}
+            disabled={hasAnswered || isTimedOut || phase !== "playing" || isSubmitting}
             placeholder="Enter a number..."
             className="w-full max-w-xs text-center text-2xl font-semibold p-4 border border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none transition-colors disabled:opacity-50"
             autoFocus
@@ -120,6 +122,7 @@ export function ClosestWinsPlayerView({
                 !numericValue.trim() ||
                 isNaN(parseFloat(numericValue)) ||
                 phase !== "playing" ||
+                isTimedOut ||
                 isSubmitting
               }
               className="px-6 py-3 bg-primary text-primary-foreground font-semibold text-sm border border-primary hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"

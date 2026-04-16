@@ -99,7 +99,8 @@ export function LobbyView({
     };
   }, [supabase, event.id, handlePhaseChange]);
 
-  // Polling fallback — checks every 3s in case Realtime misses the game start
+  // Polling fallback — 15s safety net. Realtime on game_state (via migration 063)
+  // is the primary path; this only catches rare gaps.
   useEffect(() => {
     const interval = setInterval(async () => {
       const { data } = await supabase
@@ -108,7 +109,7 @@ export function LobbyView({
         .eq("event_id", event.id)
         .single();
       if (data) handlePhaseChange(data.phase);
-    }, 3000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [supabase, event.id, handlePhaseChange]);
 
@@ -137,8 +138,9 @@ export function LobbyView({
 
     loadPlayers();
 
-    // Polling fallback — re-fetches full list every 3s in case Realtime misses a join
-    const pollInterval = setInterval(loadPlayers, 3000);
+    // Reconciliation poll — 30s safety net. Realtime on event_players (via migration 063)
+    // handles live joins. At 100+ players this full-join query is expensive; keep it rare.
+    const pollInterval = setInterval(loadPlayers, 30000);
 
     const channel = supabase
       .channel(`lobby:${event.id}`)

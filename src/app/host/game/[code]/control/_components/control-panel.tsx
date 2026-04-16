@@ -226,9 +226,9 @@ export function ControlPanel({
 
     fetchCount();
 
-    // Realtime: fires once responses is in the supabase_realtime publication (migration 041).
-    // Polling every 2s is the belt-and-suspenders fallback for any Realtime gap.
-    const poll = setInterval(fetchCount, 2000);
+    // Realtime: fires via supabase_realtime publication (migration 041).
+    // Polling every 10s is the safety net; Realtime is the primary path.
+    const poll = setInterval(fetchCount, 10000);
 
     const channel = supabase
       .channel(`answers:${qId}`)
@@ -295,7 +295,8 @@ export function ControlPanel({
     }
 
     fetchPlayerCount();
-    const pollInterval = setInterval(fetchPlayerCount, 3000);
+    // 15s reconciliation; Realtime on event_players (migration 063) is primary.
+    const pollInterval = setInterval(fetchPlayerCount, 15000);
 
     const channel = supabase
       .channel(`control-players:${event.id}`)
@@ -465,12 +466,12 @@ export function ControlPanel({
   async function pickSpotlightPlayer(): Promise<{ id: string; display_name: string } | null> {
     const { data, error } = await supabase
       .from("event_players")
-      .select("player_id, display_name")
+      .select("player_id, game_alias")
       .eq("event_id", event.id)
       .limit(100);
     if (error || !data || data.length === 0) return null;
     const pick = data[Math.floor(Math.random() * data.length)];
-    return { id: pick.player_id as string, display_name: pick.display_name as string };
+    return { id: pick.player_id as string, display_name: pick.game_alias as string };
   }
 
   /**

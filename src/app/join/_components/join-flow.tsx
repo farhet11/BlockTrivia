@@ -135,6 +135,13 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
 
   function handleIdentityConfirmed(playerId: string) {
     setCurrentPlayerId(playerId);
+    // Skip liveness check in dev/test environments
+    if (process.env.NEXT_PUBLIC_SKIP_LIVENESS === "true") {
+      if (verifiedEvent) {
+        router.push(`/game/${verifiedEvent.join_code}/lobby`);
+      }
+      return;
+    }
     setStep("liveness");
   }
 

@@ -34,6 +34,7 @@ const OPTION_LABELS = ["A", "B", "C", "D"];
 export function ReversalPlayerView({
   question,
   phase,
+  timeLeft,
   hasAnswered,
   isSubmitting,
   selectedAnswer,
@@ -41,6 +42,7 @@ export function ReversalPlayerView({
   onSubmit,
 }: RoundPlayerViewProps) {
   const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
+  const isTimedOut = timeLeft === 0 && !hasAnswered;
 
   return (
     <div className="flex flex-col gap-3">
@@ -57,7 +59,6 @@ export function ReversalPlayerView({
         {question.options.map((option, i) => {
           const isSelected = selectedAnswer !== null && selectedAnswer === i;
           const isFalseStatement = lastResult?.correctAnswer === i; // the option to find
-          const isTimedOut = false; // managed by PlayView
 
           let cls =
             "flex items-start gap-3 p-4 min-h-14 border text-left transition-colors w-full ";

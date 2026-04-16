@@ -30,6 +30,7 @@ const OPTION_LABELS = ["A", "B", "C", "D"];
 export function TheNarrativePlayerView({
   question,
   phase,
+  timeLeft,
   hasAnswered,
   isSubmitting,
   selectedAnswer,
@@ -38,6 +39,7 @@ export function TheNarrativePlayerView({
   roundState,
 }: RoundPlayerViewProps) {
   const isRevealing = phase === "revealing" && lastResult !== null;
+  const isTimedOut = timeLeft === 0 && !hasAnswered;
 
   // Vote distribution from round_state (set by host on tally)
   const voteCounts = (roundState?.vote_counts as number[] | undefined) ?? [];
@@ -85,7 +87,7 @@ export function TheNarrativePlayerView({
           return (
             <button
               key={i}
-              disabled={hasAnswered || phase !== "playing" || isSubmitting}
+              disabled={hasAnswered || isTimedOut || phase !== "playing" || isSubmitting}
               onClick={() => onSubmit(i)}
               className={cls}
               style={

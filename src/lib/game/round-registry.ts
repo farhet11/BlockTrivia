@@ -162,7 +162,9 @@ import { PressureCookerPlayerView } from "@/rounds/pressure-cooker/player-view";
 import { PixelRevealPlayerView } from "@/rounds/pixel-reveal/player-view";
 import { ClosestWinsPlayerView } from "@/rounds/closest-wins/player-view";
 import { TheNarrativePlayerView } from "@/rounds/the-narrative/player-view";
-import { OraclesDilemmaPlayerView } from "@/rounds/oracles-dilemma/player-view";
+// Oracle's Dilemma — withdrawn pending redesign (shared timer means non-Oracle
+// players can't answer if Oracle is slow; needs a two-phase timer model).
+// import { OraclesDilemmaPlayerView } from "@/rounds/oracles-dilemma/player-view";
 
 // Host reveal views — most rounds use the default (options grid).
 // Only rounds with non-options answer shapes override.
@@ -277,20 +279,24 @@ const modules: RoundModule[] = [
       eventTypes: ["irl", "virtual", "hybrid"],
     },
   },
-  {
-    type: "oracles_dilemma",
-    displayName: "Oracle's Dilemma",
-    description:
-      "One random Oracle sees the answer and chooses: truth or deception. Others decide whether to trust them.",
-    PlayerView: OraclesDilemmaPlayerView,
-    HostRevealView: DefaultHostRevealView,
-    mindScanAutoGen: false,
-    constraints: {
-      minPlayers: 3,
-      mustNotBeFirst: true,
-      eventTypes: ["irl", "virtual", "hybrid"],
-    },
-  },
+  // Oracle's Dilemma — withdrawn pending redesign.
+  // Core issue: Oracle and non-Oracle share one timer. If Oracle is slow to choose,
+  // non-Oracle players have near-zero time to answer after the Realtime update arrives.
+  // Fix requires a two-phase timer (Phase 1: Oracle chooses ~10s, Phase 2: everyone answers ~15s).
+  // {
+  //   type: "oracles_dilemma",
+  //   displayName: "Oracle's Dilemma",
+  //   description:
+  //     "One random Oracle sees the answer and chooses: truth or deception. Others decide whether to trust them.",
+  //   PlayerView: OraclesDilemmaPlayerView,
+  //   HostRevealView: DefaultHostRevealView,
+  //   mindScanAutoGen: false,
+  //   constraints: {
+  //     minPlayers: 3,
+  //     mustNotBeFirst: true,
+  //     eventTypes: ["irl", "virtual", "hybrid"],
+  //   },
+  // },
 ];
 
 /** The registry — the engine's single source of truth for round modules. */

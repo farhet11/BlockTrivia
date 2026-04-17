@@ -85,12 +85,13 @@ export function PressureCookerPlayerView({
           const isCorrectOption = lastResult?.correctAnswer === i;
           const isRevealing = phase === "revealing" && lastResult?.correctAnswer !== undefined;
 
-          let cls = "flex items-center gap-3 p-4 min-h-14 border text-left transition-colors w-full ";
+          const isLong = option.length >= 40;
+          let cls = `${isLong ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
-            if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
-            else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
-            else cls += "border-border text-muted-foreground opacity-50";
+            if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
+            else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+            else cls += "border-border text-foreground opacity-60";
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
           } else if (hasAnswered || isTimedOut) {
@@ -99,11 +100,11 @@ export function PressureCookerPlayerView({
             cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
           }
 
-          const badgeCls = `w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold ${
+          const badgeCls = `${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isRevealing && isCorrectOption
-              ? "bg-correct/10 text-correct"
+              ? "bg-[#22c55e] text-white"
               : isRevealing && isSelected && !isCorrectOption
-              ? "bg-wrong/10 text-wrong"
+              ? "bg-[#ef4444] text-white"
               : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
           }`;
 

@@ -102,22 +102,25 @@ export function TheNarrativeHostRevealView({
             fillCls = "bg-muted-foreground/10";
           }
 
-          // Letter badge
-          const badgeCls = `w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold ${
+          // Letter badge — absolute top-left
+          const badgeCls = `absolute top-[6px] left-[8px] z-10 w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isMajority && isTextbook
-              ? "bg-correct/10 text-correct"
+              ? "bg-[#22c55e] text-white"
               : isMajority
-                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                ? "bg-amber-500 text-white"
                 : isTextbook
-                  ? "bg-correct/10 text-correct"
+                  ? "bg-[#22c55e] text-white"
                   : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
           }`;
 
           return (
             <div
               key={i}
-              className={`relative overflow-hidden flex flex-col gap-2 p-4 min-h-14 border ${cardCls}`}
+              className={`relative overflow-hidden flex flex-col gap-2 p-4 pt-7 min-h-14 border ${cardCls}`}
             >
+              {/* Letter badge */}
+              <span className={badgeCls}>{optionLabels[i] ?? String.fromCharCode(65 + i)}</span>
+
               {/* Vote percentage fill — behind content */}
               <div
                 className={`absolute inset-y-0 left-0 ${fillCls} transition-all`}
@@ -127,7 +130,6 @@ export function TheNarrativeHostRevealView({
 
               {/* Content */}
               <div className="relative flex items-center gap-3">
-                <span className={badgeCls}>{optionLabels[i] ?? String.fromCharCode(65 + i)}</span>
                 <span className="flex-1 text-sm font-medium">{opt}</span>
                 <span className="font-mono text-xs tabular-nums text-muted-foreground">
                   {votes} · {pct}%

@@ -36,14 +36,15 @@ export function PixelRevealHostRevealView({ question }: HostRevealViewProps) {
         {options.map((opt, i) => {
           const isCorrect = i === correctIdx;
           const letter = optionLabels[i] ?? String.fromCharCode(65 + i);
-          const cls = `flex items-center gap-3 p-4 min-h-14 border text-left ${
+          const isLong = opt.length >= 40;
+          const cls = `${isLong ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left ${
             isCorrect
-              ? "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct"
-              : "border-border text-muted-foreground opacity-60"
+              ? "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground"
+              : "border-border text-foreground opacity-60"
           }`;
-          const badgeCls = `w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold ${
+          const badgeCls = `${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isCorrect
-              ? "bg-correct/10 text-correct"
+              ? "bg-[#22c55e] text-white"
               : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
           }`;
 
@@ -52,7 +53,7 @@ export function PixelRevealHostRevealView({ question }: HostRevealViewProps) {
               <span className={badgeCls}>
                 {isCorrect ? <Check size={14} strokeWidth={2.5} /> : letter}
               </span>
-              <span className={`flex-1 ${isCorrect ? "font-medium" : ""}`}>
+              <span className={isCorrect ? "font-medium" : ""}>
                 {opt}
               </span>
             </div>

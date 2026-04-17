@@ -24,8 +24,9 @@
  */
 
 import { useState } from "react";
-import { Check, X, Ruler } from "lucide-react";
+import { Check, Ruler, Target, User } from "lucide-react";
 import { BlockSpinner } from "@/components/ui/block-spinner";
+import { ClosestWinsDistributionChart } from "./distribution-chart";
 import type { RoundPlayerViewProps } from "@/lib/game/round-registry";
 
 /**
@@ -60,14 +61,19 @@ function sanitizeNumericInput(input: string): string {
 }
 
 export function ClosestWinsPlayerView({
-  question: _question,
+  question,
   phase,
   timeLeft,
   hasAnswered,
   isSubmitting,
   lastResult,
+  roundState,
   onSubmit,
 }: RoundPlayerViewProps) {
+  const unit =
+    typeof (question.config as Record<string, unknown>)?.unit === "string"
+      ? ((question.config as Record<string, unknown>).unit as string)
+      : null;
   const [numericValue, setNumericValue] = useState("");
   const isRevealing = phase === "revealing" && lastResult !== null;
   const isTimedOut = timeLeft === 0 && !hasAnswered;
@@ -141,55 +147,141 @@ export function ClosestWinsPlayerView({
       ) : (
         /* Reveal state */
         <div className="flex flex-col items-center gap-4">
-          {/* Correct answer */}
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Correct Answer
-            </span>
-            <span className="text-3xl font-bold text-correct">
-              {lastResult.correctAnswer !== undefined
-                ? Number(lastResult.correctAnswer).toLocaleString()
-                : "—"}
-            </span>
-          </div>
+          {/* Target + You — side-by-side cards */}
+          {(() => {
+            const parsedYour = numericValue ? parseFloat(numericValue) : NaN;
+            const yourGuess =
+              typeof lastResult.numericAnswer === "number" &&
+              Number.isFinite(lastResult.numericAnswer)
+                ? lastResult.numericAnswer
+                : Number.isFinite(parsedYour)
+                  ? parsedYour
+                  : null;
+            const target =
+              typeof lastResult.correctAnswer === "number"
+                ? lastResult.correctAnswer
+                : null;
+            const distance =
+              yourGuess !== null && target !== null
+                ? Math.abs(yourGuess - target)
+                : null;
+            const distanceLabel =
+              distance === null
+                ? null
+                : distance === 0
+                  ? "Spot on"
+                  : `Off by ${distance.toLocaleString()}`;
 
-          {/* Player's result */}
-          <div
-            className={`flex items-center gap-3 px-5 py-3 border ${
-              lastResult.isCorrect
-                ? "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct"
-                : "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong"
-            }`}
-            style={
-              lastResult.isCorrect
-                ? { animation: "correct-pulse 420ms ease-out" }
-                : { animation: "shake 480ms ease-in-out" }
+            return (
+              <div className="w-full grid grid-cols-2 gap-3">
+                {/* Target */}
+                <div className="border border-correct bg-[#dcfce7] dark:bg-correct/15 p-5 flex flex-col items-center justify-center gap-1.5 text-center">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-correct">
+                    <Target size={12} strokeWidth={2.5} />
+                    Target
+                  </span>
+                  <p className="font-mono text-3xl sm:text-4xl font-bold text-correct tabular-nums leading-none">
+                    {target !== null ? target.toLocaleString() : "—"}
+                  </p>
+                  {unit && (
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      {unit}
+                    </p>
+                  )}
+                </div>
+
+                {/* You — color tier:
+                 *   is_correct (spot on)   → green (correct)
+                 *   pts > 0 (partial)      → violet (primary)
+                 *   zero / no answer       → red (wrong) */}
+                {(() => {
+                  const tier = lastResult.didNotAnswer
+                    ? "wrong"
+                    : lastResult.isCorrect
+                      ? "correct"
+                      : lastResult.pointsAwarded > 0
+                        ? "partial"
+                        : "wrong";
+                  const cls = {
+                    correct:
+                      "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct",
+                    partial: "border-primary bg-primary/10 text-primary",
+                    wrong:
+                      "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong",
+                  }[tier];
+                  return (
+                    <div
+                      className={`border p-5 flex flex-col items-center justify-center gap-1.5 text-center ${cls}`}
+                    >
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest">
+                        <User size={12} strokeWidth={2.5} />
+                        You
+                      </span>
+                      <p className="font-mono text-3xl sm:text-4xl font-bold tabular-nums leading-none">
+                        {lastResult.didNotAnswer
+                          ? "—"
+                          : yourGuess !== null
+                            ? yourGuess.toLocaleString()
+                            : "—"}
+                      </p>
+                      <p className="text-xs font-medium uppercase tracking-wider opacity-80">
+                        {lastResult.didNotAnswer
+                          ? "No answer"
+                          : (distanceLabel ?? (unit ?? ""))}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })()}
+
+          {/* Answer distribution chart — aggregated from roundState */}
+          {(() => {
+            const guesses = Array.isArray(roundState?.guesses)
+              ? ((roundState.guesses as unknown[]).filter(
+                  (v) => typeof v === "number" && Number.isFinite(v),
+                ) as number[])
+              : [];
+            const target =
+              typeof lastResult.correctAnswer === "number"
+                ? lastResult.correctAnswer
+                : null;
+            const parsedYourGuess = numericValue
+              ? parseFloat(numericValue)
+              : NaN;
+            const yourGuess =
+              typeof lastResult.numericAnswer === "number" &&
+              Number.isFinite(lastResult.numericAnswer)
+                ? lastResult.numericAnswer
+                : Number.isFinite(parsedYourGuess)
+                  ? parsedYourGuess
+                  : null;
+            if (guesses.length === 0 || target === null) return null;
+
+            // Rank: how many guesses were strictly closer than yours?
+            let yourRank: number | null = null;
+            if (yourGuess !== null) {
+              const yourDist = Math.abs(yourGuess - target);
+              const closerCount = guesses.filter(
+                (g) => Math.abs(g - target) < yourDist,
+              ).length;
+              yourRank = closerCount + 1;
             }
-          >
-            <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold bg-current/10">
-              {lastResult.isCorrect ? (
-                <Check size={14} strokeWidth={2.5} />
-              ) : (
-                <X size={14} strokeWidth={2.5} />
-              )}
-            </span>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">
-                {lastResult.didNotAnswer
-                  ? "No answer submitted"
-                  : `Your answer: ${
-                      numericValue ? formatWithSeparators(numericValue) : "—"
-                    }`}
-              </span>
-              <span className="text-xs opacity-80">
-                {lastResult.pointsAwarded > 0
-                  ? `+${lastResult.pointsAwarded} points`
-                  : lastResult.didNotAnswer
-                    ? "Time ran out — 0 points"
-                    : "0 points — too far off"}
-              </span>
-            </div>
-          </div>
+
+            return (
+              <div className="w-full">
+                <ClosestWinsDistributionChart
+                  guesses={guesses}
+                  target={target}
+                  yourGuess={yourGuess}
+                  yourRank={yourRank}
+                  unit={unit}
+                />
+              </div>
+            );
+          })()}
+
         </div>
       )}
     </div>

@@ -60,6 +60,8 @@ export interface AnswerResult {
   explanation: string | null;
   didNotAnswer?: boolean;
   wagerAmt?: number;
+  /** Closest Wins: the player's own numeric guess. Survives remount. */
+  numericAnswer?: number;
 }
 
 /** Props every RoundPlayerView component receives. */

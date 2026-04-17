@@ -42,6 +42,7 @@ export function WipeOutPlayerView({
 
   // Wager amount preview shown on the slider
   const wagerAmt = Math.floor(Math.max(50, bankedScore) * leverage);
+  const correctAmt = question.base_points + wagerAmt;
   const lossCap = Math.min(wagerAmt, bankedScore);
 
   return (
@@ -69,7 +70,7 @@ export function WipeOutPlayerView({
             <span>100% all-in</span>
           </div>
           <p className="text-xs text-muted-foreground pt-0.5">
-            <span className="text-correct font-medium">+{wagerAmt} pts</span>
+            <span className="text-correct font-medium">+{correctAmt} pts</span>
             {" if correct · "}
             <span className="text-wrong font-medium">−{lossCap} pts</span>
             {" if wrong"}
@@ -82,16 +83,17 @@ export function WipeOutPlayerView({
         {question.options.map((option, i) => {
           const isSelected = selectedAnswer !== null && selectedAnswer === i;
           const isCorrectOption = lastResult?.correctAnswer === i;
+          const isLong = option.length >= 40;
 
           let cls =
-            "flex items-center gap-3 p-4 min-h-14 border text-left transition-colors w-full ";
+            `${isLong ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
             if (isCorrectOption)
-              cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
+              cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
             else if (isSelected)
-              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
-            else cls += "border-border text-muted-foreground opacity-50";
+              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+            else cls += "border-border text-foreground opacity-60";
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
           } else if (hasAnswered || isTimedOut) {
@@ -101,11 +103,11 @@ export function WipeOutPlayerView({
               "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
           }
 
-          const badgeCls = `w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold ${
+          const badgeCls = `${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isRevealing && isCorrectOption
-              ? "bg-correct/10 text-correct"
+              ? "bg-[#22c55e] text-white"
               : isRevealing && isSelected && !isCorrectOption
-              ? "bg-wrong/10 text-wrong"
+              ? "bg-[#ef4444] text-white"
               : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
           }`;
 

@@ -44,8 +44,6 @@ export function InterstitialCard({
   timePerQuestionSeconds,
   basePoints,
   mode,
-  onStart,
-  loading = false,
 }: InterstitialCardProps) {
   // Fall back to the round-registry description if the host hasn't written
   // a custom one-liner. This guarantees every round type introduces its
@@ -105,16 +103,8 @@ export function InterstitialCard({
         </div>
       </div>
 
-      {/* Footer — host action or player waiting */}
-      {mode === "host" ? (
-        <button
-          onClick={onStart}
-          disabled={loading}
-          className="mt-2 h-12 px-10 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-        >
-          Start Round →
-        </button>
-      ) : (
+      {/* Footer — host action moved to HostControlBar; players still see status. */}
+      {mode === "player" && (
         <div className="mt-2 inline-flex items-center gap-2 px-4 py-2 border border-border">
           <span className="size-1.5 rounded-full bg-primary animate-pulse" />
           <span className="text-xs font-medium text-muted-foreground">

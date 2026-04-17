@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 type FeedbackCategory = "bug" | "feature" | "general" | "question";
@@ -13,6 +14,10 @@ const CATEGORIES: { value: FeedbackCategory; label: string; emoji: string }[] = 
 ];
 
 export function FeedbackButton() {
+  const pathname = usePathname();
+  // Hide on host control pages — the HostControlBar occupies the bottom
+  // and the feedback button overlaps the Previous slot on mobile.
+  const hidden = pathname?.startsWith("/host/game/") ?? false;
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<FeedbackCategory | null>(null);
   const [message, setMessage] = useState("");
@@ -81,6 +86,8 @@ export function FeedbackButton() {
       setDone(true);
     }
   }
+
+  if (hidden) return null;
 
   return (
     <>

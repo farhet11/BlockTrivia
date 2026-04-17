@@ -137,7 +137,7 @@ export function OraclesDilemmaPlayerView({
                       : "border-border text-foreground hover:border-primary/50"
                   }`}
                 >
-                  <span className="w-5 h-5 shrink-0 flex items-center justify-center rounded-[4px] text-[10px] font-semibold bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400">
+                  <span className="w-5 h-5 shrink-0 flex items-center justify-center text-[10px] font-semibold bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400">
                     {OPTION_LABELS[i]}
                   </span>
                   <span className="leading-snug break-words font-medium">{option}</span>
@@ -227,12 +227,16 @@ export function OraclesDilemmaPlayerView({
           const isCorrectOption = lastResult?.correctAnswer === i;
           const isOracleSuggested = oracleSuggestedAnswer === i;
 
-          let cls = "flex items-center gap-3 p-4 min-h-14 border text-left transition-colors w-full relative ";
+          const isLong = option.length >= 40;
+          // Oracle suggestion pill sits top-right when present — force long layout
+          // to keep the badge out of the text flow.
+          const useAbsolute = isLong || (isOracleSuggested && oracleHasChosen && !isRevealing);
+          let cls = `${useAbsolute ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
-            if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
-            else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
-            else cls += "border-border text-muted-foreground opacity-50";
+            if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
+            else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+            else cls += "border-border text-foreground opacity-60";
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
           } else if (hasAnswered) {
@@ -241,11 +245,11 @@ export function OraclesDilemmaPlayerView({
             cls += "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
           }
 
-          const badgeCls = `w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold ${
+          const badgeCls = `${useAbsolute ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isRevealing && isCorrectOption
-              ? "bg-correct/10 text-correct"
+              ? "bg-[#22c55e] text-white"
               : isRevealing && isSelected && !isCorrectOption
-              ? "bg-wrong/10 text-wrong"
+              ? "bg-[#ef4444] text-white"
               : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
           }`;
 
@@ -273,7 +277,7 @@ export function OraclesDilemmaPlayerView({
                   OPTION_LABELS[i]
                 )}
               </span>
-              <span className="leading-snug break-words text-sm font-medium flex-1">
+              <span className="leading-snug break-words text-sm font-medium block">
                 {isSubmitting && isSelected ? (
                   <span className="inline-flex items-center gap-1.5">
                     <BlockSpinner variant="wave" size={16} />
@@ -285,7 +289,7 @@ export function OraclesDilemmaPlayerView({
               </span>
               {/* Oracle suggestion badge */}
               {isOracleSuggested && oracleHasChosen && !isRevealing && (
-                <span className="shrink-0 flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/15 border border-violet-200 dark:border-violet-500/30">
+                <span className="absolute top-[6px] right-[8px] flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-violet-600 dark:text-violet-400 bg-violet-100 dark:bg-violet-500/15 border border-violet-200 dark:border-violet-500/30">
                   <Sparkles size={10} />
                   Oracle
                 </span>

@@ -2,6 +2,30 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.6.0.0] - 2026-04-17
+
+### Added
+- **Closest Wins distribution chart** — reveal view now shows where every player's guess landed, with the target bucket highlighted green and the player's bucket highlighted violet. Side-by-side Target + You result cards replace the old stacked layout.
+- **Closest Wins partial-credit UI tier** — top status bar now shows three states: ✓ Correct (spot-on only), ≈ Close (partial credit), ✗ Wrong (zero points). Previously any within-tolerance guess read as "Correct", which cheapened the signal.
+- **Void question host action** (migration 068) — host can remove a question from scoring mid-game from the control panel overflow menu.
+- **Host control bar** — new bottom control surface for host during live play, consolidating advance/reveal/pause/modifier controls.
+
+### Changed
+- **Closest Wins `is_correct` semantics** (migration 069) — flipped from `closeness > 0` (any within-tolerance guess) to `distance = 0` (spot-on only). Pot-based scoring and partial credit are unchanged — players still earn points for close guesses, they're just no longer flagged correct unless they nailed it. Leaderboard `correct_count` now means spot-on hits, making accuracy % meaningful in CSV export.
+- **Wipeout scoring — Option A** (migration 067) — correct answer now awards `base_points + wagerAmt` (previously `wagerAmt` only). Wrong answer and 50pt floor are unchanged.
+- **Reveal view layout** across all round types — shared `host-reveal-shell`, `interstitial-card`, and `default-host-reveal-view` components received polish pass for consistent spacing, typography, and color treatment.
+
+### Fixed
+- **Closest Wins remount bug** — `lastResult.numericAnswer` now survives component remount during reveal, so the player's guess is always displayed correctly in the You card.
+
+### Infrastructure
+- `supabase/migrations/067_wipeout_base_points.sql` — Wipeout Option A
+- `supabase/migrations/068_void_question.sql` — `void_question` RPC
+- `supabase/migrations/069_closest_wins_spot_on_correct.sql` — redefine `is_correct` for Closest Wins; also rolls forward the Wipeout Option A change so the final `submit_answer` state is correct
+- `src/rounds/closest-wins/distribution-chart.tsx` — auto-bucketing answer distribution component
+- `src/app/host/game/[code]/control/_components/host-control-bar.tsx` — host control surface
+- `src/lib/game/round-registry.ts` — added `numericAnswer` to `AnswerResult` for remount-safe closest-wins reveal
+
 ## [0.5.3.0] - 2026-04-11
 
 ### Added

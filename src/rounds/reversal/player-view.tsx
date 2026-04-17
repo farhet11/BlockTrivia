@@ -60,8 +60,12 @@ export function ReversalPlayerView({
           const isSelected = selectedAnswer !== null && selectedAnswer === i;
           const isFalseStatement = lastResult?.correctAnswer === i; // the option to find
 
+          const isLong = option.length >= 40;
+          // FALSE pill is wider than a letter badge — use absolute top-left when
+          // revealed to keep it out of the text flow.
+          const useAbsolute = isLong || (isRevealing && isFalseStatement);
           let cls =
-            "flex items-start gap-3 p-4 min-h-14 border text-left transition-colors w-full ";
+            `${useAbsolute ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
             if (isFalseStatement) {
@@ -70,9 +74,9 @@ export function ReversalPlayerView({
                 "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
             } else if (isSelected) {
               // Player picked a true statement — wrong
-              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
+              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
             } else {
-              cls += "border-border text-muted-foreground opacity-50";
+              cls += "border-border text-foreground opacity-60";
             }
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
@@ -83,12 +87,11 @@ export function ReversalPlayerView({
               "border-border text-foreground hover:border-primary hover:bg-accent-light active:bg-accent-light cursor-pointer";
           }
 
-          // Badge rendering
+          const posCls = useAbsolute ? "absolute top-[6px] left-[8px]" : "shrink-0";
           const renderBadge = () => {
             if (isRevealing && isFalseStatement) {
-              // Red "FALSE" tag — marks the false statement as confirmed
               return (
-                <span className="w-auto shrink-0 flex items-center gap-0.5 px-1.5 h-6 rounded-[4px] text-[10px] font-bold bg-wrong/15 text-wrong border border-wrong/30">
+                <span className={`${posCls} flex items-center gap-0.5 px-1.5 h-5 text-[10px] font-bold bg-[#ef4444] text-white`}>
                   <X size={10} strokeWidth={3} />
                   FALSE
                 </span>
@@ -96,13 +99,13 @@ export function ReversalPlayerView({
             }
             if (isRevealing && isSelected && !isFalseStatement) {
               return (
-                <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] bg-wrong/10 text-wrong">
+                <span className={`${posCls} w-5 h-5 flex items-center justify-center bg-[#ef4444] text-white`}>
                   <X size={14} strokeWidth={2.5} />
                 </span>
               );
             }
             return (
-              <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400">
+              <span className={`${posCls} w-5 h-5 flex items-center justify-center text-[11px] font-medium bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400`}>
                 {OPTION_LABELS[i]}
               </span>
             );

@@ -283,26 +283,33 @@ export function PlayView({
         setLastResult(null);
         submitLockRef.current = false;
 
-        // 3-2-1 "Get Ready" overlay (BUG-004)
+        // "Get Ready" overlay — driven by question_started_at so it's server-synced.
+        // The host sets question_started_at = now + 3s, so we show the overlay
+        // while that timestamp is still in the future. Timer only starts counting
+        // once question_started_at is reached — no stolen seconds.
         if (transitionTimerRef.current) clearInterval(transitionTimerRef.current);
-        setTransitionCountdown(3);
-        let count = 3;
-        transitionTimerRef.current = setInterval(() => {
-          count -= 1;
-          if (count <= 0) {
-            clearInterval(transitionTimerRef.current!);
-            transitionTimerRef.current = null;
-            setTransitionCountdown(null);
-          } else {
-            setTransitionCountdown(count);
-          }
-        }, 1000);
+        const startedAt = next.question_started_at ? new Date(next.question_started_at).getTime() : null;
+        if (startedAt && serverNow() < startedAt) {
+          const getCount = () => Math.max(1, Math.ceil((startedAt - serverNow()) / 1000));
+          setTransitionCountdown(getCount());
+          transitionTimerRef.current = setInterval(() => {
+            if (serverNow() >= startedAt) {
+              clearInterval(transitionTimerRef.current!);
+              transitionTimerRef.current = null;
+              setTransitionCountdown(null);
+            } else {
+              setTransitionCountdown(getCount());
+            }
+          }, 200);
+        } else {
+          setTransitionCountdown(null);
+        }
       } else if (next.phase === "ended") {
         // Final leaderboard lives on its own route. Mid-game leaderboard renders inline.
         router.push(`/game/${event.joinCode}/leaderboard`);
       }
     },
-    [questions, router, event.joinCode]
+    [questions, router, event.joinCode, serverNow]
   );
 
   // Subscribe to game_state changes via Realtime
@@ -391,8 +398,8 @@ export function PlayView({
     // eslint-disable-next-line prefer-const
     let interval: ReturnType<typeof setInterval>;
     const tick = () => {
-      // Use serverNow() so host and player derive timer from the same clock
-      const remaining = Math.max(0, Math.ceil((startedAt + duration - serverNow()) / 1000));
+      const elapsed = Math.max(0, serverNow() - startedAt);
+      const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
       setTimeLeft(remaining);
       if (remaining <= 0 && interval) clearInterval(interval);
     };
@@ -433,6 +440,21 @@ export function PlayView({
   useEffect(() => {
     setInterstitialCountdown(null);
   }, [gameState.phase, gameState.current_round_id]);
+
+  // Refresh own leaderboard entry whenever a WipeOut question loads so
+  // bankedScore reflects the player's real score, not the 50pt floor default.
+  useEffect(() => {
+    if (!currentQuestion || currentQuestion.round_type !== "wipeout") return;
+    supabase
+      .from("leaderboard_entries")
+      .select("player_id, total_score, rank")
+      .eq("event_id", event.id)
+      .eq("player_id", player.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setMyLbEntry((prev) => ({ ...prev!, player_id: data.player_id, total_score: data.total_score, rank: data.rank }));
+      });
+  }, [currentQuestion, supabase, event.id, player.id]);
 
   // Load leaderboard when phase is "leaderboard" or when game is paused
   // (so the pause overlay can show the player's current rank/score)
@@ -1169,28 +1191,59 @@ export function PlayView({
       {/* Revealing banner — carries the full post-answer summary so the separate
           result card below can stay removed (keeps the Why explanation un-crowded) */}
       {phase === "revealing" && lastResult && !lastResult.didNotAnswer && (() => {
-        const descriptor = lastResult.isCorrect
-          ? lastResult.wagerAmt
-            ? `Wagered ${lastResult.wagerAmt} pts`
-            : currentQuestion?.time_bonus_enabled
-            ? "Base + speed bonus"
-            : "Correct answer"
-          : lastResult.wagerAmt
-          ? `Lost ${Math.min(lastResult.wagerAmt, myLbEntry?.total_score ?? 0)} pts wagered`
-          : "Better luck next time";
+        // Three tiers so Closest Wins partial credit ("off by N") doesn't read as "Wrong":
+        //   correct  → ✓ spot on / right choice
+        //   partial  → ≈ got some points but not fully right
+        //   wrong    → ✗ zero points
+        const tier: "correct" | "partial" | "wrong" = lastResult.isCorrect
+          ? "correct"
+          : lastResult.pointsAwarded > 0
+            ? "partial"
+            : "wrong";
+        const descriptor =
+          tier === "correct"
+            ? lastResult.wagerAmt
+              ? `Wagered ${lastResult.wagerAmt} pts`
+              : currentQuestion?.time_bonus_enabled
+                ? "Base + speed bonus"
+                : "Correct answer"
+            : tier === "partial"
+              ? "Almost — partial credit"
+              : lastResult.wagerAmt
+                ? `Lost ${Math.min(lastResult.wagerAmt, myLbEntry?.total_score ?? 0)} pts wagered`
+                : "Better luck next time";
+        const label = tier === "correct" ? "Correct!" : tier === "partial" ? "Close" : "Wrong";
+        const bgCls = {
+          correct: "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30",
+          partial: "bg-primary/10 border-b border-primary/30",
+          wrong: "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30",
+        }[tier];
+        const textCls = {
+          correct: "text-correct",
+          partial: "text-primary",
+          wrong: "text-wrong",
+        }[tier];
+        const icon =
+          tier === "correct" ? (
+            <Check size={16} strokeWidth={2.5} />
+          ) : tier === "partial" ? (
+            <span className="text-base font-bold leading-none" aria-hidden="true">≈</span>
+          ) : (
+            <X size={16} strokeWidth={2.5} />
+          );
         return (
           <div
-            className={`reveal-anim px-5 py-3 flex items-center justify-between gap-3 ${
-              lastResult.isCorrect ? "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30" : "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30"
-            }`}
-            style={{ animation: lastResult.isCorrect
-              ? "reveal-banner 300ms cubic-bezier(0.34,1.56,0.64,1)"
-              : "reveal-banner 260ms ease-out"
+            className={`reveal-anim px-5 py-3 flex items-center justify-between gap-3 ${bgCls}`}
+            style={{
+              animation:
+                tier === "correct"
+                  ? "reveal-banner 300ms cubic-bezier(0.34,1.56,0.64,1)"
+                  : "reveal-banner 260ms ease-out",
             }}
           >
-            <span className={`flex items-center gap-1.5 text-sm min-w-0 ${lastResult.isCorrect ? "text-correct" : "text-wrong"}`}>
-              {lastResult.isCorrect ? <Check size={16} strokeWidth={2.5} /> : <X size={16} strokeWidth={2.5} />}
-              <span className="font-bold">{lastResult.isCorrect ? "Correct!" : "Wrong"}</span>
+            <span className={`flex items-center gap-1.5 text-sm min-w-0 ${textCls}`}>
+              {icon}
+              <span className="font-bold">{label}</span>
               <span className="opacity-40 shrink-0">·</span>
               <span className="font-normal opacity-80 truncate">{descriptor}</span>
             </span>
@@ -1257,9 +1310,9 @@ export function PlayView({
 
         {/* Explanation (revealed) */}
         {phase === "revealing" && lastResult?.explanation && (
-          <div className="border border-border bg-surface p-4 text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground block mb-1 text-xs uppercase tracking-wider">Why</span>
-            {lastResult.explanation}
+          <div className="border-l-4 border-primary bg-primary/5 dark:bg-primary/10 p-4 space-y-1.5">
+            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Why</p>
+            <p className="text-sm font-normal leading-relaxed">{lastResult.explanation}</p>
           </div>
         )}
 

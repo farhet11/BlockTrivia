@@ -49,11 +49,6 @@ interface HostRevealShellProps {
   /** The pedagogical "Why" — rendered big + bold when present. */
   explanation?: string | null;
 
-  /** Controls */
-  loading: boolean;
-  onPause: () => void;
-  onNext: () => void;
-  nextLabel: string;
 }
 
 export function HostRevealShell({
@@ -70,10 +65,6 @@ export function HostRevealShell({
   avgTimeSeconds,
   answerNode,
   explanation,
-  loading,
-  onPause,
-  onNext,
-  nextLabel,
 }: HostRevealShellProps) {
   // When the fetcher has returned (correctCount >= 0), render real values.
   // Accuracy on 0 answers is 0% by convention — dashes read as "broken."
@@ -161,23 +152,7 @@ export function HostRevealShell({
         </div>
       )}
 
-      {/* 6. Actions */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <button
-          onClick={onPause}
-          disabled={loading}
-          className="h-12 px-6 bg-surface border border-border font-medium hover:bg-background transition-colors disabled:opacity-50"
-        >
-          Pause
-        </button>
-        <button
-          onClick={onNext}
-          disabled={loading}
-          className="flex-1 h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
-        >
-          {nextLabel}
-        </button>
-      </div>
+      {/* Actions now rendered via HostControlBar at the page level. */}
     </div>
   );
 }

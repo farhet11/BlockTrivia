@@ -15,6 +15,8 @@ import { resolvePlayerName } from "@/lib/player-name";
 import { resolveHostRevealView } from "@/lib/game/round-registry";
 import { HostRevealShell } from "@/rounds/_shared/host-reveal-shell";
 import { InterstitialCard } from "@/rounds/_shared/interstitial-card";
+import { Ban, Eye, ChevronRight, Play, Pause, Flag } from "lucide-react";
+import { HostControlBar, type OverflowMenuItem } from "./host-control-bar";
 
 type Question = {
   id: string;
@@ -71,6 +73,8 @@ type GameState = {
   modifier_state: Record<string, unknown> | null;
   /** Pause flag — when true, host and player freeze timer and show pause overlay without navigating. */
   is_paused: boolean;
+  /** Question ids voided by the host mid-game (migration 068). */
+  voided_question_ids?: string[] | null;
 };
 
 type EventInfo = {
@@ -144,6 +148,11 @@ export function ControlPanel({
     { correctCount: -1, avgTimeSeconds: null }
   );
   const [showShare, setShowShare] = useState(false);
+  // Replay mode: read-only view of the immediately-prior question. null = not replaying.
+  const [replayQuestionId, setReplayQuestionId] = useState<string | null>(null);
+  // Void modal open flag
+  const [voidConfirmOpen, setVoidConfirmOpen] = useState(false);
+  const [voidLoading, setVoidLoading] = useState(false);
   const joinUrl = typeof window !== "undefined" ? `${window.location.origin}/join/${event.joinCode}` : `/join/${event.joinCode}`;
 
   // ── Live modifier state ─────────────────────────────────────────────────
@@ -405,10 +414,8 @@ export function ControlPanel({
     // eslint-disable-next-line prefer-const
     let interval: ReturnType<typeof setInterval>;
     const tick = () => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((startedAt + duration - serverNow()) / 1000)
-      );
+      const elapsed = Math.max(0, serverNow() - startedAt);
+      const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
       setTimeLeft(remaining);
       if (remaining <= 0 && interval) clearInterval(interval);
     };
@@ -545,6 +552,38 @@ export function ControlPanel({
       .eq("event_id", event.id);
   }
 
+  /**
+   * Closest Wins: aggregate player guesses into game_state.round_state so
+   * both host reveal and player view can render the distribution chart.
+   */
+  async function tallyClosestWinsGuesses() {
+    if (!gameState.current_question_id) return;
+
+    const { data: responses, error } = await supabase
+      .from("responses")
+      .select("numeric_answer, points_awarded")
+      .eq("question_id", gameState.current_question_id)
+      .not("numeric_answer", "is", null);
+
+    if (error || !responses) return;
+
+    const guesses: number[] = [];
+    for (const r of responses) {
+      const v = (r as { numeric_answer: number | null }).numeric_answer;
+      if (typeof v === "number" && Number.isFinite(v)) guesses.push(v);
+    }
+
+    await supabase
+      .from("game_state")
+      .update({
+        round_state: {
+          guesses,
+          total_guesses: guesses.length,
+        },
+      })
+      .eq("event_id", event.id);
+  }
+
   // ── Modifier activation/deactivation ──────────────────────────────────────
 
   async function activateModifier(modType: string) {
@@ -599,7 +638,7 @@ export function ControlPanel({
       phase: "playing",
       current_round_id: roundId,
       current_question_id: firstQ.id,
-      question_started_at: new Date().toISOString(),
+      question_started_at: new Date(Date.now() + 3000).toISOString(),
       round_state: roundState,
       modifier_state: {},
     } as Partial<GameState>);
@@ -641,7 +680,7 @@ export function ControlPanel({
       phase: "playing",
       current_round_id: next.round_id,
       current_question_id: next.id,
-      question_started_at: new Date().toISOString(),
+      question_started_at: new Date(Date.now() + 3000).toISOString(),
       round_state: roundState,
     });
   }
@@ -664,6 +703,7 @@ export function ControlPanel({
         p_question_id: currentQuestion.id,
         p_event_id: event.id,
       });
+      await tallyClosestWinsGuesses();
     }
     await updateGameState({ phase: "revealing" });
   }
@@ -696,6 +736,26 @@ export function ControlPanel({
     });
   }
 
+  // Void the current question: zero all responses + rebuild leaderboard.
+  // Server-side guarded by RPC (migration 068).
+  async function confirmVoid() {
+    if (!currentQuestion) return;
+    setVoidLoading(true);
+    await supabase.rpc("void_question", {
+      p_event_id: event.id,
+      p_question_id: currentQuestion.id,
+    });
+    // Refetch game_state so voided_question_ids is up to date for the pill.
+    const { data } = await supabase
+      .from("game_state")
+      .select()
+      .eq("event_id", event.id)
+      .single();
+    if (data) setGameState(data as GameState);
+    setVoidLoading(false);
+    setVoidConfirmOpen(false);
+  }
+
   // Reset to lobby — recovers from corrupted game state
   async function resetToLobby() {
     await updateEventStatus("draft");
@@ -720,8 +780,54 @@ export function ControlPanel({
     });
   }
 
-  // Next button label
+  // Next button label + icon
   const nextLabel = isLastQuestion ? "End Game" : isRoundBoundary ? `Start Round ${(nextRound ? rounds.findIndex((r) => r.id === nextRound.id) + 1 : 2)}` : "Next Question";
+  const nextIcon = isLastQuestion ? Flag : isRoundBoundary ? Play : ChevronRight;
+
+  // Voided questions — derived from game_state, used for the VOIDED pill.
+  const voidedSet = useMemo(
+    () => new Set(gameState.voided_question_ids ?? []),
+    [gameState.voided_question_ids]
+  );
+
+  // Replay: only 1 question back. Hidden on Q1 of Round 1 (currentIndex === 0).
+  const canReplay = currentIndex > 0 && !replayQuestionId;
+  const inReplayMode = replayQuestionId !== null;
+  const replayQuestion = replayQuestionId
+    ? questions.find((q) => q.id === replayQuestionId) ?? null
+    : null;
+  const replayRoundIndex = replayQuestion
+    ? rounds.findIndex((r) => r.id === replayQuestion.round_id)
+    : -1;
+  const replayQuestionsInRound =
+    replayRoundIndex >= 0 ? rounds[replayRoundIndex].questions : [];
+  const replayIndexInRound = replayQuestion
+    ? replayQuestionsInRound.findIndex((q) => q.id === replayQuestion.id)
+    : -1;
+
+  function openPrevious() {
+    if (inReplayMode) {
+      setReplayQuestionId(null); // "Back to current"
+      return;
+    }
+    if (currentIndex <= 0) return;
+    setReplayQuestionId(questions[currentIndex - 1].id);
+  }
+
+  // Overflow menu — content varies by phase.
+  function overflowFor(phase: "playing" | "revealing"): OverflowMenuItem[] {
+    const items: OverflowMenuItem[] = [];
+    if (phase === "revealing" && currentQuestion) {
+      items.push({
+        key: "void",
+        label: "Void this question",
+        tone: "danger",
+        icon: Ban,
+        onSelect: () => setVoidConfirmOpen(true),
+      });
+    }
+    return items;
+  }
 
   return (
     <div className="min-h-dvh bg-background flex flex-col">
@@ -731,10 +837,72 @@ export function ControlPanel({
         avatarUrl={hostUser?.avatarUrl}
       />
 
-      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5">
+      <div className="flex-1 max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto w-full px-5 pb-20">
+        {/* Replay: read-only view of the immediately-prior question. While
+            active, the live phase UI is hidden. HostControlBar stays wired to
+            the LIVE phase so the host can still advance. */}
+        {inReplayMode && replayQuestion && (() => {
+          const HostRevealView = resolveHostRevealView(replayQuestion.round_type);
+          const revealQuestion = {
+            id: replayQuestion.id,
+            round_id: replayQuestion.round_id,
+            body: replayQuestion.body,
+            options: (replayQuestion.options ?? []) as string[],
+            correct_answer: replayQuestion.correct_answer,
+            correct_answer_numeric: replayQuestion.correct_answer_numeric ?? null,
+            explanation: replayQuestion.explanation ?? null,
+            sort_order: replayQuestion.sort_order,
+            round_title: replayQuestion.round_title,
+            round_type: replayQuestion.round_type,
+            time_limit_seconds: replayQuestion.time_limit,
+            base_points: replayQuestion.base_points,
+            time_bonus_enabled: true,
+            config: replayQuestion.round_config ?? {},
+            image_url: replayQuestion.image_url ?? null,
+            reveal_mode: replayQuestion.reveal_mode ?? null,
+          };
+          const isVoided = voidedSet.has(replayQuestion.id);
+          return (
+            <div>
+              <div className="pt-4 flex items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider bg-primary/15 text-primary rounded-full">
+                  <span className="size-1.5 rounded-full bg-primary" />
+                  Reviewing
+                </span>
+                {isVoided && (
+                  <span className="inline-flex items-center px-3 py-1 text-[11px] font-bold uppercase tracking-wider bg-wrong text-white rounded-full">
+                    Voided
+                  </span>
+                )}
+              </div>
+              <HostRevealShell
+                roundType={replayQuestion.round_type}
+                roundTitle={replayQuestion.round_title}
+                roundIndex={replayRoundIndex}
+                roundCount={rounds.length}
+                questionIndexInRound={replayIndexInRound}
+                questionCountInRound={replayQuestionsInRound.length}
+                questionBody={replayQuestion.body}
+                answered={0}
+                playerCount={playerCount}
+                correctCount={0}
+                avgTimeSeconds={null}
+                answerNode={
+                  <HostRevealView
+                    question={revealQuestion}
+                    roundConfig={replayQuestion.round_config ?? {}}
+                    roundState={undefined}
+                  />
+                }
+                explanation={replayQuestion.explanation ?? null}
+              />
+            </div>
+          );
+        })()}
+
         {/* Breadcrumb */}
         {/* Phase: Lobby — waiting to start */}
-        {gameState.phase === "lobby" && !gameState.started_at && (
+        {!inReplayMode && gameState.phase === "lobby" && !gameState.started_at && (
           <div className="pt-8 pb-28 space-y-6">
             {/* Event info */}
             <div className="text-center space-y-2">
@@ -813,7 +981,7 @@ export function ControlPanel({
         )}
 
         {/* Phase: Playing — show current question (hide when paused; leaderboard takes over) */}
-        {gameState.phase === "playing" && currentQuestion && !gameState.is_paused && (
+        {!inReplayMode && gameState.phase === "playing" && currentQuestion && !gameState.is_paused && (
           <div className="py-8 space-y-6">
             {/* Progress */}
             <div className="space-y-2">
@@ -980,42 +1148,19 @@ export function ControlPanel({
               )}
             </div>
 
-            {/* Controls — State 1: waiting on players */}
-            {timeLeft !== null && timeLeft > 0 && answeredCount < playerCount ? (
-              <div className="flex items-center gap-3">
-                <span className="flex-1 inline-flex items-center justify-center px-4 py-2 bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.12)] text-[#5b21b6] dark:text-[#a78bfa] text-sm font-semibold select-none">
-                  {answeredCount}/{playerCount} answered
-                </span>
-                <button
-                  onClick={pauseGame}
-                  disabled={loading}
-                  className="h-9 px-5 bg-surface border border-border text-sm font-medium hover:bg-background transition-colors disabled:opacity-50"
-                >
-                  Pause
-                </button>
-              </div>
-            ) : (
-              /* State 2: timer expired or all answered — reveal is ready */
-              <div className="flex flex-col gap-1.5">
-                <p className="text-xs text-center text-muted-foreground">
-                  {answeredCount}/{playerCount} answered
-                </p>
-                <button
-                  onClick={revealAnswer}
-                  disabled={loading}
-                  className="w-full h-12 bg-primary text-primary-foreground font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Reveal Answer
-                </button>
-              </div>
-            )}
+            {/* Answered indicator — controls live in HostControlBar at page level. */}
+            <div className="flex items-center justify-center">
+              <span className="inline-flex items-center justify-center px-4 py-2 bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.12)] text-[#5b21b6] dark:text-[#a78bfa] text-sm font-semibold select-none">
+                {answeredCount}/{playerCount} answered
+              </span>
+            </div>
           </div>
         )}
 
         {/* Phase: Revealing — delegated to per-round HostRevealView via registry.
             Shell owns the chrome (progress, stats, WHY, actions); round module
             owns the answer presentation. Hidden when paused (leaderboard takes over). */}
-        {gameState.phase === "revealing" && currentQuestion && !gameState.is_paused && (() => {
+        {!inReplayMode && gameState.phase === "revealing" && currentQuestion && !gameState.is_paused && (() => {
           const HostRevealView = resolveHostRevealView(currentQuestion.round_type);
           const revealQuestion = {
             id: currentQuestion.id,
@@ -1035,37 +1180,43 @@ export function ControlPanel({
             image_url: currentQuestion.image_url ?? null,
             reveal_mode: currentQuestion.reveal_mode ?? null,
           };
+          const isVoided = voidedSet.has(currentQuestion.id);
           return (
-            <HostRevealShell
-              roundType={currentQuestion.round_type}
-              roundTitle={currentQuestion.round_title}
-              roundIndex={currentRoundIndex}
-              roundCount={rounds.length}
-              questionIndexInRound={indexInRound}
-              questionCountInRound={questionsInRound.length}
-              questionBody={currentQuestion.body}
-              answered={answeredCount}
-              playerCount={playerCount}
-              correctCount={revealStats.correctCount}
-              avgTimeSeconds={revealStats.avgTimeSeconds}
-              answerNode={
-                <HostRevealView
-                  question={revealQuestion}
-                  roundConfig={currentQuestion.round_config ?? {}}
-                  roundState={gameState.round_state ?? undefined}
-                />
-              }
-              explanation={currentQuestion.explanation ?? null}
-              loading={loading}
-              onPause={pauseGame}
-              onNext={isLastQuestion ? endGame : nextQuestion}
-              nextLabel={nextLabel}
-            />
+            <div>
+              {isVoided && (
+                <div className="pt-4 flex items-center justify-center">
+                  <span className="inline-flex items-center px-3 py-1 text-[11px] font-bold uppercase tracking-wider bg-wrong text-white rounded-full">
+                    Voided
+                  </span>
+                </div>
+              )}
+              <HostRevealShell
+                roundType={currentQuestion.round_type}
+                roundTitle={currentQuestion.round_title}
+                roundIndex={currentRoundIndex}
+                roundCount={rounds.length}
+                questionIndexInRound={indexInRound}
+                questionCountInRound={questionsInRound.length}
+                questionBody={currentQuestion.body}
+                answered={answeredCount}
+                playerCount={playerCount}
+                correctCount={revealStats.correctCount}
+                avgTimeSeconds={revealStats.avgTimeSeconds}
+                answerNode={
+                  <HostRevealView
+                    question={revealQuestion}
+                    roundConfig={currentQuestion.round_config ?? {}}
+                    roundState={gameState.round_state ?? undefined}
+                  />
+                }
+                explanation={currentQuestion.explanation ?? null}
+              />
+            </div>
           );
         })()}
 
         {/* Phase: Leaderboard — shown between rounds AND during pause (is_paused) */}
-        {(gameState.phase === "leaderboard" || gameState.is_paused) && (
+        {!inReplayMode && (gameState.phase === "leaderboard" || gameState.is_paused) && (
           <div className="py-6 pb-36 space-y-5">
             {/* Event title + hosted by + status — matches leaderboard page */}
             <div className="text-center space-y-2" style={{ animation: "lb-fade-up 280ms ease-out both" }}>
@@ -1158,7 +1309,7 @@ export function ControlPanel({
 
         {/* Phase: Interstitial — between rounds (hide when paused).
             Manual advance: host reads the rules to the room, then taps Start Round. */}
-        {gameState.phase === "interstitial" && !gameState.is_paused && (() => {
+        {!inReplayMode && gameState.phase === "interstitial" && !gameState.is_paused && (() => {
           // Find the full round data (not just RoundInfo) so we can read round_type/time_limit/base_points
           const fullRound = rounds.find((r) => r.id === gameState.current_round_id) ?? null;
           const firstQuestionInRound = fullRound?.questions?.[0] ?? null;
@@ -1183,7 +1334,7 @@ export function ControlPanel({
         })()}
 
         {/* Phase: Ended */}
-        {gameState.phase === "ended" && (
+        {!inReplayMode && gameState.phase === "ended" && (
           <div className="flex flex-col items-center justify-center py-20 space-y-6">
             <div className="text-center space-y-3">
               <h1 className="font-heading text-3xl font-bold">Game Over</h1>
@@ -1209,7 +1360,7 @@ export function ControlPanel({
         )}
 
         {/* Recovery — corrupted state (e.g. "revealing" with no current question) */}
-        {!(
+        {!inReplayMode && !(
           (gameState.phase === "lobby" && !gameState.started_at) ||
           (gameState.phase === "playing" && currentQuestion) ||
           (gameState.phase === "revealing" && currentQuestion) ||
@@ -1296,34 +1447,117 @@ export function ControlPanel({
         </div>
       )}
 
-      {/* Sticky footer with Resume Game — only when paused */}
-      {gameState.is_paused && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border">
-          {sponsors.length > 0 && (
-            <div className="py-2 px-4">
-              <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
-              <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
-                {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
-                  <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} width={100} height={24} unoptimized className="h-6 w-auto max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
-                ))}
+      {/* ── Sticky HostControlBar — consistent across all host game phases ── */}
+      {gameState.is_paused ? (
+        <HostControlBar
+          primaryLabel="Resume Game"
+          onPrimary={resumeGame}
+          primaryDisabled={loading}
+          primaryIcon={Play}
+          above={
+            sponsors.length > 0 ? (
+              <div className="py-2 px-4">
+                <p className="text-center text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">Sponsored by</p>
+                <div className="flex items-center justify-center gap-6 flex-wrap max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto">
+                  {sponsors.sort((a, b) => a.sort_order - b.sort_order).map((s) => (
+                    <Image key={s.id} src={proxyImageUrl(s.logo_url)} alt={s.name ?? "Sponsor"} width={100} height={24} unoptimized className="h-6 w-auto max-w-[100px] object-contain grayscale opacity-60 dark:invert dark:brightness-200" />
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          <div className="max-w-lg md:max-w-2xl lg:max-w-3xl mx-auto px-5 py-3">
-            <button
-              onClick={resumeGame}
-              disabled={loading}
-              className="w-full h-12 bg-primary text-primary-foreground font-heading font-semibold hover:bg-primary-hover transition-colors disabled:opacity-50"
-            >
-              Resume Game
-            </button>
-          </div>
-        </div>
-      )}
+            ) : undefined
+          }
+        />
+      ) : gameState.phase === "playing" && currentQuestion ? (
+        <HostControlBar
+          primaryLabel="Reveal Answer"
+          onPrimary={revealAnswer}
+          primaryDisabled={loading}
+          primaryVariant={timeLeft !== null && timeLeft > 0 ? "ghost" : "filled"}
+          primaryIcon={Eye}
+          secondaryLabel="Pause"
+          onSecondary={pauseGame}
+          secondaryDisabled={loading}
+          secondaryIcon={Pause}
+          onPrevious={canReplay || inReplayMode ? openPrevious : undefined}
+          inReplayMode={inReplayMode}
+          overflowItems={overflowFor("playing")}
+        />
+      ) : gameState.phase === "revealing" && currentQuestion ? (
+        <HostControlBar
+          primaryLabel={nextLabel}
+          onPrimary={isLastQuestion ? endGame : nextQuestion}
+          primaryDisabled={loading}
+          primaryIcon={nextIcon}
+          secondaryLabel="Pause"
+          onSecondary={pauseGame}
+          secondaryDisabled={loading}
+          secondaryIcon={Pause}
+          onPrevious={canReplay || inReplayMode ? openPrevious : undefined}
+          inReplayMode={inReplayMode}
+          overflowItems={overflowFor("revealing")}
+        />
+      ) : gameState.phase === "interstitial" ? (
+        <HostControlBar
+          primaryLabel="Start Round"
+          onPrimary={() => {
+            if (interstitialTimerRef.current) clearInterval(interstitialTimerRef.current);
+            startFirstQuestionOfRound();
+          }}
+          primaryDisabled={loading}
+          primaryIcon={Play}
+        />
+      ) : gameState.phase === "leaderboard" ? (
+        <HostControlBar
+          primaryLabel={nextLabel}
+          onPrimary={isLastQuestion ? endGame : nextQuestion}
+          primaryDisabled={loading}
+          primaryIcon={nextIcon}
+          secondaryLabel="Pause"
+          onSecondary={pauseGame}
+          secondaryDisabled={loading}
+          secondaryIcon={Pause}
+        />
+      ) : null}
 
       {/* Share drawer — triggered by join code card */}
       {showShare && (
         <ShareDrawer joinCode={event.joinCode} onClose={() => setShowShare(false)} />
+      )}
+
+      {/* Void confirmation modal */}
+      {voidConfirmOpen && currentQuestion && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center px-4"
+          onClick={() => !voidLoading && setVoidConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-surface border border-border p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-2">
+              <h2 className="font-heading text-xl font-bold">Void this question?</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                All points from this question will be removed from every player&apos;s score. This cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setVoidConfirmOpen(false)}
+                disabled={voidLoading}
+                className="flex-1 h-12 bg-surface border border-border font-heading font-medium hover:bg-background transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmVoid}
+                disabled={voidLoading}
+                className="flex-1 h-12 bg-wrong text-white font-heading font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                {voidLoading ? "Voiding…" : "Void Question"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Stage View overlay — full-screen projector layout */}

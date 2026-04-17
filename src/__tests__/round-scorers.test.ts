@@ -79,44 +79,43 @@ describe("scoreMCQ", () => {
 // ---------------------------------------------------------------------------
 
 describe("scoreWipeOut", () => {
-  it("adds wager amount for correct answer", () => {
-    // banked=500, wagerPct=0.5 → wagerAmt=floor(500×0.5)=250
-    expect(scoreWipeOut({ isCorrect: true, wagerPct: 0.5, bankedScore: 500 })).toBe(250);
+  it("adds base + wager for correct answer", () => {
+    // banked=500, wagerPct=0.5 → wagerAmt=250, correct=100+250=350
+    expect(scoreWipeOut({ isCorrect: true, wagerPct: 0.5, bankedScore: 500, basePoints: 100 })).toBe(350);
   });
 
   it("subtracts wager amount for wrong answer (capped at banked score)", () => {
     // banked=500, wagerPct=0.5 → wagerAmt=250, loss=min(250,500)=250
-    expect(scoreWipeOut({ isCorrect: false, wagerPct: 0.5, bankedScore: 500 })).toBe(-250);
+    expect(scoreWipeOut({ isCorrect: false, wagerPct: 0.5, bankedScore: 500, basePoints: 100 })).toBe(-250);
   });
 
-  it("uses 50pt floor when banked score is 0 (comeback mechanic)", () => {
-    // banked=0, wagerPct=1.0 → wagerAmt=floor(max(50,0)×1.0)=50
-    expect(scoreWipeOut({ isCorrect: true, wagerPct: 1.0, bankedScore: 0 })).toBe(50);
+  it("uses 50pt floor when banked score is 0 — correct earns base+50", () => {
+    // banked=0, wagerPct=1.0 → wagerAmt=50, correct=100+50=150
+    expect(scoreWipeOut({ isCorrect: true, wagerPct: 1.0, bankedScore: 0, basePoints: 100 })).toBe(150);
   });
 
   it("uses 50pt floor when banked score is below 50", () => {
-    // banked=20, wagerPct=1.0 → wagerAmt=floor(max(50,20)×1.0)=50
-    expect(scoreWipeOut({ isCorrect: true, wagerPct: 1.0, bankedScore: 20 })).toBe(50);
+    // banked=20, wagerPct=1.0 → wagerAmt=50, correct=100+50=150
+    expect(scoreWipeOut({ isCorrect: true, wagerPct: 1.0, bankedScore: 20, basePoints: 100 })).toBe(150);
   });
 
   it("cannot lose more than current banked score (floor at 0 net)", () => {
-    // banked=30, wagerPct=1.0 → wagerAmt=floor(max(50,30)×1.0)=50
-    // loss = min(50, 30) = 30 (not 50 — can't go below zero)
-    expect(scoreWipeOut({ isCorrect: false, wagerPct: 1.0, bankedScore: 30 })).toBe(-30);
+    // banked=30, wagerPct=1.0 → wagerAmt=50, loss=min(50,30)=30
+    expect(scoreWipeOut({ isCorrect: false, wagerPct: 1.0, bankedScore: 30, basePoints: 100 })).toBe(-30);
   });
 
   it("floors the wager amount (no fractional points)", () => {
-    // banked=100, wagerPct=0.33 → wagerAmt=floor(100×0.33)=33
-    expect(scoreWipeOut({ isCorrect: true, wagerPct: 0.33, bankedScore: 100 })).toBe(33);
+    // banked=100, wagerPct=0.33 → wagerAmt=33, correct=100+33=133
+    expect(scoreWipeOut({ isCorrect: true, wagerPct: 0.33, bankedScore: 100, basePoints: 100 })).toBe(133);
   });
 
   it("max loss for a player all-in at 100%", () => {
     // banked=1000, wagerPct=1.0 → wagerAmt=1000, loss=min(1000,1000)=1000
-    expect(scoreWipeOut({ isCorrect: false, wagerPct: 1.0, bankedScore: 1000 })).toBe(-1000);
+    expect(scoreWipeOut({ isCorrect: false, wagerPct: 1.0, bankedScore: 1000, basePoints: 100 })).toBe(-1000);
   });
 
   it("minimum wager at 10%", () => {
-    // banked=200, wagerPct=0.10 → wagerAmt=floor(200×0.10)=20
-    expect(scoreWipeOut({ isCorrect: true, wagerPct: 0.10, bankedScore: 200 })).toBe(20);
+    // banked=200, wagerPct=0.10 → wagerAmt=20, correct=100+20=120
+    expect(scoreWipeOut({ isCorrect: true, wagerPct: 0.10, bankedScore: 200, basePoints: 100 })).toBe(120);
   });
 });

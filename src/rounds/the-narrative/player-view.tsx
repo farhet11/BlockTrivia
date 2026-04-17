@@ -64,17 +64,18 @@ export function TheNarrativePlayerView({
           const voteCount = voteCounts[i] ?? 0;
           const votePct = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
 
-          let cls = "flex flex-col gap-2 p-4 min-h-14 border text-left transition-colors w-full ";
+          const isLong = option.length >= 40;
+          let cls = `relative flex flex-col gap-2 p-4 ${isLong ? "pt-7" : ""} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
             if (isMajority && isSelected) {
-              cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct";
+              cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
             } else if (isMajority) {
-              cls += "border-correct/50 bg-[#dcfce7]/50 dark:bg-correct/8 text-correct/70";
+              cls += "border-correct/50 bg-[#dcfce7]/50 dark:bg-correct/8 text-foreground opacity-80";
             } else if (isSelected) {
-              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong";
+              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
             } else {
-              cls += "border-border text-muted-foreground opacity-50";
+              cls += "border-border text-foreground opacity-60";
             }
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
@@ -99,13 +100,12 @@ export function TheNarrativePlayerView({
               }
               aria-label={`Vote ${OPTION_LABELS[i]}: ${option}`}
             >
-              {/* Option row */}
-              <div className="flex items-center gap-3">
-                <span className={`w-6 h-6 shrink-0 flex items-center justify-center rounded-[4px] text-xs font-semibold ${
+              <div className={isLong ? "" : "flex items-center gap-3"}>
+                <span className={`${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
                   isRevealing && isMajority
-                    ? "bg-correct/10 text-correct"
+                    ? "bg-[#22c55e] text-white"
                     : isRevealing && isSelected && !isMajority
-                    ? "bg-wrong/10 text-wrong"
+                    ? "bg-[#ef4444] text-white"
                     : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
                 }`}>
                   {isRevealing && isMajority ? (

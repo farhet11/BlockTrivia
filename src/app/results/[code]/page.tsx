@@ -52,6 +52,9 @@ export default async function ResultsPage({ params }: Props) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Ensure ranks are authoritative before reading (fixes stale rank from trigger approximation)
+  await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
+
   const [{ data: entries }, { data: sponsors }] = await Promise.all([
     supabase
       .from("leaderboard_entries")

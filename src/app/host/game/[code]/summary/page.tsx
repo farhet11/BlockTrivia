@@ -25,6 +25,9 @@ export default async function SummaryPage({
 
   if (!event || event.created_by !== user.id) redirect("/host");
 
+  // Ensure ranks are authoritative before reading (fixes stale rank from trigger approximation)
+  await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
+
   // Load leaderboard + all players (to include 0-score participants)
   // eslint-disable-next-line prefer-const -- entries is reassigned in the fallback path below
   let { data: entries, error: lbError } = await supabase

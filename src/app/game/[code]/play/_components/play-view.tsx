@@ -581,6 +581,10 @@ export function PlayView({
     setSelectedAnswer(answerIndex);
     setIsSubmitting(true);
 
+    // Spread burst writes: UI confirms selection immediately, DB write lands 0–800ms later.
+    // Eliminates connection pool saturation when many players answer at the same moment.
+    await new Promise(r => setTimeout(r, Math.random() * 800));
+
     try {
       const rpcParams: Record<string, unknown> = {
         p_event_id: event.id,

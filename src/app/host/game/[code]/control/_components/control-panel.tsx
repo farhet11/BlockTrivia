@@ -705,6 +705,9 @@ export function ControlPanel({
       });
       await tallyClosestWinsGuesses();
     }
+    // Recompute all leaderboard scores once before reveal. With the per-response
+    // trigger removed (migration 073), this is the only place scores are written.
+    await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
     await updateGameState({ phase: "revealing" });
   }
 
@@ -729,6 +732,7 @@ export function ControlPanel({
 
   // End game
   async function endGame() {
+    await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
     await updateEventStatus("ended");
     await updateGameState({
       phase: "ended",

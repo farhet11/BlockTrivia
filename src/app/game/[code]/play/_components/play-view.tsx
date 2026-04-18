@@ -271,6 +271,7 @@ export function PlayView({
         // New question — reset answer state + modifier activation tracking
         setAnsweredQuestionId(null);
         setSelectedAnswer(null);
+        setIsSubmitting(false);
         setModifierJustActivated(false);
         // Initialize leverage to the midpoint of this question's wager range so
         // the preview math matches what the slider will actually allow.
@@ -581,10 +582,6 @@ export function PlayView({
     setSelectedAnswer(answerIndex);
     setIsSubmitting(true);
 
-    // Spread burst writes: UI confirms selection immediately, DB write lands 0–800ms later.
-    // Eliminates connection pool saturation when many players answer at the same moment.
-    await new Promise(r => setTimeout(r, Math.random() * 800));
-
     try {
       const rpcParams: Record<string, unknown> = {
         p_event_id: event.id,
@@ -623,7 +620,9 @@ export function PlayView({
         isCorrect: result.is_correct,
         pointsAwarded: result.points_awarded,
         selectedAnswer: answerIndex,
-        correctAnswer: result.correct_answer,
+        correctAnswer: currentQuestion.round_type === "closest_wins"
+          ? (result.correct_answer_numeric ?? result.correct_answer)
+          : result.correct_answer,
         explanation: result.explanation ?? null,
         wagerAmt: result.wager_amt ?? 0,
         jackpotWinner: result.jackpot_winner ?? false,

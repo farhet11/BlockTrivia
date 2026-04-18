@@ -44,6 +44,16 @@ function formatWithSeparators(raw: string): string {
   return `${sign}${intFormatted}${decPart}`;
 }
 
+/** Pick a font-size class based on the formatted string length so big numbers fit. */
+function adaptiveNumClass(val: number | null): string {
+  if (val === null) return "text-3xl sm:text-4xl";
+  const len = val.toLocaleString().length;
+  if (len <= 6)  return "text-3xl sm:text-4xl";
+  if (len <= 9)  return "text-xl sm:text-2xl";
+  if (len <= 13) return "text-base sm:text-lg";
+  return "text-sm sm:text-base";
+}
+
 /** Strip non-numeric formatting so the raw value can be parsed / kept in state. */
 function sanitizeNumericInput(input: string): string {
   // Remove everything except digits, dot and leading minus
@@ -180,7 +190,7 @@ export function ClosestWinsPlayerView({
                     <Target size={12} strokeWidth={2.5} />
                     Target
                   </span>
-                  <p className="font-mono text-3xl sm:text-4xl font-bold text-correct tabular-nums leading-none">
+                  <p className={`font-mono font-bold text-correct tabular-nums leading-none ${adaptiveNumClass(target)}`}>
                     {target !== null ? target.toLocaleString() : "—"}
                   </p>
                   {unit && (
@@ -217,7 +227,7 @@ export function ClosestWinsPlayerView({
                         <User size={12} strokeWidth={2.5} />
                         You
                       </span>
-                      <p className="font-mono text-3xl sm:text-4xl font-bold tabular-nums leading-none">
+                      <p className={`font-mono font-bold tabular-nums leading-none ${adaptiveNumClass(yourGuess)}`}>
                         {lastResult.didNotAnswer
                           ? "—"
                           : yourGuess !== null

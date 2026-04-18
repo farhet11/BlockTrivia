@@ -271,6 +271,7 @@ export function PlayView({
         // New question — reset answer state + modifier activation tracking
         setAnsweredQuestionId(null);
         setSelectedAnswer(null);
+        setIsSubmitting(false);
         setModifierJustActivated(false);
         // Initialize leverage to the midpoint of this question's wager range so
         // the preview math matches what the slider will actually allow.
@@ -623,7 +624,9 @@ export function PlayView({
         isCorrect: result.is_correct,
         pointsAwarded: result.points_awarded,
         selectedAnswer: answerIndex,
-        correctAnswer: result.correct_answer,
+        correctAnswer: currentQuestion.round_type === "closest_wins"
+          ? (result.correct_answer_numeric ?? result.correct_answer)
+          : result.correct_answer,
         explanation: result.explanation ?? null,
         wagerAmt: result.wager_amt ?? 0,
         jackpotWinner: result.jackpot_winner ?? false,

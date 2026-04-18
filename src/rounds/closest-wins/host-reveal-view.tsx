@@ -14,6 +14,15 @@ function formatNumeric(value: number): string {
   return Number.isFinite(value) ? value.toLocaleString() : String(value);
 }
 
+function adaptiveNumClass(val: number | null | undefined): string {
+  if (val === null || val === undefined) return "text-3xl sm:text-4xl";
+  const len = val.toLocaleString().length;
+  if (len <= 6)  return "text-3xl sm:text-4xl";
+  if (len <= 9)  return "text-xl sm:text-2xl";
+  if (len <= 13) return "text-base sm:text-lg";
+  return "text-sm sm:text-base";
+}
+
 export function ClosestWinsHostRevealView({
   question,
   roundConfig,
@@ -40,7 +49,7 @@ export function ClosestWinsHostRevealView({
           <Target size={12} strokeWidth={2.5} />
           Target answer
         </span>
-        <p className="font-mono text-3xl sm:text-4xl font-bold text-correct tabular-nums leading-none">
+        <p className={`font-mono font-bold text-correct tabular-nums leading-none ${adaptiveNumClass(target)}`}>
           {target !== null && target !== undefined ? formatNumeric(target) : "—"}
         </p>
         {unit && (

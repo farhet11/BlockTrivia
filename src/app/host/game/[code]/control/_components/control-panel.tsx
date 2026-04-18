@@ -285,6 +285,7 @@ export function ControlPanel({
           ? times.reduce((a, b) => a + b, 0) / times.length / 1000
           : null;
       setRevealStats({ correctCount, avgTimeSeconds });
+      setAnsweredCount(data.length); // sync answered count with reveal data
     }
 
     fetchStats();

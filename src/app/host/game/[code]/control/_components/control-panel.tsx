@@ -318,7 +318,7 @@ export function ControlPanel({
           filter: `event_id=eq.${event.id}`,
         },
         () => {
-          setPlayerCount((c) => c + 1);
+          fetchPlayerCount(); // authoritative count — avoids drift on burst joins
           setPlayerPulse(true);
           setTimeout(() => setPlayerPulse(false), 800);
         }

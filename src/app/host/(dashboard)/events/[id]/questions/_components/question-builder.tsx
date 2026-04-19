@@ -316,6 +316,24 @@ export function QuestionBuilder({
 
       if (!newRound) continue;
 
+      // Copy attached modifier (Jackpot, etc.). Modifiers live in a
+      // separate table keyed by round_id, so they must be copied explicitly
+      // or the duplicated round loses its modifier.
+      const { data: sourceModifiers } = await supabase
+        .from("round_modifiers")
+        .select("modifier_type, config")
+        .eq("round_id", round.id);
+
+      if (sourceModifiers && sourceModifiers.length > 0) {
+        await supabase.from("round_modifiers").insert(
+          sourceModifiers.map((m) => ({
+            round_id: newRound.id,
+            modifier_type: m.modifier_type,
+            config: m.config,
+          }))
+        );
+      }
+
       // Copy questions for this round
       const roundQuestions = questions
         .filter((q) => q.round_id === round.id)
@@ -332,6 +350,13 @@ export function QuestionBuilder({
             explanation: q.explanation ?? null,
             image_url: q.image_url ?? null,
             correct_answer_numeric: q.correct_answer_numeric ?? null,
+            // Pixel Reveal render mode — without this, a duplicated
+            // Pixel Reveal round silently falls back to 'pixelated' even
+            // if the source used 'tile_reveal'.
+            reveal_mode: q.reveal_mode ?? "pixelated",
+            // Provenance flag — preserved so analytics still knows which
+            // questions came from MindScan vs manual/JSON import.
+            ai_generated: q.ai_generated ?? false,
           }))
         );
       }

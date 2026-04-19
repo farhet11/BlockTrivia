@@ -356,10 +356,12 @@ export function PlayView({
     return () => { supabase.removeChannel(channel); };
   }, [supabase, event.id, applyGameState]);
 
-  // Polling fallback — every 10s as a safety net. Realtime (via migration 063) is the
-  // primary path; this only catches rare Realtime gaps. Bumped from 2s after the Apr 2026
-  // pilot: responses/game_state/event_players were not in supabase_realtime publication,
-  // so the 2s poll was carrying the entire app and showing up as ~2s delay on Next Q.
+  // Polling fallback — every 3s as a safety net. Realtime (via migration 063) is the
+  // primary path; this catches Realtime gaps. Previously 10s, which caused visible
+  // desync: host advances to the next question, Realtime misses the event for one
+  // player, and that player sits on the previous screen for up to 10 seconds. At
+  // pilot scale (26 players) the 3s poll is ~520 reads/min on a single-row select,
+  // which is trivial. Revisit if we see DB pressure at 300+ players.
   useEffect(() => {
     const interval = setInterval(async () => {
       const { data } = await supabase
@@ -379,7 +381,7 @@ export function PlayView({
       ) {
         applyGameState(data as GameState);
       }
-    }, 10000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [supabase, event.id, applyGameState]);
@@ -631,7 +633,11 @@ export function PlayView({
 
     // Reject if time has expired — use serverNow() so the check matches the host's timer
     const startedAt = new Date(gameState.question_started_at).getTime();
-    const timeTakenMs = serverNow() - startedAt;
+    // PILOT FIX: Math.round — submit_answer.p_time_taken_ms is INTEGER; fractional values
+    // (from serverNow() clock-skew smoothing) cause the RPC to 400, the UI hangs on its
+    // optimistic spinner, and the player sees "Time's up" when the question expires.
+    // DB logs showed errors like: invalid input syntax for type integer: "4812.5".
+    const timeTakenMs = Math.round(serverNow() - startedAt);
     if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) {
       console.debug("[submitAnswer] blocked: time expired", { qid: currentQuestion.id, timeTakenMs, limitMs: currentQuestion.time_limit_seconds * 1000 });
       return;

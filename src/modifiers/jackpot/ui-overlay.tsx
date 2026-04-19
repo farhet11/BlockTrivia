@@ -4,10 +4,11 @@
  * Jackpot Mode UI Overlay
  *
  * Rendered above the question view when a round has the 'jackpot' modifier active.
- * Shows the pot size pre-answer and the winner/loser outcome post-reveal.
+ * Shows the pot size pre-answer and the winner/pot-taken outcome post-reveal.
  *
- * Design intent: dramatic and unmistakable. The player knows the stakes the
- * moment the question loads. Correct and fast = jackpot. Everyone else = zero.
+ * Design intent: dramatic but fair. First correct answer wins the multiplier.
+ * Everyone else who answers correctly still scores normal base + speed points.
+ * (See migration 076 for the RPC-side change away from winner-takes-all.)
  *
  * Layout: renders as a full-width strip (no outer padding wrapper) so it
  * aligns flush with the reveal banner above/below it.
@@ -39,7 +40,7 @@ export function JackpotUIOverlay({
     return (
       <div className="flex items-center justify-center gap-2 px-5 py-3 bg-muted/30 border-b border-border text-sm font-medium text-muted-foreground">
         <RoundTypeBadge type="jackpot" size={20} />
-        <span>Someone answered first — 0 pts</span>
+        <span>Jackpot claimed — scores settled normally</span>
       </div>
     );
   }
@@ -52,7 +53,7 @@ export function JackpotUIOverlay({
         JACKPOT MODE
       </span>
       <span className="text-xs text-amber-400/70 ml-1">
-        First correct answer wins {multiplier}× points — all others score 0
+        First correct answer wins {multiplier}× points — everyone else scores normally
       </span>
     </div>
   );

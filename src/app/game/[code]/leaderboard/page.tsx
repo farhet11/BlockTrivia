@@ -46,6 +46,12 @@ export default async function LeaderboardPage({ params }: Props) {
 
   if (!event) notFound();
 
+  // Self-heal: per-response leaderboard trigger was dropped (migration 073),
+  // so leaderboard_entries is only populated via recompute. Calling it here
+  // guarantees the page never renders a stale/empty board if the host hasn't
+  // transitioned phases recently.
+  await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
+
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = user
     ? await supabase.from("profiles").select("avatar_url").eq("id", user.id).maybeSingle()

@@ -172,6 +172,19 @@ export function PlayView({
     [questions, gameState.current_question_id]
   );
   const hasAnswered = answeredQuestionId === gameState.current_question_id;
+
+  // Defensive reset: if Realtime drops and polling falls back, applyGameState's
+  // per-question reset might not fire in time. Key an independent effect on
+  // currentQuestion?.id so submitLockRef/isSubmitting always clear between
+  // questions, no matter how the gameState update arrived.
+  useEffect(() => {
+    if (!currentQuestion?.id) return;
+    submitLockRef.current = false;
+    setIsSubmitting(false);
+    // Intentionally narrow — only reset the submit-path locks. Leave
+    // answeredQuestionId / selectedAnswer / lastResult alone so the
+    // answered-for-previous-question UI doesn't flicker during the transition.
+  }, [currentQuestion?.id]);
   const isWipeout = currentQuestion?.round_type === "wipeout";
   // Resolve the correct PlayerView component from the round registry
   const RoundPlayerView = currentQuestion
@@ -467,14 +480,20 @@ export function PlayView({
     leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && leaderboard.length === 0;
 
-    // Fetch top 10 (with fallback to event_players at 0 pts if no scores yet)
+    // Load the full, authoritative leaderboard. We recompute first so DB-side
+    // ranks are canonical (per-response trigger was dropped in migration 073 —
+    // leaderboard_entries is only populated via recompute_leaderboard_ranks).
+    // Then fetch ALL entries — no cap — and merge in any event_players who
+    // haven't answered yet at the tail with zero scores.
     supabase
-      .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
-      .eq("event_id", event.id)
-      .order("rank", { ascending: true })
-      .limit(10)
-
+      .rpc("recompute_leaderboard_ranks", { p_event_id: event.id })
+      .then(() =>
+        supabase
+          .from("leaderboard_entries")
+          .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
+          .eq("event_id", event.id)
+          .order("rank", { ascending: true })
+      )
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
@@ -485,12 +504,13 @@ export function PlayView({
           rank: row.rank,
         }));
 
-        // Always include all event_players — append any with no leaderboard_entries row at 0 pts.
+        // Safety net: pull every event_player so we can append anyone who
+        // hasn't answered a single question yet at 0 pts. No cap — the list
+        // reflects the real roster.
         const { data: allPlayers } = await supabase
           .from("event_players")
           .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
-          .eq("event_id", event.id)
-          .limit(50);
+          .eq("event_id", event.id);
 
         if (entries.length === 0 && allPlayers) {
           // No scores yet — show everyone at 0 pts
@@ -503,9 +523,11 @@ export function PlayView({
             rank: i + 1,
           }));
         } else if (allPlayers) {
-          // Some players scored — append anyone missing from leaderboard_entries at the bottom
+          // Some players scored — append anyone missing from leaderboard_entries at the bottom.
+          // Ranks continue past the real max so we never collide with a scored player's rank
+          // (which is why the pinned "you" row used to duplicate an existing number).
           const scoredIds = new Set(entries.map((e) => e.player_id));
-          const maxRank = entries.length;
+          const maxRank = entries.reduce((m, e) => Math.max(m, e.rank), 0);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const zeroPlayers = allPlayers.filter((p: any) => !scoredIds.has(p.player_id));
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -582,6 +604,17 @@ export function PlayView({
     setSelectedAnswer(answerIndex);
     setIsSubmitting(true);
 
+    // PILOT-CRITICAL: set answeredQuestionId OPTIMISTICALLY *before* any network
+    // round-trip, so the UI flips to "answered" immediately and the timer-expired
+    // "Time's up — no answer recorded" screen never renders for someone who
+    // actually clicked. Under 200-player load the jitter + RPC round-trip can
+    // exceed the remaining question time — the server still accepts the answer
+    // (submit_answer validates against question_started_at, not client clock),
+    // but without an optimistic flip the player sees a false "timed out" error.
+    // Rollback below on RPC error.
+    const optimisticQuestionId = currentQuestion.id;
+    setAnsweredQuestionId(optimisticQuestionId);
+
     // Spread burst writes: UI confirms selection immediately, DB write lands 0–800ms later.
     // Eliminates connection pool saturation when many players answer at the same moment.
     await new Promise(r => setTimeout(r, Math.random() * 800));
@@ -609,6 +642,7 @@ export function PlayView({
         console.error("submit_answer RPC error:", error);
         submitLockRef.current = false;
         setSelectedAnswer(null);
+        setAnsweredQuestionId((curr) => (curr === optimisticQuestionId ? null : curr));
         return;
       }
 
@@ -616,10 +650,12 @@ export function PlayView({
         console.error("submit_answer returned error:", result.error);
         submitLockRef.current = false;
         setSelectedAnswer(null);
+        setAnsweredQuestionId((curr) => (curr === optimisticQuestionId ? null : curr));
         return;
       }
 
-      setAnsweredQuestionId(currentQuestion.id);
+      // Already set optimistically above — this re-affirms in case of race.
+      setAnsweredQuestionId(optimisticQuestionId);
       setLastResult({
         isCorrect: result.is_correct,
         pointsAwarded: result.points_awarded,
@@ -632,13 +668,15 @@ export function PlayView({
         jackpotWinner: result.jackpot_winner ?? false,
       });
 
-      // Refresh rank immediately — leaderboard trigger fires synchronously on response INSERT
+      // Refresh rank immediately — leaderboard trigger fires synchronously on response INSERT.
+      // maybeSingle() because a fresh player who hasn't scored yet has no row,
+      // and .single() would throw a 406 error in the browser console.
       supabase
         .from("leaderboard_entries")
         .select("rank, total_score, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct")
         .eq("event_id", event.id)
         .eq("player_id", player.id)
-        .single()
+        .maybeSingle()
         .then(({ data, error }) => { if (!error && data) setMyLbEntry((prev) => prev ? { ...prev, ...data } : data as unknown as LeaderboardEntry); });
     } catch (err) {
       console.error("submit_answer exception:", err);
@@ -792,7 +830,7 @@ export function PlayView({
               <div className="space-y-4" style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
                 <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
                 {rankingEntries.length > 0 && (
-                  <div className="border-t border-border pt-2">
+                  <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                     {rankingEntries.map((e, i) => (
                       <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
                     ))}
@@ -838,7 +876,7 @@ export function PlayView({
             <div className="px-5 py-4 space-y-4">
               <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
               {rankingEntries.length > 0 && (
-                <div className="border-t border-border pt-2">
+                <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                   {rankingEntries.map((e, i) => (
                     <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
@@ -890,7 +928,7 @@ export function PlayView({
             <div className="px-5 py-4 space-y-4">
               <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
               {rankingEntries.length > 0 && (
-                <div className="border-t border-border pt-2">
+                <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                   {rankingEntries.map((e, i) => (
                     <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
@@ -1207,13 +1245,22 @@ export function PlayView({
           : lastResult.pointsAwarded > 0
             ? "partial"
             : "wrong";
+        // Jackpot winner: correct + first → multiplied points. Call it out proudly.
+        const jackpotWinner =
+          lastResult.isCorrect &&
+          !!lastResult.jackpotWinner &&
+          effectiveModType === "jackpot";
+        const jackpotMult =
+          (effectiveModConfig?.multiplier as number | undefined) ?? 5;
         const descriptor =
           tier === "correct"
-            ? lastResult.wagerAmt
-              ? `Wagered ${lastResult.wagerAmt} pts`
-              : currentQuestion?.time_bonus_enabled
-                ? "Base + speed bonus"
-                : "Correct answer"
+            ? jackpotWinner
+              ? `Jackpot! ${jackpotMult}× points`
+              : lastResult.wagerAmt
+                ? `Wagered ${lastResult.wagerAmt} pts`
+                : currentQuestion?.time_bonus_enabled
+                  ? "Base + speed bonus"
+                  : "Correct answer"
             : tier === "partial"
               ? "Almost — partial credit"
               : lastResult.wagerAmt

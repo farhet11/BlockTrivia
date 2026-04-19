@@ -185,7 +185,7 @@ export function ClosestWinsPlayerView({
             return (
               <div className="w-full grid grid-cols-2 gap-3">
                 {/* Target */}
-                <div className="border border-correct bg-[#dcfce7] dark:bg-correct/15 p-5 flex flex-col items-center justify-center gap-1.5 text-center">
+                <div className="border border-correct bg-[#dcfce7] dark:bg-correct/15 p-5 flex flex-col items-center justify-start gap-1.5 text-center">
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-correct">
                     <Target size={12} strokeWidth={2.5} />
                     Target
@@ -221,7 +221,7 @@ export function ClosestWinsPlayerView({
                   }[tier];
                   return (
                     <div
-                      className={`border p-5 flex flex-col items-center justify-center gap-1.5 text-center ${cls}`}
+                      className={`border p-5 flex flex-col items-center justify-start gap-1.5 text-center ${cls}`}
                     >
                       <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest">
                         <User size={12} strokeWidth={2.5} />

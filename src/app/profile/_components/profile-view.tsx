@@ -373,7 +373,7 @@ export function ProfileView({
               <p className="text-[16px] font-medium text-foreground">My Events</p>
               <p className="text-sm text-muted-foreground">Manage your trivia events</p>
             </div>
-            <ChevronRight size={16} className="text-[#b5b1aa] dark:text-zinc-500" />
+            <ChevronRight size={16} className="text-[var(--bt-fog)]" />
           </Link>
         ) : (
           <div className="border border-dashed border-primary/30 bg-primary/5 px-4 py-3.5 flex items-center justify-between">
@@ -554,7 +554,7 @@ export function ProfileView({
             <div className="mt-3">
               <button
                 onClick={() => setShowDelete(true)}
-                className="text-sm font-medium text-wrong border border-[rgba(239,68,68,0.3)] px-5 py-[10px] hover:bg-[#fef2f2] dark:hover:bg-[rgba(239,68,68,0.1)] transition-colors"
+                className="text-sm font-medium text-wrong border border-wrong/30 px-5 py-[10px] hover:bg-[var(--bt-wrong-tint)] transition-colors"
               >
                 Delete account
               </button>
@@ -672,7 +672,7 @@ function AccountCard({
         <span className="text-sm font-medium text-foreground">{name}</span>
       </div>
       <div className="flex items-end justify-between gap-2 flex-1 mt-1 min-w-0">
-        <span className={`text-xs leading-snug truncate min-w-0 ${connected ? "text-stone-500 dark:text-zinc-400" : "text-[#b5b1aa] dark:text-zinc-500"}`}>
+        <span className={`text-xs leading-snug truncate min-w-0 ${connected ? "text-[var(--bt-stone)]" : "text-[var(--bt-fog)]"}`}>
           {statusText}
         </span>
         {!comingSoon && (
@@ -734,7 +734,7 @@ function DeleteConfirmModal({
         </div>
         <div className="space-y-2">
           <label className="text-sm text-foreground">
-            Type <span className="font-mono text-[#ef4444] font-medium">{CONFIRM_TEXT}</span> to confirm:
+            Type <span className="font-mono text-wrong font-medium">{CONFIRM_TEXT}</span> to confirm:
           </label>
           <input
             value={input}
@@ -743,7 +743,7 @@ function DeleteConfirmModal({
             placeholder={CONFIRM_TEXT}
             autoFocus
             autoComplete="off"
-            className="w-full border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none focus:border-[#ef4444] transition-colors select-text"
+            className="w-full border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none focus:border-wrong transition-colors select-text"
           />
         </div>
         <div className="flex items-center justify-end gap-3 pt-2">
@@ -756,7 +756,7 @@ function DeleteConfirmModal({
           <button
             onClick={onConfirm}
             disabled={!confirmed || loading}
-            className="px-4 py-2 text-sm font-medium bg-[var(--bt-wrong)] text-white hover:bg-[#dc2626] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium bg-[var(--bt-wrong)] text-white hover:bg-wrong/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? "Deleting…" : "Delete my account"}
           </button>

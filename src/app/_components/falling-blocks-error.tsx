@@ -45,7 +45,7 @@ export function FallingBlocksError({
             height: 52,
             left: 0,
             top: 0,
-            background: "#7c3aed",
+            background: "var(--bt-violet)",
             borderRadius: 3,
           }}
         >
@@ -56,11 +56,11 @@ export function FallingBlocksError({
             viewBox="0 0 83 83"
           >
             <polygon
-              fill="#f0e6fc"
+              fill="var(--bt-spinner-glyph)"
               points="0,10 31.47,41.6 0,73 20.31,73.7 52.4,41.6 20.31,9.5"
             />
             <rect
-              fill="#f0e6fc"
+              fill="var(--bt-spinner-glyph)"
               x="38.68"
               y="66.51"
               width="44.06"
@@ -78,7 +78,7 @@ export function FallingBlocksError({
             height: 52,
             right: 0,
             top: 0,
-            background: "var(--color-foreground, #1a1917)",
+            background: "var(--bt-ink)",
             borderRadius: 3,
           }}
         />
@@ -92,7 +92,7 @@ export function FallingBlocksError({
             height: 52,
             left: 0,
             bottom: 0,
-            background: "var(--color-foreground, #1a1917)",
+            background: "var(--bt-ink)",
             borderRadius: 3,
           }}
         />
@@ -106,7 +106,7 @@ export function FallingBlocksError({
             height: 52,
             right: 0,
             bottom: 0,
-            background: "#7c3aed",
+            background: "var(--bt-violet)",
             borderRadius: 3,
           }}
         >
@@ -117,7 +117,7 @@ export function FallingBlocksError({
             viewBox="0 0 83 83"
           >
             <polygon
-              fill="#f0e6fc"
+              fill="var(--bt-spinner-glyph)"
               points="31.53,69.64 9.55,47.58 24.17,47.14 31.57,54.54 72.74,13.37 73.18,27.99"
             />
           </svg>

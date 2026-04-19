@@ -36,9 +36,9 @@ interface Props {
   unit?: string | null;
 }
 
-const COLOR_DEFAULT = "#78756e";
-const COLOR_TARGET = "#22c55e";
-const COLOR_YOU = "#7c3aed";
+const COLOR_DEFAULT = "var(--bt-stone)";
+const COLOR_TARGET = "var(--bt-correct)";
+const COLOR_YOU = "var(--bt-violet)";
 const BUCKET_COUNT = 6;
 const MAX_HEIGHT_PX = 200;
 

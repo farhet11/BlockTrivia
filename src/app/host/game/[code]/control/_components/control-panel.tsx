@@ -128,6 +128,16 @@ export function ControlPanel({
   const [gameState, setGameState] = useState<GameState>(initialGameState);
   const [playerCount, setPlayerCount] = useState(initialPlayerCount);
   const [loading, setLoading] = useState(false);
+  // Realtime tenant health. Supabase Realtime shuts down an idle tenant's DB
+  // connection; the next subscriber pays the CheckConnection cost (observed
+  // 13.7–18.1 minutes in April 2026 PROD logs). Starting a game against a
+  // cold tenant drops ~3% of players with no reconnect. Gate the Start Game
+  // button on SUBSCRIBED so the host sees warmup progress before going live.
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    "connecting" | "ready" | "error"
+  >("connecting");
+  const realtimeWarmupStartedAtRef = useRef<number>(Date.now());
+  const [warmupSeconds, setWarmupSeconds] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   // Interstitial: manual advance only (host taps Start Round). No countdown
   // state — kept only as a timer ref for legacy cleanup paths.
@@ -344,13 +354,38 @@ export function ControlPanel({
           setTimeout(() => setPlayerPulse(false), 800);
         }
       )
-      .subscribe();
+      // Track SUBSCRIBED to gate Start Game. CHANNEL_ERROR / TIMED_OUT surface
+      // the cold-start failure explicitly so the host can refresh vs. silently
+      // launching a broken game.
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          setRealtimeStatus("ready");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          setRealtimeStatus("error");
+        }
+      });
 
     return () => {
       clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [supabase, event.id]);
+
+  // Warmup elapsed-seconds ticker — visible progress while we wait for the
+  // Realtime tenant to come up. On a cold tenant this can run to 20 minutes;
+  // this feedback tells the host "nothing is broken, just wait". Stops the
+  // instant the subscription flips to SUBSCRIBED or errors.
+  useEffect(() => {
+    if (realtimeStatus !== "connecting") return;
+    const tick = () => {
+      setWarmupSeconds(
+        Math.floor((Date.now() - realtimeWarmupStartedAtRef.current) / 1000)
+      );
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [realtimeStatus]);
 
   // Fetch leaderboard when phase is "leaderboard" OR when the game is paused
   // (pause re-uses the leaderboard UI to keep players engaged).
@@ -660,7 +695,11 @@ export function ControlPanel({
       phase: "playing",
       current_round_id: roundId,
       current_question_id: firstQ.id,
-      question_started_at: new Date(Date.now() + 3000).toISOString(),
+      // 5s head-start (was 3s): under load Realtime delivery can take 2–3s, which
+      // made the "Get Ready 3-2-1" overlay invisible (serverNow() was already past
+      // startedAt by the time the player's client received the update). 5s gives
+      // the countdown enough headroom to actually render for everyone.
+      question_started_at: new Date(Date.now() + 5000).toISOString(),
       round_state: roundState,
       modifier_state: {},
     } as Partial<GameState>);
@@ -702,7 +741,8 @@ export function ControlPanel({
       phase: "playing",
       current_round_id: next.round_id,
       current_question_id: next.id,
-      question_started_at: new Date(Date.now() + 3000).toISOString(),
+      // 5s head-start (was 3s) — see comment in startFirstQuestionOfRound.
+      question_started_at: new Date(Date.now() + 5000).toISOString(),
       round_state: roundState,
     });
   }
@@ -1453,9 +1493,49 @@ export function ControlPanel({
                 </a>
               </div>
             )}
+            {/* Realtime tenant health indicator. Surfaces the Supabase
+                CheckConnection cold-start (can run to ~18 min on first hit)
+                so the host doesn't launch into a silently broken game. */}
+            {isHost && realtimeStatus !== "ready" && (
+              <div
+                className={`border px-4 py-2.5 text-xs flex items-center gap-2.5 ${
+                  realtimeStatus === "error"
+                    ? "border-wrong bg-[var(--bt-wrong-tint)] text-wrong"
+                    : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                }`}
+              >
+                {realtimeStatus === "error" ? (
+                  <>
+                    <span className="inline-flex size-2 bg-wrong rounded-full shrink-0" />
+                    <span className="flex-1 font-medium">
+                      Realtime connection failed. Refresh this page to retry
+                      before starting the game.
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-flex size-2 bg-amber-500 rounded-full animate-pulse shrink-0" />
+                    <span className="flex-1 font-medium">
+                      Warming up Realtime... {warmupSeconds}s
+                      {warmupSeconds > 30 && (
+                        <span className="block text-[11px] font-normal opacity-80 mt-0.5">
+                          Cold tenant — this can take up to 20 min. Keep this
+                          tab open.
+                        </span>
+                      )}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
             <button
               onClick={isHost ? startGame : undefined}
-              disabled={!isHost || loading || totalQuestions === 0}
+              disabled={
+                !isHost ||
+                loading ||
+                totalQuestions === 0 ||
+                realtimeStatus !== "ready"
+              }
               className="w-full h-14 bg-primary text-primary-foreground text-lg font-bold hover:bg-primary-hover transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {!isHost && (
@@ -1463,7 +1543,13 @@ export function ControlPanel({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
                 </svg>
               )}
-              {totalQuestions === 0 ? "No Questions Added" : "Start Game"}
+              {totalQuestions === 0
+                ? "No Questions Added"
+                : isHost && realtimeStatus === "connecting"
+                  ? "Warming up Realtime..."
+                  : isHost && realtimeStatus === "error"
+                    ? "Realtime error — refresh page"
+                    : "Start Game"}
             </button>
           </div>
         </div>

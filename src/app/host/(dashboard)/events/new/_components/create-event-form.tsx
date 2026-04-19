@@ -488,7 +488,14 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
   }
 
   async function copyRoundsAndQuestions(fromId: string, toEventId: string) {
-    // Fetch rounds from source
+    // Copy rounds + their modifiers + questions from the source event.
+    //
+    // IMPORTANT: every scoring-critical column must be listed here explicitly.
+    // Silently dropping a column breaks duplicated events in subtle ways
+    // (e.g. missing `correct_answer_numeric` makes Closest Wins score 0 for
+    // everyone; missing `image_url` breaks Pixel Reveal; missing `config`
+    // loses WipeOut wager bounds). If you add a new column to `rounds`,
+    // `questions`, or `round_modifiers`, you MUST add it here too.
     const { data: sourceRounds } = await supabase
       .from("rounds")
       .select("*")
@@ -508,14 +515,35 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
           time_limit_seconds: round.time_limit_seconds,
           base_points: round.base_points,
           time_bonus_enabled: round.time_bonus_enabled,
-          wipeout_min_leverage: round.wipeout_min_leverage,
-          wipeout_max_leverage: round.wipeout_max_leverage,
           interstitial_text: round.interstitial_text,
+          // `config` is the JSONB that holds per-round-type settings
+          // (e.g. WipeOut's minWagerPct/maxWagerPct, any future round knobs).
+          // Migration 047+ moved all round-type config here, so this line
+          // alone replaces the legacy wipeout_min/max_leverage columns.
+          config: round.config ?? {},
         })
         .select("id")
         .single();
 
       if (!newRound) continue;
+
+      // Copy any attached modifier (Jackpot, Liquidation Mode, etc.).
+      // These live in a separate table keyed by round_id, so without this
+      // step a duplicated round loses its modifier entirely.
+      const { data: sourceModifiers } = await supabase
+        .from("round_modifiers")
+        .select("modifier_type, config")
+        .eq("round_id", round.id);
+
+      if (sourceModifiers && sourceModifiers.length > 0) {
+        await supabase.from("round_modifiers").insert(
+          sourceModifiers.map((m) => ({
+            round_id: newRound.id,
+            modifier_type: m.modifier_type,
+            config: m.config,
+          }))
+        );
+      }
 
       const { data: sourceQuestions } = await supabase
         .from("questions")
@@ -533,6 +561,14 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
           correct_answer: q.correct_answer,
           sort_order: q.sort_order,
           explanation: q.explanation,
+          // Round-type–specific columns. Not every round uses all of these,
+          // but copying them unconditionally is correct: unused columns
+          // on the source are null/default, which is what the destination
+          // should hold too.
+          image_url: q.image_url ?? null,                       // Pixel Reveal
+          correct_answer_numeric: q.correct_answer_numeric ?? null, // Closest Wins
+          reveal_mode: q.reveal_mode ?? "pixelated",            // Pixel Reveal
+          ai_generated: q.ai_generated ?? false,                // provenance
         }))
       );
     }

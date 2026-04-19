@@ -70,8 +70,7 @@ export default async function ResultsPage({ params }: Props) {
         profiles!leaderboard_entries_player_id_fkey ( display_name, username )
       `)
       .eq("event_id", event.id)
-      .order("rank", { ascending: true })
-      .limit(200),
+      .order("rank", { ascending: true }),
     supabase
       .from("event_sponsors")
       .select("id, name, logo_url, sort_order")

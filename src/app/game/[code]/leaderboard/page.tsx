@@ -71,8 +71,7 @@ export default async function LeaderboardPage({ params }: Props) {
        
       .select(`player_id, total_score, rank, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
-      .order("rank", { ascending: true })
-      .limit(50),
+      .order("rank", { ascending: true }),
     supabase
       .from("event_players")
       .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)

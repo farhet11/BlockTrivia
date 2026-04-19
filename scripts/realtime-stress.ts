@@ -492,6 +492,10 @@ async function fetchQuestionData(
   questionId: string
 ): Promise<QuestionData | null> {
   if (questionCache.has(questionId)) return questionCache.get(questionId)!;
+  // NOTE: deliberately NO retry. v3 added a 500ms retry that amplified failures
+  // 38× under load (19 nulls → 726 nulls) by doubling concurrent reads during
+  // the exact transient blip the retry was meant to mitigate. Real browser
+  // clients don't retry on null either — they show "Question failed to load."
   const { data, error } = await ctx.supabase
     .from("questions")
     .select(
@@ -595,6 +599,11 @@ async function submitAnswer(
   };
   if (numericAnswer !== undefined) rpcParams.p_numeric_answer = numericAnswer;
 
+  // NOTE: deliberately NO retry. v3 added a retry on transport/timeout error
+  // and it backfired catastrophically (Q6-Q9 collapsed, 0 leaderboard entries,
+  // 8× autoHost timeouts). Classic anti-pattern: retries during overload
+  // amplify load, making the overload worse. Real browsers don't auto-retry
+  // submit_answer on timeout either — the user sees "submit failed" and stops.
   const t0 = Date.now();
   try {
     const { data, error } = await withTimeout(
@@ -1039,13 +1048,32 @@ async function runRealtimeStress(numPlayers: number): Promise<RealtimeMetrics> {
     });
   } else {
     // ── Auto-host mode ────────────────────────────────────────────────────
-    // Brief warm-up hold: let Supabase Realtime infrastructure settle before
+    // Warm-up hold: let Supabase Realtime infrastructure settle before
     // firing Q1. Without this, the cold-start penalty hits every bot on Q1
-    // (p50 ~7s) because the Realtime pipeline isn't warmed up yet.
-    // In production this window is naturally filled by the lobby phase.
-    const WARMUP_MS = 3000;
+    // (p50 ~2.6s) because the Realtime pipeline isn't warmed up yet.
+    // In production this window is naturally filled by the lobby phase
+    // and host Q&A — usually 30+ seconds.
+    const WARMUP_MS = 5000;
     console.log(`  ⏳  warm-up hold ${WARMUP_MS / 1000}s (simulates lobby phase)...`);
     await new Promise((r) => setTimeout(r, WARMUP_MS));
+
+    // Pre-warm Realtime WAL pipeline with two no-op game_state pings so the
+    // first real question doesn't pay the cold-start cost. Bots filter these
+    // out (phase still 'lobby', current_question_id still null).
+    {
+      const prewarmAdmin = makeAdmin();
+      for (let i = 0; i < 2; i++) {
+        await prewarmAdmin
+          .from("game_state")
+          .update({ is_paused: false })
+          .eq("event_id", eventId)
+          .then(() => {})
+          .catch(() => {});
+        await new Promise((r) => setTimeout(r, 600));
+      }
+      console.log("  ⚡  pre-warm pings sent — Realtime pipeline primed");
+    }
+
     await runAutoHost(eventId, questions, m);
   }
 

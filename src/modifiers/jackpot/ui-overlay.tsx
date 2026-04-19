@@ -40,7 +40,7 @@ export function JackpotUIOverlay({
     return (
       <div className="flex items-center justify-center gap-2 px-5 py-3 bg-muted/30 border-b border-border text-sm font-medium text-muted-foreground">
         <RoundTypeBadge type="jackpot" size={20} />
-        <span>Jackpot claimed — scores settled normally</span>
+        <span>Another player took the Jackpot</span>
       </div>
     );
   }

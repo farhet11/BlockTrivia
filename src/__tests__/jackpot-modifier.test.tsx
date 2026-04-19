@@ -11,12 +11,14 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { render } from "@testing-library/react";
 import {
   modifierRegistry,
   getRegisteredModifiers,
   resolveModifierOverlay,
   isModifierCompatible,
 } from "@/lib/game/modifier-registry";
+import { JackpotUIOverlay } from "@/modifiers/jackpot/ui-overlay";
 
 // ── Registry tests ─────────────────────────────────────────────────────────
 
@@ -160,5 +162,39 @@ describe("calcJackpotPoints (mirror of submit_answer jackpot branch)", () => {
 
   it("works with a 1× multiplier (jackpot = normal scoring)", () => {
     expect(calcJackpotPoints({ isCorrect: true, isFirstCorrect: true, basePoints: 100, multiplier: 1 })).toBe(100);
+  });
+});
+
+// ── Reveal-overlay copy regression (prod game WY5WT, R2.Q1) ────────────────
+//
+// Bug: host activated jackpot AFTER players answered R2.Q1. The reveal
+// overlay was reading live game_state.modifier_state and falsely showed
+// "Jackpot claimed — scores settled normally" on a question scored under
+// the standard branch. Fix: gate the overlay on the per-response
+// modifier_applied field; copy says "Another player took the Jackpot"
+// when this player wasn't the winner.
+
+describe("JackpotUIOverlay reveal-phase copy", () => {
+  it("non-winner sees 'Another player took the Jackpot' (no false 'settled normally')", () => {
+    const { container } = render(
+      <JackpotUIOverlay
+        config={{ multiplier: 5 }}
+        isRevealing={true}
+        jackpotWinner={false}
+      />
+    );
+    expect(container.textContent).toContain("Another player took the Jackpot");
+    expect(container.textContent).not.toContain("settled normally");
+  });
+
+  it("winner sees the 'you took the pot' copy", () => {
+    const { container } = render(
+      <JackpotUIOverlay
+        config={{ multiplier: 5 }}
+        isRevealing={true}
+        jackpotWinner={true}
+      />
+    );
+    expect(container.textContent).toContain("you took the pot");
   });
 });

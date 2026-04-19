@@ -147,6 +147,14 @@ export function PlayView({
     didNotAnswer?: boolean;
     wagerAmt?: number;
     jackpotWinner?: boolean;
+    /**
+     * Modifier that was actually resolved by the RPC at scoring time.
+     * Use THIS (not live game_state.modifier_state) to drive reveal-phase
+     * copy — the host can activate a modifier between submit and reveal,
+     * which would otherwise bleed misleading banners onto a question
+     * scored under the standard branch.
+     */
+    modifierApplied?: string | null;
   } | null>(null);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -702,6 +710,7 @@ export function PlayView({
         explanation: result.explanation ?? null,
         wagerAmt: result.wager_amt ?? 0,
         jackpotWinner: result.jackpot_winner ?? false,
+        modifierApplied: result.modifier_applied ?? null,
       });
 
       // Refresh rank immediately — leaderboard trigger fires synchronously on response INSERT.
@@ -1260,14 +1269,38 @@ export function PlayView({
         />
       )}
 
-      {/* Modifier overlay — shown during playing and revealing phases */}
-      {ModifierOverlay && (phase === "playing" || phase === "revealing") && currentQuestion && !modifierJustActivated && (
-        <ModifierOverlay
-          config={effectiveModConfig}
-          isRevealing={phase === "revealing"}
-          jackpotWinner={lastResult?.jackpotWinner ?? false}
-        />
-      )}
+      {/* Modifier overlay.
+          - Playing phase: gated on live game_state (effectiveModType) so the
+            banner reflects real-time pot status as the host activates it.
+          - Revealing phase: gated on what the RPC actually applied at scoring
+            time (lastResult.modifierApplied). The host can activate a modifier
+            between submit and reveal — without this gate, modifier_state would
+            bleed jackpot copy onto a question scored under the standard branch
+            (see migration 077). */}
+      {(() => {
+        if (!currentQuestion || modifierJustActivated) return null;
+        if (phase === "playing" && ModifierOverlay) {
+          return (
+            <ModifierOverlay
+              config={effectiveModConfig}
+              isRevealing={false}
+              jackpotWinner={false}
+            />
+          );
+        }
+        if (phase === "revealing" && lastResult?.modifierApplied) {
+          const RevealOverlay = resolveModifierOverlay(lastResult.modifierApplied);
+          if (!RevealOverlay) return null;
+          return (
+            <RevealOverlay
+              config={effectiveModConfig}
+              isRevealing={true}
+              jackpotWinner={lastResult?.jackpotWinner ?? false}
+            />
+          );
+        }
+        return null;
+      })()}
 
       {/* Revealing banner — carries the full post-answer summary so the separate
           result card below can stay removed (keeps the Why explanation un-crowded) */}
@@ -1285,7 +1318,7 @@ export function PlayView({
         const jackpotWinner =
           lastResult.isCorrect &&
           !!lastResult.jackpotWinner &&
-          effectiveModType === "jackpot";
+          lastResult.modifierApplied === "jackpot";
         const jackpotMult =
           (effectiveModConfig?.multiplier as number | undefined) ?? 5;
         const descriptor =

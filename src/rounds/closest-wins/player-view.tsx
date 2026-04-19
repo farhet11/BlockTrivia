@@ -106,7 +106,7 @@ export function ClosestWinsPlayerView({
       {/* Instruction pill */}
       <div className="flex items-center justify-center">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[var(--bt-hover)] border border-border px-3 py-1.5">
-          <Ruler size={14} strokeWidth={2} />
+          <Ruler size={14} strokeWidth={2.5} />
           Type your best guess — closest answer wins
         </span>
       </div>

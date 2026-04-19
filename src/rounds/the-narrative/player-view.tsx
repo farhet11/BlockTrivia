@@ -51,7 +51,7 @@ export function TheNarrativePlayerView({
       {/* Instruction pill */}
       <div className="flex items-center justify-center">
         <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[var(--bt-hover)] border border-border px-3 py-1.5">
-          <Users size={14} strokeWidth={2} />
+          <Users size={14} strokeWidth={2.5} />
           Read the room — the majority vote wins
         </span>
       </div>

@@ -88,7 +88,7 @@ export function SponsorsPanel({
         <div className="flex items-center gap-2">
           <svg
             className={`size-3.5 text-muted-foreground transition-transform ${expanded ? "rotate-90" : ""}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
@@ -127,7 +127,7 @@ export function SponsorsPanel({
                   className="text-xs text-primary hover:underline shrink-0 flex items-center gap-1"
                   title="Download as SVG template"
                 >
-                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                   Download template
@@ -159,7 +159,7 @@ export function SponsorsPanel({
                     onClick={() => deleteSponsor(s.id)}
                     className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
                   >
-                    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>

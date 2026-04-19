@@ -53,11 +53,11 @@ export function PressureCookerPlayerView({
             className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[var(--bt-timer-amber)]/40 bg-[#fef3c7] dark:bg-[var(--bt-timer-amber)]/15 text-[#92400e] dark:text-[#fcd34d]"
             style={{ animation: "hot-seat-pulse 2s ease-in-out infinite" }}
           >
-            <Flame size={16} strokeWidth={2} className="shrink-0" />
+            <Flame size={16} strokeWidth={2.5} className="shrink-0" />
             <span className="text-sm font-bold tracking-wide uppercase">
               You&apos;re in the hot seat
             </span>
-            <Flame size={16} strokeWidth={2} className="shrink-0" />
+            <Flame size={16} strokeWidth={2.5} className="shrink-0" />
             <style>{`
               @keyframes hot-seat-pulse {
                 0%, 100% { opacity: 1; }

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { proxyImageUrl } from "@/lib/image-proxy";
 
 type EventFormat = "irl" | "virtual" | "hybrid";
 type AccessMode = "open" | "whitelist" | "blacklist";
@@ -1035,9 +1036,12 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
         </label>
         <div className="relative">
           {inlineOrganizerLogo && (
+            // RootData's CDN (CloudFront) returns 403 when the Referer is a
+            // non-whitelisted domain, so we proxy through /api/image-proxy
+            // which fetches server-side and strips the hotlink signal.
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={inlineOrganizerLogo}
+              src={proxyImageUrl(inlineOrganizerLogo)}
               alt={organizerName || "Project logo"}
               className="absolute left-3 top-1/2 -translate-y-1/2 size-6 object-contain rounded pointer-events-none"
             />
@@ -1114,8 +1118,9 @@ export function CreateEventForm({ fromEventId, editEvent }: { fromEventId?: stri
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-primary/5 transition-colors text-left"
               >
                 {r.logo ? (
+                  // Proxy RootData CDN logos — CloudFront 403s hotlinked requests.
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.logo} alt="" className="size-5 object-contain shrink-0 rounded" />
+                  <img src={proxyImageUrl(r.logo)} alt="" className="size-5 object-contain shrink-0 rounded" />
                 ) : (
                   <span className="size-5 shrink-0 rounded bg-muted/40" aria-hidden />
                 )}

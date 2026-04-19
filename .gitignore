@@ -45,6 +45,8 @@ next-env.d.ts
 .stress-users.json
 stress-report.txt
 realtime-stress-report.txt
+.playwright-smoke/
+.playwright-smoke-v2/
 
 # generated docs / audits
 blocktrivia-merged-prs.md

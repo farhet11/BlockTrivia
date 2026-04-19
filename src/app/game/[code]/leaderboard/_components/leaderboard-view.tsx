@@ -279,7 +279,15 @@ export function LeaderboardView({
         )}
 
 
-        {/* ── Spotlight Cards (player, ended, min 2 qualify) ── */}
+        {/* ── Spotlight Cards — three gates, deliberate:
+            1. gamePhase === "ended": mid-game standings have no narrative yet.
+            2. viewerType === "player": hosts get a richer view at
+               /host/game/[code]/summary; public viewers get the same panel
+               on /results/[code].
+            3. spotlights.length >= 2: a single card feels like filler; the
+               RPC also returns [] when <4 players / <3 questions, so this
+               extra floor prevents thin-content UI on edge games.
+        */}
         {gamePhase === "ended" && viewerType === "player" && spotlights.length >= 2 && (() => {
           const VISIBLE = 3;
           const visible = spotlightsExpanded ? spotlights : spotlights.slice(0, VISIBLE);

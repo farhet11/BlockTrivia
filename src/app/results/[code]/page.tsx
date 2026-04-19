@@ -2,7 +2,17 @@ import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { resolvePlayerName } from "@/lib/player-name";
 import { ResultsView } from "./_components/results-view";
+import type { SpotlightCard } from "@/lib/game/spotlight-stats";
 import type { Metadata } from "next";
+
+// Shape returned by get_event_spotlights RPC
+type SpotlightRpcRow = {
+  emoji: string;
+  title: string;
+  stat_value: string;
+  player_id: string;
+  username: string;
+};
 
 type Props = { params: Promise<{ code: string }> };
 
@@ -55,7 +65,7 @@ export default async function ResultsPage({ params }: Props) {
   // Ensure ranks are authoritative before reading (fixes stale rank from trigger approximation)
   await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
 
-  const [{ data: entries }, { data: sponsors }] = await Promise.all([
+  const [{ data: entries }, { data: sponsors }, { data: spotlightRows }] = await Promise.all([
     supabase
       .from("leaderboard_entries")
       .select(`
@@ -76,6 +86,9 @@ export default async function ResultsPage({ params }: Props) {
       .select("id, name, logo_url, sort_order")
       .eq("event_id", event.id)
       .order("sort_order"),
+    // RPC is security-definer; grant to anon added in migration 076 so public
+    // share viewers see spotlights. Returns [] if <4 players or <3 questions.
+    supabase.rpc("get_event_spotlights", { p_event_id: event.id }),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,6 +102,16 @@ export default async function ResultsPage({ params }: Props) {
     avg_speed_ms: row.avg_speed_ms ?? 0,
     rank: row.rank,
     is_top_10_pct: row.is_top_10_pct,
+  }));
+
+  // Map RPC shape ({title, username}) to SpotlightCards shape ({name, display_name}).
+  const spotlights: SpotlightCard[] = ((spotlightRows as SpotlightRpcRow[] | null) ?? []).map((row) => ({
+    emoji: row.emoji,
+    name: row.title,
+    description: "",
+    player_id: row.player_id,
+    display_name: row.username,
+    stat_value: row.stat_value,
   }));
 
   return (
@@ -107,6 +130,7 @@ export default async function ResultsPage({ params }: Props) {
       }}
       leaderboard={leaderboard}
       sponsors={sponsors ?? []}
+      spotlights={spotlights}
       myPlayerId={user?.id ?? null}
     />
   );

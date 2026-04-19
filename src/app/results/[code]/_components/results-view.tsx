@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { Link } from "lucide-react";
 import { AppHeader } from "@/app/_components/app-header";
+import { SpotlightCards } from "@/app/_components/spotlight-cards";
+import type { SpotlightCard } from "@/lib/game/spotlight-stats";
 import { proxyImageUrl } from "@/lib/image-proxy";
 
 type Entry = {
@@ -105,6 +107,7 @@ export function ResultsView({
   event,
   leaderboard,
   sponsors,
+  spotlights = [],
   myPlayerId = null,
 }: {
   event: {
@@ -121,6 +124,7 @@ export function ResultsView({
   };
   leaderboard: Entry[];
   sponsors: Sponsor[];
+  spotlights?: SpotlightCard[];
   myPlayerId?: string | null;
 }) {
   const [descExpanded, setDescExpanded] = useState(false);
@@ -186,6 +190,9 @@ export function ResultsView({
             </div>
           ))}
         </div>
+
+        {/* 1.2b Spotlights (auto-hides when RPC returns <1 card) */}
+        <SpotlightCards cards={spotlights} myPlayerId={myPlayerId} />
 
         {/* 1.3 Standings Table */}
         <div className="space-y-3">

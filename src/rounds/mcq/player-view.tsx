@@ -42,8 +42,8 @@ export function MCQPlayerView({
         } border text-left transition-colors w-full `;
 
         if (isRevealing) {
-          if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
-          else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+          if (isCorrectOption) cls += "border-correct bg-[var(--bt-correct-tint)] text-foreground";
+          else if (isSelected) cls += "border-wrong bg-[var(--bt-wrong-tint)] text-foreground opacity-60";
           else cls += "border-border text-foreground opacity-60";
         } else if (isSelected) {
           cls += "border-primary bg-accent-light text-primary";
@@ -55,10 +55,10 @@ export function MCQPlayerView({
 
         const badgeCls = `${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
           isRevealing && isCorrectOption
-            ? "bg-[#22c55e] text-white"
+            ? "bg-[var(--bt-correct)] text-white"
             : isRevealing && isSelected && !isCorrectOption
-            ? "bg-[#ef4444] text-white"
-            : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+            ? "bg-[var(--bt-wrong)] text-white"
+            : "bg-[var(--bt-hover)] text-[var(--bt-stone)]"
         }`;
 
         return (

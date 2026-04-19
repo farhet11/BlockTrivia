@@ -170,6 +170,7 @@
   /* Text */
   --bt-ink:           var(--foreground);
   --bt-spinner-ink:   #1a1917;
+  --bt-spinner-glyph: #f0ecfe;
   --bt-charcoal:      #4d4c48;
   --bt-stone:         var(--muted-foreground);
   --bt-fog:           #b5b1aa;
@@ -230,8 +231,9 @@
 }
 
 .dark {
-  --bt-spinner-ink:  #e8e5e0;
-  --bt-fog:          #52525b;
+  --bt-spinner-ink:   #e8e5e0;
+  --bt-spinner-glyph: #1a1917;
+  --bt-fog:           #52525b;
   --bt-charcoal:     #d4d4d8;
   --bt-violet-tint:  rgba(124, 58, 237, 0.20);
   --bt-correct-tint: rgba(34, 197, 94, 0.15);

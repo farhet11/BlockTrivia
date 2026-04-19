@@ -44,7 +44,7 @@ export function ClosestWinsHostRevealView({
 
   return (
     <div className="space-y-3">
-      <div className="border border-correct bg-[#dcfce7] dark:bg-correct/15 p-5 flex flex-col items-center justify-center gap-1.5 text-center">
+      <div className="border border-correct bg-[var(--bt-correct-tint)] p-5 flex flex-col items-center justify-center gap-1.5 text-center">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-correct">
           <Target size={12} strokeWidth={2.5} />
           Target answer

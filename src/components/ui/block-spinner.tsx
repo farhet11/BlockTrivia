@@ -6,7 +6,6 @@
 'use client';
 
 import { useId } from 'react';
-import { useTheme } from 'next-themes';
 
 interface BlockSpinnerProps {
   variant?: 'wave' | 'story';
@@ -14,12 +13,14 @@ interface BlockSpinnerProps {
 }
 
 export function BlockSpinner({ variant = 'story', size = 48 }: BlockSpinnerProps) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
-
-  const dark = isDark ? '#e8e5e0' : '#1a1917';
-  const violet = '#7c3aed';
-  const iconFill = isDark ? '#1a1917' : '#f0ecfe';
+  // All theme-adaptive values resolve via CSS custom properties at paint time —
+  // no JS theme detection needed.
+  const dark = 'var(--bt-spinner-ink)';
+  const violet = 'var(--bt-violet)';
+  // Glyph fill: lavender in light mode against violet block, swaps to ink in dark
+  // so the >_ and checkmark stay legible against the now-tinted block. Hardcoded
+  // because this inversion is specific to the spinner; not exposed as a token.
+  const iconFill = 'var(--bt-spinner-glyph)';
   const id = useId().replace(/:/g, '');
 
   if (variant === 'wave') {

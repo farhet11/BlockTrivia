@@ -52,7 +52,7 @@ export function TheNarrativeHostRevealView({
         <div
           className={`flex items-center gap-2 p-3 border ${
             isAligned
-              ? "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct"
+              ? "border-correct bg-[var(--bt-correct-tint)] text-correct"
               : "border-amber-500 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400"
           }`}
         >
@@ -80,12 +80,12 @@ export function TheNarrativeHostRevealView({
           // Card styling — prioritize the "aligned / herd-wrong" signal
           let cardCls: string;
           if (isMajority && isTextbook) {
-            cardCls = "border-correct bg-[#dcfce7] dark:bg-correct/15";
+            cardCls = "border-correct bg-[var(--bt-correct-tint)]";
           } else if (isMajority) {
             cardCls =
               "border-amber-500 bg-amber-50 dark:bg-amber-500/10";
           } else if (isTextbook) {
-            cardCls = "border-correct bg-[#dcfce7]/60 dark:bg-correct/10";
+            cardCls = "border-correct bg-[var(--bt-correct-tint)]/60";
           } else {
             cardCls = "border-border opacity-60";
           }
@@ -105,12 +105,12 @@ export function TheNarrativeHostRevealView({
           // Letter badge — absolute top-left
           const badgeCls = `absolute top-[6px] left-[8px] z-10 w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isMajority && isTextbook
-              ? "bg-[#22c55e] text-white"
+              ? "bg-[var(--bt-correct)] text-white"
               : isMajority
                 ? "bg-amber-500 text-white"
                 : isTextbook
-                  ? "bg-[#22c55e] text-white"
-                  : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+                  ? "bg-[var(--bt-correct)] text-white"
+                  : "bg-[var(--bt-hover)] text-[var(--bt-stone)]"
           }`;
 
           return (

@@ -1355,7 +1355,7 @@ export function ControlPanel({
             ) : (
               <>
                 <div style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
-                  <PodiumLayout entries={lbEntries.slice(0, 3)} />
+                  <PodiumLayout entries={lbEntries.slice(0, 3)} deltas={lbDeltas} />
                 </div>
 
                 {/* RANKINGS — 4th+ (scrollable; no entry cap) */}

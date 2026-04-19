@@ -367,7 +367,7 @@ export function ProfileView({
         {isHost ? (
           <Link
             href="/host"
-            className="flex items-center justify-between px-5 py-4 bg-background border border-border border-l-[3px] border-l-primary hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors"
+            className="flex items-center justify-between px-5 py-4 bg-background border border-border border-l-[3px] border-l-primary hover:bg-[var(--bt-hover)] transition-colors"
           >
             <div>
               <p className="text-[16px] font-medium text-foreground">My Events</p>
@@ -403,7 +403,7 @@ export function ProfileView({
                   <div key={`${game.joinCode}-${i}`} className="relative">
                     <Link
                       href={`/results/${game.joinCode}`}
-                      className={`flex items-center gap-3.5 px-4 py-3 border border-border hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors ${isBlurred ? "pointer-events-none select-none" : ""}`}
+                      className={`flex items-center gap-3.5 px-4 py-3 border border-border hover:bg-[var(--bt-hover)] transition-colors ${isBlurred ? "pointer-events-none select-none" : ""}`}
                       tabIndex={isBlurred ? -1 : undefined}
                       aria-hidden={isBlurred}
                     >
@@ -419,7 +419,7 @@ export function ProfileView({
                       <div className="text-right shrink-0">
                         <p className="text-sm font-bold tabular-nums text-foreground">{game.score.toLocaleString()}</p>
                         {game.isTop10Pct && (
-                          <span className="inline-block text-[11px] font-semibold rounded-full px-[10px] py-[2px] bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.12)] text-[#5b21b6] dark:text-[#a78bfa]">
+                          <span className="inline-block text-[11px] font-semibold rounded-full px-[10px] py-[2px] bg-[var(--bt-violet-tint)] text-[var(--bt-violet-deep)]">
                             Top 10%
                           </span>
                         )}
@@ -531,7 +531,7 @@ export function ProfileView({
         <div className="mt-8 border-t border-border">
           <button
             onClick={() => setShowSignOut(true)}
-            className="flex items-center gap-2.5 w-full py-3 text-[15px] font-medium text-muted-foreground hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors -mx-1 px-1"
+            className="flex items-center gap-2.5 w-full py-3 text-[15px] font-medium text-muted-foreground hover:bg-[var(--bt-hover)] transition-colors -mx-1 px-1"
           >
             <ArrowRight size={16} strokeWidth={2.5} />
             Sign out
@@ -701,7 +701,7 @@ function AccountCard({
     <button
       onClick={onLink}
       disabled={linking}
-      className={`${baseCard} w-full text-left hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-default`}
+      className={`${baseCard} w-full text-left hover:bg-[var(--bt-hover)] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-default`}
     >
       {inner}
     </button>
@@ -756,7 +756,7 @@ function DeleteConfirmModal({
           <button
             onClick={onConfirm}
             disabled={!confirmed || loading}
-            className="px-4 py-2 text-sm font-medium bg-[#ef4444] text-white hover:bg-[#dc2626] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium bg-[var(--bt-wrong)] text-white hover:bg-[#dc2626] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? "Deleting…" : "Delete my account"}
           </button>

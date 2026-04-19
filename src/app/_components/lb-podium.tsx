@@ -60,6 +60,7 @@ function PodiumSlot({
   fadeDelay,
   large,
   myPlayerId,
+  delta,
 }: {
   entry: LbEntry;
   extraBottom: number;
@@ -67,6 +68,7 @@ function PodiumSlot({
   fadeDelay: number;
   large?: boolean;
   myPlayerId?: string;
+  delta?: number | null;
 }) {
   const _isMe = myPlayerId != null && entry.player_id === myPlayerId;
   const barColor = RANK_BAR[entry.rank] ?? "#9ca3af";
@@ -98,6 +100,17 @@ function PodiumSlot({
 
         {/* Name + score inside block */}
         <div className="py-2.5 px-2 text-center space-y-0.5">
+          {delta != null && delta !== 0 && (
+            <p
+              className="tabular-nums text-[10px] font-semibold"
+              style={{
+                fontFamily: "Inter, sans-serif",
+                color: delta > 0 ? "var(--bt-correct)" : "var(--bt-wrong)",
+              }}
+            >
+              {delta > 0 ? `+${delta}▲` : `${delta}▼`}
+            </p>
+          )}
           <p
             className="text-xs font-medium text-foreground truncate"
             style={{ fontFamily: "Inter, sans-serif" }}
@@ -132,11 +145,13 @@ export function PodiumLayout({
   myPlayerId,
   extendedData,
   playerSpotlights = [],
+  deltas,
 }: {
   entries: LbEntry[];
   myPlayerId?: string;
   extendedData?: { [key: string]: { correct_count?: number; total_questions?: number; accuracy?: number; avg_speed_ms?: number; is_top_10_pct?: boolean; fastest_answer_ms?: number; slowest_answer_ms?: number; answer_speed_stddev?: number } };
   playerSpotlights?: SpotlightEntry[];
+  deltas?: Map<string, number | null>;
 }) {
   // Hook must be called unconditionally at the top of the component
   const [expanded, setExpanded] = useState(true);
@@ -245,12 +260,12 @@ export function PodiumLayout({
   return (
     <div className="flex items-end gap-2 justify-center">
       {/* 2nd — left */}
-      <PodiumSlot entry={second} extraBottom={24} slideDelay={200} fadeDelay={200} myPlayerId={myPlayerId} />
+      <PodiumSlot entry={second} extraBottom={24} slideDelay={200} fadeDelay={200} myPlayerId={myPlayerId} delta={deltas?.get(second.player_id) ?? null} />
       {/* 1st — center, tallest */}
-      <PodiumSlot entry={first} extraBottom={48} slideDelay={400} fadeDelay={400} large myPlayerId={myPlayerId} />
+      <PodiumSlot entry={first} extraBottom={48} slideDelay={400} fadeDelay={400} large myPlayerId={myPlayerId} delta={deltas?.get(first.player_id) ?? null} />
       {/* 3rd — right, shortest */}
       {third && (
-        <PodiumSlot entry={third} extraBottom={0} slideDelay={0} fadeDelay={0} myPlayerId={myPlayerId} />
+        <PodiumSlot entry={third} extraBottom={0} slideDelay={0} fadeDelay={0} myPlayerId={myPlayerId} delta={deltas?.get(third.player_id) ?? null} />
       )}
     </div>
   );

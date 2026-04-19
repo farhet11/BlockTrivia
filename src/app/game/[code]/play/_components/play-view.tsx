@@ -867,11 +867,11 @@ export function PlayView({
               </div>
             ) : (
               <div className="space-y-4" style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
-                <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+                <PodiumLayout entries={podiumEntries} myPlayerId={player.id} deltas={lbDeltas} />
                 {rankingEntries.length > 0 && (
                   <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                     {rankingEntries.map((e, i) => (
-                      <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                      <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={lbDeltas.get(e.player_id) ?? null} isMe={e.player_id === player.id} animIndex={i} />
                     ))}
                   </div>
                 )}
@@ -913,11 +913,11 @@ export function PlayView({
           </div>
           {leaderboard.length > 0 ? (
             <div className="px-5 py-4 space-y-4">
-              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} deltas={lbDeltas} />
               {rankingEntries.length > 0 && (
                 <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                   {rankingEntries.map((e, i) => (
-                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={lbDeltas.get(e.player_id) ?? null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
                 </div>
               )}
@@ -965,11 +965,11 @@ export function PlayView({
           </div>
           {leaderboard.length > 0 ? (
             <div className="px-5 py-4 space-y-4">
-              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
+              <PodiumLayout entries={podiumEntries} myPlayerId={player.id} deltas={lbDeltas} />
               {rankingEntries.length > 0 && (
                 <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                   {rankingEntries.map((e, i) => (
-                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={lbDeltas.get(e.player_id) ?? null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
                 </div>
               )}
@@ -1282,8 +1282,16 @@ export function PlayView({
             />
           );
         }
-        if (phase === "revealing" && lastResult?.modifierApplied) {
-          const RevealOverlay = resolveModifierOverlay(lastResult.modifierApplied);
+        if (phase === "revealing" && lastResult) {
+          // Prefer per-response modifier (PR #142, migration 077). Fall back to
+          // jackpot_winner=true — RPC only sets that flag inside the jackpot
+          // branch, so it's unambiguous proof jackpot was active at scoring
+          // time even if migration 077 isn't live yet.
+          const modAtScoring =
+            lastResult.modifierApplied ??
+            (lastResult.jackpotWinner ? "jackpot" : null);
+          if (!modAtScoring) return null;
+          const RevealOverlay = resolveModifierOverlay(modAtScoring);
           if (!RevealOverlay) return null;
           return (
             <RevealOverlay
@@ -1309,10 +1317,12 @@ export function PlayView({
             ? "partial"
             : "wrong";
         // Jackpot winner: correct + first → multiplied points. Call it out proudly.
+        // jackpotWinner=true is canonical — RPC only sets it inside the jackpot
+        // branch, so we don't also need modifierApplied==="jackpot" (which would
+        // hide the win when migration 077 isn't live).
         const jackpotWinner =
           lastResult.isCorrect &&
-          !!lastResult.jackpotWinner &&
-          lastResult.modifierApplied === "jackpot";
+          !!lastResult.jackpotWinner;
         const jackpotMult =
           (effectiveModConfig?.multiplier as number | undefined) ?? 5;
         const descriptor =

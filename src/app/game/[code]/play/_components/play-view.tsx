@@ -160,6 +160,7 @@ export function PlayView({
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
   const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const prevRanksStorageKey = `bt:prevRanks:${event.id}:${player.id}`;
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [showShare, setShowShare] = useState(false);
@@ -491,6 +492,15 @@ export function PlayView({
   useEffect(() => {
     if (gameState.phase !== "leaderboard" && !gameState.is_paused) return;
 
+    // Hydrate prevRanksRef from localStorage on first run so a late-joining
+    // or refreshed player still sees rank deltas instead of a blank column.
+    if (prevRanksRef.current.size === 0 && typeof window !== "undefined") {
+      try {
+        const raw = window.localStorage.getItem(prevRanksStorageKey);
+        if (raw) prevRanksRef.current = new Map(JSON.parse(raw));
+      } catch { /* corrupt storage — ignore */ }
+    }
+
     // Snapshot current ranks for delta computation
     const snapshot = new Map<string, number>();
     leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
@@ -565,6 +575,14 @@ export function PlayView({
           deltas.set(e.player_id, prev != null ? prev - e.rank : null);
         });
         prevRanksRef.current = new Map(entries.map((e) => [e.player_id, e.rank]));
+        if (typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem(
+              prevRanksStorageKey,
+              JSON.stringify(Array.from(prevRanksRef.current.entries())),
+            );
+          } catch { /* quota / private mode — ignore */ }
+        }
         setLeaderboard(entries);
         setLbDeltas(deltas);
       });

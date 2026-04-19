@@ -35,14 +35,14 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
               <Link href="/host" className="w-full sm:w-auto">
                 <Button
-                  className="w-full sm:w-auto sm:min-w-[200px] h-14 px-12 text-lg font-heading font-semibold bg-[#1a1917] text-white hover:bg-[#1a1917]/90 dark:bg-white dark:text-[#1a1917] dark:hover:bg-white/90"
+                  className="w-full sm:w-auto sm:min-w-[200px] h-14 px-12 text-lg font-heading font-semibold bg-[var(--bt-ink)] text-[var(--bt-bg)] hover:bg-[var(--bt-ink)]/90 dark:bg-white dark:text-[var(--bt-ink)] dark:hover:bg-white/90"
                 >
                   Host an Event
                 </Button>
               </Link>
               <Link href="/join" className="w-full sm:w-auto">
                 <Button
-                  className="w-full sm:w-auto sm:min-w-[200px] h-14 px-12 text-lg font-heading font-semibold bg-[#7c3aed] text-white hover:bg-[#6d28d9]"
+                  className="w-full sm:w-auto sm:min-w-[200px] h-14 px-12 text-lg font-heading font-semibold bg-[var(--bt-violet)] text-white hover:bg-[var(--bt-violet-hover)]"
                 >
                   Join a Game
                 </Button>
@@ -112,7 +112,7 @@ export default function Home() {
               <Link href="/host">
                 <Button
                   className="h-12 px-7 font-heading font-medium hover:opacity-90 transition-opacity"
-                  style={{ background: "#1a1917", color: "#ffffff" }}
+                  style={{ background: "var(--bt-ink)", color: "#ffffff" }}
                 >
                   Host an Event
                 </Button>
@@ -173,17 +173,17 @@ function Step({ n, title, body }: { n: number; title: string; body: string }) {
 function Feature({ title, body }: { title: string; body: string }) {
   return (
     <div
-      className="space-y-2 bg-white border border-[#e8e5e0] dark:bg-[#18181b] dark:border-[#27272a]"
-      style={{ padding: 20, borderRadius: 0, borderLeft: "3px solid #7c3aed" }}
+      className="space-y-2 bg-card border border-border"
+      style={{ padding: 20, borderRadius: 0, borderLeft: "3px solid var(--bt-violet)" }}
     >
       <h3
-        className="font-heading text-[#1a1917] dark:text-[#fafafa]"
+        className="font-heading text-foreground"
         style={{ fontSize: 16, fontWeight: 700, letterSpacing: "-0.01em" }}
       >
         {title}
       </h3>
       <p
-        className="leading-relaxed text-[#78756e] dark:text-[#a1a1aa]"
+        className="leading-relaxed text-muted-foreground"
         style={{ fontSize: 14, fontWeight: 400 }}
       >
         {body}

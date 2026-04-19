@@ -26,12 +26,12 @@ function RogueBot({ face, size = 64 }: { face: BotFace; size?: number }) {
     return (
       <svg width={size} height={size} viewBox="0 0 64 64">
         <g transform="translate(32,32) rotate(-22) translate(-32,-32)">
-          <rect x="8" y="8" width="48" height="48" rx="4" fill="#7c3aed" />
-          <line x1="20" y1="24" x2="28" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="28" y1="24" x2="20" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="36" y1="24" x2="44" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
-          <line x1="44" y1="24" x2="36" y2="32" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M24 42 Q32 38 40 42" fill="none" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+          <rect x="8" y="8" width="48" height="48" rx="4" fill="var(--bt-violet)" />
+          <line x1="20" y1="24" x2="28" y2="32" stroke="var(--bt-spinner-glyph)" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="28" y1="24" x2="20" y2="32" stroke="var(--bt-spinner-glyph)" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="36" y1="24" x2="44" y2="32" stroke="var(--bt-spinner-glyph)" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="44" y1="24" x2="36" y2="32" stroke="var(--bt-spinner-glyph)" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M24 42 Q32 38 40 42" fill="none" stroke="var(--bt-spinner-glyph)" strokeWidth="2.5" strokeLinecap="round" />
         </g>
       </svg>
     );
@@ -40,10 +40,10 @@ function RogueBot({ face, size = 64 }: { face: BotFace; size?: number }) {
     return (
       <svg width={size} height={size} viewBox="0 0 64 64">
         <g transform="translate(32,32) rotate(12) translate(-32,-32)">
-          <rect x="8" y="8" width="48" height="48" rx="4" fill="#7c3aed" />
-          <circle cx="24" cy="28" r="6" fill="#f0ecfe" />
-          <circle cx="40" cy="28" r="6" fill="#f0ecfe" />
-          <ellipse cx="32" cy="41" rx="5" ry="4" fill="none" stroke="#f0ecfe" strokeWidth="2.5" />
+          <rect x="8" y="8" width="48" height="48" rx="4" fill="var(--bt-violet)" />
+          <circle cx="24" cy="28" r="6" fill="var(--bt-spinner-glyph)" />
+          <circle cx="40" cy="28" r="6" fill="var(--bt-spinner-glyph)" />
+          <ellipse cx="32" cy="41" rx="5" ry="4" fill="none" stroke="var(--bt-spinner-glyph)" strokeWidth="2.5" />
         </g>
       </svg>
     );
@@ -52,12 +52,12 @@ function RogueBot({ face, size = 64 }: { face: BotFace; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 64 64">
       <g transform="translate(32,32) rotate(12) translate(-32,-32)">
-        <rect x="8" y="8" width="48" height="48" rx="4" fill="#7c3aed" />
-        <circle cx="24" cy="28" r="4" fill="#f0ecfe" />
-        <circle cx="40" cy="28" r="4" fill="#f0ecfe" />
-        <circle cx="25" cy="27" r="1.5" fill="#1a1917" />
-        <circle cx="41" cy="27" r="1.5" fill="#1a1917" />
-        <path d="M22 40 Q32 46 42 40" fill="none" stroke="#f0ecfe" strokeWidth="2.5" strokeLinecap="round" />
+        <rect x="8" y="8" width="48" height="48" rx="4" fill="var(--bt-violet)" />
+        <circle cx="24" cy="28" r="4" fill="var(--bt-spinner-glyph)" />
+        <circle cx="40" cy="28" r="4" fill="var(--bt-spinner-glyph)" />
+        <circle cx="25" cy="27" r="1.5" fill="var(--bt-ink)" />
+        <circle cx="41" cy="27" r="1.5" fill="var(--bt-ink)" />
+        <path d="M22 40 Q32 46 42 40" fill="none" stroke="var(--bt-spinner-glyph)" strokeWidth="2.5" strokeLinecap="round" />
       </g>
     </svg>
   );
@@ -445,12 +445,12 @@ export function LivenessChallenge({
           50%       { transform: translateY(-6px); }
         }
         @keyframes wab-timer {
-          0%    { width: 100%; background-color: #7c3aed; }
-          49.9% { background-color: #7c3aed; }
-          50%   { width: 50%;  background-color: #f59e0b; }
-          79.9% { background-color: #f59e0b; }
-          80%   { width: 20%;  background-color: #ef4444; }
-          100%  { width: 0%;   background-color: #ef4444; }
+          0%    { width: 100%; background-color: var(--bt-violet); }
+          49.9% { background-color: var(--bt-violet); }
+          50%   { width: 50%;  background-color: var(--bt-timer-amber); }
+          79.9% { background-color: var(--bt-timer-amber); }
+          80%   { width: 20%;  background-color: var(--bt-timer-critical); }
+          100%  { width: 0%;   background-color: var(--bt-timer-critical); }
         }
       `}</style>
     </div>

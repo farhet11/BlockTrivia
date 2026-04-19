@@ -48,10 +48,10 @@ export function ValuePropsBar({ tone = "dark" }: { tone?: keyof typeof TONES }) 
 
 const TONES = {
   /** For Warm Canvas sections — Ink number, Stone label. */
-  light: { number: "#1a1917", label: "#78756e" },
-  /** For Ink sections — Snow number, Ash label. */
+  light: { number: "var(--bt-ink)", label: "var(--bt-stone)" },
+  /** For Ink sections — Snow number, Ash label. Invariant (always on dark bg). */
   dark: { number: "#fafafa", label: "#a1a1aa" },
-  /** For Mint sections — Ink heading, semi-transparent Ink body. */
+  /** For Mint sections — Ink heading, semi-transparent Ink body. Invariant. */
   mint: { number: "#1a1917", label: "rgba(26, 25, 23, 0.7)" },
 } as const;
 

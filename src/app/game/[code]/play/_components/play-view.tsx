@@ -180,11 +180,16 @@ export function PlayView({
   // question and silently block the next submit. Key an independent effect
   // on currentQuestion?.id so the lock always clears between questions,
   // regardless of how (or if) the gameState update arrived.
+  //
+  // Intentionally narrow — only reset the submit-path locks. Leave
+  // answeredQuestionId / selectedAnswer / lastResult alone so the
+  // answered-for-previous-question UI doesn't flicker during the transition.
   useEffect(() => {
     if (!currentQuestion?.id) return;
     submitLockRef.current = false;
     setIsSubmitting(false);
   }, [currentQuestion?.id]);
+
 
   const isWipeout = currentQuestion?.round_type === "wipeout";
   // Resolve the correct PlayerView component from the round registry
@@ -629,6 +634,17 @@ export function PlayView({
     setSelectedAnswer(answerIndex);
     setIsSubmitting(true);
 
+    // PILOT-CRITICAL: set answeredQuestionId OPTIMISTICALLY *before* any network
+    // round-trip, so the UI flips to "answered" immediately and the timer-expired
+    // "Time's up — no answer recorded" screen never renders for someone who
+    // actually clicked. Under 200-player load the jitter + RPC round-trip can
+    // exceed the remaining question time — the server still accepts the answer
+    // (submit_answer validates against question_started_at, not client clock),
+    // but without an optimistic flip the player sees a false "timed out" error.
+    // Rollback below on RPC error.
+    const optimisticQuestionId = currentQuestion.id;
+    setAnsweredQuestionId(optimisticQuestionId);
+
     // Spread burst writes: UI confirms selection immediately, DB write lands 0–800ms later.
     // Eliminates connection pool saturation when many players answer at the same moment.
     await new Promise(r => setTimeout(r, Math.random() * 800));
@@ -656,6 +672,7 @@ export function PlayView({
         console.error("submit_answer RPC error:", error);
         submitLockRef.current = false;
         setSelectedAnswer(null);
+        setAnsweredQuestionId((curr) => (curr === optimisticQuestionId ? null : curr));
         return;
       }
 
@@ -663,10 +680,12 @@ export function PlayView({
         console.error("submit_answer returned error:", result.error);
         submitLockRef.current = false;
         setSelectedAnswer(null);
+        setAnsweredQuestionId((curr) => (curr === optimisticQuestionId ? null : curr));
         return;
       }
 
-      setAnsweredQuestionId(currentQuestion.id);
+      // Already set optimistically above — this re-affirms in case of race.
+      setAnsweredQuestionId(optimisticQuestionId);
       setLastResult({
         isCorrect: result.is_correct,
         pointsAwarded: result.points_awarded,
@@ -679,13 +698,15 @@ export function PlayView({
         jackpotWinner: result.jackpot_winner ?? false,
       });
 
-      // Refresh rank immediately — leaderboard trigger fires synchronously on response INSERT
+      // Refresh rank immediately — leaderboard trigger fires synchronously on response INSERT.
+      // maybeSingle() because a fresh player who hasn't scored yet has no row,
+      // and .single() would throw a 406 error in the browser console.
       supabase
         .from("leaderboard_entries")
         .select("rank, total_score, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct")
         .eq("event_id", event.id)
         .eq("player_id", player.id)
-        .single()
+        .maybeSingle()
         .then(({ data, error }) => { if (!error && data) setMyLbEntry((prev) => prev ? { ...prev, ...data } : data as unknown as LeaderboardEntry); });
     } catch (err) {
       console.error("submit_answer exception:", err);
@@ -839,7 +860,7 @@ export function PlayView({
               <div className="space-y-4" style={{ animation: "lb-fade-up 350ms ease-out 160ms both" }}>
                 <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
                 {rankingEntries.length > 0 && (
-                  <div className="border-t border-border pt-2">
+                  <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                     {rankingEntries.map((e, i) => (
                       <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
                     ))}
@@ -885,7 +906,7 @@ export function PlayView({
             <div className="px-5 py-4 space-y-4">
               <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
               {rankingEntries.length > 0 && (
-                <div className="border-t border-border pt-2">
+                <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                   {rankingEntries.map((e, i) => (
                     <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
@@ -937,7 +958,7 @@ export function PlayView({
             <div className="px-5 py-4 space-y-4">
               <PodiumLayout entries={podiumEntries} myPlayerId={player.id} />
               {rankingEntries.length > 0 && (
-                <div className="border-t border-border pt-2">
+                <div className="border-t border-border pt-2 max-h-[55vh] overflow-y-auto">
                   {rankingEntries.map((e, i) => (
                     <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
@@ -1254,13 +1275,22 @@ export function PlayView({
           : lastResult.pointsAwarded > 0
             ? "partial"
             : "wrong";
+        // Jackpot winner: correct + first → multiplied points. Call it out proudly.
+        const jackpotWinner =
+          lastResult.isCorrect &&
+          !!lastResult.jackpotWinner &&
+          effectiveModType === "jackpot";
+        const jackpotMult =
+          (effectiveModConfig?.multiplier as number | undefined) ?? 5;
         const descriptor =
           tier === "correct"
-            ? lastResult.wagerAmt
-              ? `Wagered ${lastResult.wagerAmt} pts`
-              : currentQuestion?.time_bonus_enabled
-                ? "Base + speed bonus"
-                : "Correct answer"
+            ? jackpotWinner
+              ? `Jackpot! ${jackpotMult}× points`
+              : lastResult.wagerAmt
+                ? `Wagered ${lastResult.wagerAmt} pts`
+                : currentQuestion?.time_bonus_enabled
+                  ? "Base + speed bonus"
+                  : "Correct answer"
             : tier === "partial"
               ? "Almost — partial credit"
               : lastResult.wagerAmt

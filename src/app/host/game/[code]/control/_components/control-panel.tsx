@@ -233,6 +233,25 @@ export function ControlPanel({
       if (count !== null) setAnsweredCount(count);
     }
 
+    // Coalesce Realtime INSERT bursts: under 200+ concurrent submits, firing one
+    // HEAD per INSERT floods the PostgREST connection and queues the host's
+    // Reveal PATCH behind hundreds of counting requests. Debounce to one fetch
+    // per 500ms window — the "answered" counter doesn't need per-event fidelity.
+    let debounceT: ReturnType<typeof setTimeout> | null = null;
+    let pendingCount = 0;
+    function scheduleFetch() {
+      pendingCount += 1;
+      if (debounceT) return;
+      debounceT = setTimeout(() => {
+        debounceT = null;
+        // Optimistic tick: bump displayed count immediately for perceived latency,
+        // then reconcile with authoritative fetch.
+        setAnsweredCount((c) => c + pendingCount);
+        pendingCount = 0;
+        fetchCount();
+      }, 500);
+    }
+
     fetchCount();
 
     // Realtime: fires via supabase_realtime publication (migration 041).
@@ -242,12 +261,13 @@ export function ControlPanel({
     const channel = supabase
       .channel(`answers:${qId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "responses", filter: `question_id=eq.${qId}` },
-        fetchCount
+        scheduleFetch
       )
       .subscribe();
 
     return () => {
       clearInterval(poll);
+      if (debounceT) clearTimeout(debounceT);
       supabase.removeChannel(channel);
     };
   }, [gameState.current_question_id, gameState.phase, supabase]);
@@ -344,12 +364,13 @@ export function ControlPanel({
     lbEntries.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && lbEntries.length === 0;
 
+    // Load ALL entries — the host needs to see every player. The host-side list
+    // is scrollable (max-height on the rankings container below), not truncated.
     supabase
       .from("leaderboard_entries")
       .select(`player_id, total_score, correct_count, total_questions, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
       .order("rank", { ascending: true })
-      .limit(20)
 
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -688,11 +709,11 @@ export function ControlPanel({
 
   // Show reveal (correct answer)
   async function revealAnswer() {
+    // Round-type rescoring MUST finish before flipping phase — these rewrite
+    // per-response is_correct/points_awarded that the reveal UI reads.
     // The Narrative: tally votes + retroactively rescore all responses (migration 066)
     if (currentQuestion?.round_type === "the_narrative") {
-      // tallyNarrativeVotes still updates round_state for the UI display
       await tallyNarrativeVotes();
-      // rescore_the_narrative fixes is_correct + points_awarded + leaderboard
       await supabase.rpc("rescore_the_narrative", {
         p_question_id: currentQuestion.id,
         p_event_id: event.id,
@@ -706,10 +727,15 @@ export function ControlPanel({
       });
       await tallyClosestWinsGuesses();
     }
-    // Recompute all leaderboard scores once before reveal. With the per-response
-    // trigger removed (migration 073), this is the only place scores are written.
-    await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
-    await updateGameState({ phase: "revealing" });
+    // Fire phase flip and leaderboard recompute IN PARALLEL. Phase flip is what
+    // players feel — it unblocks the reveal screen. recompute_leaderboard_ranks
+    // is heavy (200+ players = ~300-800ms) and only matters when phase="leaderboard"
+    // or for the pinned "#N" rank in the reveal banner (which refreshes on next
+    // /leaderboard_entries read anyway). Running serial added visible button lag.
+    await Promise.all([
+      updateGameState({ phase: "revealing" }),
+      supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id }),
+    ]);
   }
 
   // Pause — shows leaderboard, remembers where we were
@@ -1291,9 +1317,9 @@ export function ControlPanel({
                   <PodiumLayout entries={lbEntries.slice(0, 3)} />
                 </div>
 
-                {/* RANKINGS — 4th+ */}
+                {/* RANKINGS — 4th+ (scrollable; no entry cap) */}
                 {lbEntries.slice(3).length > 0 && (
-                  <div className="border-t border-border">
+                  <div className="border-t border-border max-h-[60vh] overflow-y-auto">
                     {lbEntries.slice(3).map((entry, i) => (
                       <RankingRow
                         key={entry.player_id}

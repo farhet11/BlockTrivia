@@ -92,8 +92,11 @@ const STRESS_PASSWORD =
   process.env.STRESS_BOT_PASSWORD ?? "BlockTriviaStress2024!";
 const AUTOHOST_MS = 10_000;
 const RPC_MS = 15_000;
-/** Grace period after question ends before we count missed events */
-const MISSED_GRACE_MS = 5_000;
+/**
+ * Grace period after game ends before verifying DB state.
+ * Must be longer than RPC_MS to let in-flight submit_answer calls drain.
+ */
+const MISSED_GRACE_MS = 20_000;
 
 if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
   console.error("Missing env vars");
@@ -594,15 +597,18 @@ async function submitAnswer(
 
   const t0 = Date.now();
   try {
-    const { error } = await withTimeout(
+    const { data, error } = await withTimeout(
       ctx.supabase.rpc("submit_answer", rpcParams),
       RPC_MS,
       "submit"
     );
     const rpcLat = Date.now() - t0;
-    if (error) {
+    // submit_answer returns JSONB — check both the Supabase transport error
+    // AND the JSON-body error field (e.g. auth.uid()=null → "Not authenticated").
+    const bodyErr = (data as { error?: string } | null)?.error;
+    if (error || bodyErr) {
       m.answersFail++;
-      logErr(m, "submitAnswer", error.message);
+      logErr(m, "submitAnswer", error?.message ?? bodyErr);
     } else {
       m.answersOk++;
       m.allRpcLats.push(rpcLat);
@@ -879,6 +885,11 @@ async function runAutoHost(
       AUTOHOST_MS,
       "recompute"
     ).catch(() => {});
+    // Brief cool-down: give Supabase Realtime's WAL reader a chance to
+    // flush the recompute writes before the next game_state UPDATE lands.
+    // In production the host manually clicks "Next Question" 5-10s after
+    // "Reveal Answer" — this 2s simulates that breathing room.
+    await new Promise((r) => setTimeout(r, 2000));
   }
 
   await withTimeout(
@@ -1028,6 +1039,13 @@ async function runRealtimeStress(numPlayers: number): Promise<RealtimeMetrics> {
     });
   } else {
     // ── Auto-host mode ────────────────────────────────────────────────────
+    // Brief warm-up hold: let Supabase Realtime infrastructure settle before
+    // firing Q1. Without this, the cold-start penalty hits every bot on Q1
+    // (p50 ~7s) because the Realtime pipeline isn't warmed up yet.
+    // In production this window is naturally filled by the lobby phase.
+    const WARMUP_MS = 3000;
+    console.log(`  ⏳  warm-up hold ${WARMUP_MS / 1000}s (simulates lobby phase)...`);
+    await new Promise((r) => setTimeout(r, WARMUP_MS));
     await runAutoHost(eventId, questions, m);
   }
 

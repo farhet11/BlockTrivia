@@ -105,7 +105,7 @@ export function ClosestWinsPlayerView({
     <div className="flex flex-col gap-4">
       {/* Instruction pill */}
       <div className="flex items-center justify-center">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[#f5f3ef] dark:bg-[#1f1f23] border border-border px-3 py-1.5">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[var(--bt-hover)] border border-border px-3 py-1.5">
           <Ruler size={14} strokeWidth={2} />
           Type your best guess — closest answer wins
         </span>
@@ -185,7 +185,7 @@ export function ClosestWinsPlayerView({
             return (
               <div className="w-full grid grid-cols-2 gap-3">
                 {/* Target */}
-                <div className="border border-correct bg-[#dcfce7] dark:bg-correct/15 p-5 flex flex-col items-center justify-center gap-1.5 text-center">
+                <div className="border border-correct bg-[var(--bt-correct-tint)] p-5 flex flex-col items-center justify-center gap-1.5 text-center">
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-correct">
                     <Target size={12} strokeWidth={2.5} />
                     Target
@@ -214,10 +214,10 @@ export function ClosestWinsPlayerView({
                         : "wrong";
                   const cls = {
                     correct:
-                      "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct",
+                      "border-correct bg-[var(--bt-correct-tint)] text-correct",
                     partial: "border-primary bg-primary/10 text-primary",
                     wrong:
-                      "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong",
+                      "border-wrong bg-[var(--bt-wrong-tint)] text-wrong",
                   }[tier];
                   return (
                     <div

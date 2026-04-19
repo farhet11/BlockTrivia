@@ -48,7 +48,7 @@ export function ReversalPlayerView({
     <div className="flex flex-col gap-3">
       {/* Instruction pill */}
       <div className="flex items-center justify-center">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[#f5f3ef] dark:bg-[#1f1f23] border border-border px-3 py-1.5">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[var(--bt-hover)] border border-border px-3 py-1.5">
           <RoundTypeBadge type="reversal" size={16} />
           Find the statement that is <span className="text-wrong font-bold ml-0.5">FALSE</span>
         </span>
@@ -71,10 +71,10 @@ export function ReversalPlayerView({
             if (isFalseStatement) {
               // The false statement — green border (correct pick), but "FALSE" badge
               cls +=
-                "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
+                "border-correct bg-[var(--bt-correct-tint)] text-foreground";
             } else if (isSelected) {
               // Player picked a true statement — wrong
-              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+              cls += "border-wrong bg-[var(--bt-wrong-tint)] text-foreground opacity-60";
             } else {
               cls += "border-border text-foreground opacity-60";
             }
@@ -91,7 +91,7 @@ export function ReversalPlayerView({
           const renderBadge = () => {
             if (isRevealing && isFalseStatement) {
               return (
-                <span className={`${posCls} flex items-center gap-0.5 px-1.5 h-5 text-[10px] font-bold bg-[#ef4444] text-white`}>
+                <span className={`${posCls} flex items-center gap-0.5 px-1.5 h-5 text-[10px] font-bold bg-[var(--bt-wrong)] text-white`}>
                   <X size={10} strokeWidth={3} />
                   FALSE
                 </span>
@@ -99,13 +99,13 @@ export function ReversalPlayerView({
             }
             if (isRevealing && isSelected && !isFalseStatement) {
               return (
-                <span className={`${posCls} w-5 h-5 flex items-center justify-center bg-[#ef4444] text-white`}>
+                <span className={`${posCls} w-5 h-5 flex items-center justify-center bg-[var(--bt-wrong)] text-white`}>
                   <X size={14} strokeWidth={2.5} />
                 </span>
               );
             }
             return (
-              <span className={`${posCls} w-5 h-5 flex items-center justify-center text-[11px] font-medium bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400`}>
+              <span className={`${posCls} w-5 h-5 flex items-center justify-center text-[11px] font-medium bg-[var(--bt-hover)] text-[var(--bt-stone)]`}>
                 {OPTION_LABELS[i]}
               </span>
             );

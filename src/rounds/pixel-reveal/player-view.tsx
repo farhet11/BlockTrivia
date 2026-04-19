@@ -476,7 +476,7 @@ export function PixelRevealPlayerView({
     <div className="flex flex-col gap-3">
       {/* Instruction pill — Lucide ScanEye matches the RoundTypeBadge */}
       <div className="flex items-center justify-center">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[#f5f3ef] dark:bg-[#1f1f23] border border-border px-3 py-1.5">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[var(--bt-hover)] border border-border px-3 py-1.5">
           <ScanEye size={14} strokeWidth={2.5} />
           Identify the image — early answers earn more points
         </span>
@@ -516,8 +516,8 @@ export function PixelRevealPlayerView({
           let cls = `${isLong ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
-            if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
-            else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+            if (isCorrectOption) cls += "border-correct bg-[var(--bt-correct-tint)] text-foreground";
+            else if (isSelected) cls += "border-wrong bg-[var(--bt-wrong-tint)] text-foreground opacity-60";
             else cls += "border-border text-foreground opacity-60";
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
@@ -529,10 +529,10 @@ export function PixelRevealPlayerView({
 
           const badgeCls = `${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isRevealing && isCorrectOption
-              ? "bg-[#22c55e] text-white"
+              ? "bg-[var(--bt-correct)] text-white"
               : isRevealing && isSelected && !isCorrectOption
-              ? "bg-[#ef4444] text-white"
-              : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+              ? "bg-[var(--bt-wrong)] text-white"
+              : "bg-[var(--bt-hover)] text-[var(--bt-stone)]"
           }`;
 
           return (

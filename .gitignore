@@ -44,6 +44,7 @@ next-env.d.ts
 # stress test artifacts
 .stress-users.json
 stress-report.txt
+realtime-stress-report.txt
 
 # generated docs / audits
 blocktrivia-merged-prs.md

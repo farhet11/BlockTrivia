@@ -16,6 +16,8 @@
  *   --answer-delay=3000  Max ms bots wait before answering (default 3000)
  *   --wrong-rate=0.35    Probability of wrong answer for MCQ/WipeOut (default 0.35)
  *   --reuse              Reuse cached users from .stress-users.json
+ *   --manual-host        Skip auto-host; drive the game yourself from the control panel
+ *                        (you can also join as a real player alongside the bots)
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -66,8 +68,16 @@ const CONCURRENCY   = parseInt(args.concurrency  || "25",   10);
 const ANSWER_DELAY  = parseInt(args["answer-delay"] || "3000", 10);
 const WRONG_RATE    = parseFloat(args["wrong-rate"] || "0.35");
 const REUSE         = args.reuse === "true";
+/**
+ * When true, skip the auto-host. Print instructions for the human host to
+ * drive the game from the control panel. Bots poll and answer questions
+ * automatically as the host advances them.
+ */
+const MANUAL_HOST   = args["manual-host"] === "true";
 const CACHE_FILE    = resolve(process.cwd(), ".stress-users.json");
 const EMAIL_DOMAIN  = "blocktrivia-stress.test";
+/** Shared password for all stress-test bots — avoids magic-link expiry issues. */
+const STRESS_PASSWORD = process.env.STRESS_BOT_PASSWORD ?? "BlockTriviaStress2024!";
 const AUTOHOST_MS   = 10_000;
 const RPC_MS        = 15_000;
 
@@ -211,6 +221,7 @@ async function ensureUsers(n: number, m: RunMetrics): Promise<CachedUser[]> {
         const { data, error } = await admin.auth.admin.createUser({
           email,
           email_confirm: true,
+          password: STRESS_PASSWORD,
           user_metadata: { display_name: `Bot-${suffix}` },
         });
         if (error || !data.user) { logErr(m, "createUser", error?.message || "no user"); return; }
@@ -219,11 +230,22 @@ async function ensureUsers(n: number, m: RunMetrics): Promise<CachedUser[]> {
       },
       CONCURRENCY
     );
+    // Ensure existing cached bots also have password set
+    if (cached.length > 0) {
+      await pMap(cached, async (u) => {
+        await admin.auth.admin.updateUserById(u.id, { password: STRESS_PASSWORD }).catch(() => {});
+      }, CONCURRENCY);
+    }
     m.usersReused = cached.length;
     const all = [...cached, ...newUsers];
     writeFileSync(CACHE_FILE, JSON.stringify(all, null, 2));
     return all.slice(0, n);
   }
+  // Ensure passwords are set for fully-cached runs too
+  console.log(`  Setting/verifying passwords for ${n} cached bots...`);
+  await pMap(cached.slice(0, n), async (u) => {
+    await admin.auth.admin.updateUserById(u.id, { password: STRESS_PASSWORD }).catch(() => {});
+  }, CONCURRENCY);
   m.usersReused = cached.length;
   return cached.slice(0, n);
 }
@@ -305,15 +327,22 @@ interface BotCtx {
 
 async function signInBot(user: CachedUser, m: RunMetrics): Promise<BotCtx | null> {
   const sb = createClient(SUPABASE_URL, ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: false, autoRefreshToken: true },
   });
-  if (user.accessToken && user.refreshToken) {
-    const { error } = await sb.auth.setSession({
-      access_token: user.accessToken,
-      refresh_token: user.refreshToken,
-    });
-    if (!error) { m.signInOk++; return { user, supabase: sb, _active: true }; }
+
+  // Primary: password auth — never expires, no magic-link rate limiting
+  const { data: pwData, error: pwErr } = await sb.auth.signInWithPassword({
+    email: user.email,
+    password: STRESS_PASSWORD,
+  });
+  if (!pwErr && pwData.session) {
+    user.accessToken  = pwData.session.access_token;
+    user.refreshToken = pwData.session.refresh_token;
+    m.signInOk++;
+    return { user, supabase: sb, _active: true };
   }
+
+  // Fallback: magic-link (for bots created before password support)
   const tokens = await adminSignIn(user.email);
   if (tokens) {
     const { error } = await sb.auth.setSession(tokens);
@@ -324,8 +353,9 @@ async function signInBot(user: CachedUser, m: RunMetrics): Promise<BotCtx | null
       return { user, supabase: sb, _active: true };
     }
   }
+
   m.signInFail++;
-  logErr(m, "signIn", "failed");
+  logErr(m, "signIn", pwErr?.message ?? "all methods failed");
   return null;
 }
 
@@ -745,7 +775,38 @@ async function runStressTest(numPlayers: number): Promise<RunMetrics> {
   }, 2000);
 
   // Run the game
-  await runAutoHost(eventId, questions, m);
+  if (MANUAL_HOST) {
+    console.log("\n" + "─".repeat(60));
+    console.log("  🎮  MANUAL HOST MODE");
+    console.log("─".repeat(60));
+    console.log(`  ${bots.length} bots are polling and ready to answer.`);
+    console.log(`  Open your host control panel and start the game:`);
+    console.log(`\n    http://localhost:3000/host/game/${EVENT_CODE}/control`);
+    console.log(`\n  You can also join as a player at:`);
+    console.log(`    http://localhost:3000/join/${EVENT_CODE}`);
+    console.log(`\n  Bots will answer questions automatically as you advance.`);
+    console.log("─".repeat(60) + "\n");
+
+    // Poll for game ended
+    const adminCheck = makeAdmin();
+    await new Promise<void>((resolve) => {
+      const poll = setInterval(async () => {
+        const { data } = await adminCheck
+          .from("game_state")
+          .select("phase")
+          .eq("event_id", eventId)
+          .maybeSingle();
+        if (data?.phase === "ended") {
+          clearInterval(poll);
+          console.log("  ✓ Game ended — generating report...");
+          resolve();
+        }
+      }, 3000);
+    });
+  } else {
+    await runAutoHost(eventId, questions, m);
+  }
+
   clearInterval(ticker);
 
   // Stop bots

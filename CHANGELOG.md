@@ -2,6 +2,25 @@
 
 All notable changes to BlockTrivia are documented here.
 
+## [0.6.1.0] - 2026-04-19
+
+### Fixed
+- **Leaderboard self-heal on every render** — `/game/{code}/leaderboard` now calls `recompute_leaderboard_ranks` before fetching entries. Migration 073 dropped the per-response trigger, so ranks only update on phase transitions. Without this, a player landing on the page mid-game (or after the host hung on a phase) saw a stale or empty board. Belt-and-braces with the existing recompute on phase change.
+- **Play-view leaderboard rank collision** — `maxRank` for "zero-score" players now uses `entries.reduce(max(rank))` instead of `entries.length`. With ties, multiple entries can share rank N, so `entries.length` was less than the true highest rank, causing zero-score players to be inserted with duplicate ranks and overlap the bottom of the scored list.
+- **Play-view leaderboard caps removed** — dropped `.limit(10)` on `leaderboard_entries` and `.limit(50)` on `event_players`. With 100+ player events the in-game leaderboard truncated silently. PostgREST default of 1000 is fine for our pilot scale.
+
+### Changed
+- **lb-podium expand/collapse** — adds a "Collapse" pill above the full ranking list when expanded, and keeps the blurred top-3 visually hidden behind the full list (instead of layering on top). Cleaner mental model: tapping "View all rankings" replaces the podium, tapping "Collapse" brings it back.
+
+### Chore
+- **Vitest excludes `tests/e2e/`** — Playwright specs use `test.describe` from `@playwright/test`, which crashes Vitest's parser. Excluding the directory lets the unit suite run cleanly alongside the (separately-run) Playwright runner.
+
+### Infrastructure
+- `vitest.config.ts` — added `tests/e2e/**` to test exclude list
+- `src/app/_components/lb-podium.tsx` — Collapse pill + scrollable expanded list (superset of recent main-branch change)
+- `src/app/game/[code]/leaderboard/page.tsx` — `recompute_leaderboard_ranks` self-heal call
+- `src/app/game/[code]/play/_components/play-view.tsx` — recompute-then-fetch chain, removed row caps, fixed `maxRank` calculation
+
 ## [0.6.0.0] - 2026-04-17
 
 ### Added

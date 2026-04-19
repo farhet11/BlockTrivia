@@ -62,7 +62,7 @@ export function ConfirmModal({
             disabled={loading}
             className={`text-sm font-medium transition-colors px-3 py-1.5 ${
               variant === "danger"
-                ? "text-[#ef4444] hover:text-[#dc2626]"
+                ? "text-wrong hover:text-wrong/80"
                 : "text-primary hover:text-primary/80"
             }`}
           >

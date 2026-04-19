@@ -74,11 +74,11 @@ export function OraclesDilemmaPlayerView({
           className="flex items-center justify-center gap-2 px-4 py-2.5 border border-violet-400/40 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400"
           style={{ animation: "hot-seat-pulse 2s ease-in-out infinite" }}
         >
-          <Sparkles size={16} strokeWidth={2} className="shrink-0" />
+          <Sparkles size={16} strokeWidth={2.5} className="shrink-0" />
           <span className="text-sm font-bold tracking-wide uppercase">
             You are the Oracle
           </span>
-          <Sparkles size={16} strokeWidth={2} className="shrink-0" />
+          <Sparkles size={16} strokeWidth={2.5} className="shrink-0" />
         </div>
 
         {/* Path selection */}
@@ -91,11 +91,11 @@ export function OraclesDilemmaPlayerView({
               onClick={() => setSelectedPath("truth")}
               className={`flex flex-col items-center gap-2 p-4 border transition-colors ${
                 selectedPath === "truth"
-                  ? "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct"
+                  ? "border-correct bg-[var(--bt-correct-tint)] text-correct"
                   : "border-border text-foreground hover:border-correct/50"
               }`}
             >
-              <Eye size={20} strokeWidth={2} />
+              <Eye size={20} strokeWidth={2.5} />
               <span className="text-sm font-bold">Truth</span>
               <span className="text-[10px] text-muted-foreground">
                 Guaranteed 50% points
@@ -105,11 +105,11 @@ export function OraclesDilemmaPlayerView({
               onClick={() => setSelectedPath("deception")}
               className={`flex flex-col items-center gap-2 p-4 border transition-colors ${
                 selectedPath === "deception"
-                  ? "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong"
+                  ? "border-wrong bg-[var(--bt-wrong-tint)] text-wrong"
                   : "border-border text-foreground hover:border-wrong/50"
               }`}
             >
-              <EyeOff size={20} strokeWidth={2} />
+              <EyeOff size={20} strokeWidth={2.5} />
               <span className="text-sm font-bold">Deception</span>
               <span className="text-[10px] text-muted-foreground">
                 More fooled = more points
@@ -137,7 +137,7 @@ export function OraclesDilemmaPlayerView({
                       : "border-border text-foreground hover:border-primary/50"
                   }`}
                 >
-                  <span className="w-5 h-5 shrink-0 flex items-center justify-center text-[10px] font-semibold bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400">
+                  <span className="w-5 h-5 shrink-0 flex items-center justify-center text-[10px] font-semibold bg-[var(--bt-hover)] text-[var(--bt-stone)]">
                     {OPTION_LABELS[i]}
                   </span>
                   <span className="leading-snug break-words font-medium">{option}</span>
@@ -173,7 +173,7 @@ export function OraclesDilemmaPlayerView({
     return (
       <div className="flex flex-col items-center gap-4 py-6">
         <div className="flex items-center gap-2 px-4 py-2.5 border border-violet-400/40 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400">
-          <Sparkles size={16} strokeWidth={2} />
+          <Sparkles size={16} strokeWidth={2.5} />
           <span className="text-sm font-bold">Oracle — {oracleChoice ?? selectedPath}</span>
         </div>
         <span className="text-sm text-muted-foreground text-center">
@@ -182,8 +182,8 @@ export function OraclesDilemmaPlayerView({
         {isRevealing && lastResult && (
           <div className={`px-5 py-3 border ${
             lastResult.isCorrect
-              ? "border-correct bg-[#dcfce7] dark:bg-correct/15 text-correct"
-              : "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-wrong"
+              ? "border-correct bg-[var(--bt-correct-tint)] text-correct"
+              : "border-wrong bg-[var(--bt-wrong-tint)] text-wrong"
           }`}>
             <span className="text-sm font-semibold">
               +{lastResult.pointsAwarded} points
@@ -200,7 +200,7 @@ export function OraclesDilemmaPlayerView({
       {/* Oracle suggestion banner */}
       {oracleHasChosen && (
         <div className="flex items-center justify-center gap-2 px-4 py-2 border border-violet-300/40 bg-violet-50 dark:bg-violet-900/10 text-violet-700 dark:text-violet-400">
-          <Sparkles size={14} strokeWidth={2} />
+          <Sparkles size={14} strokeWidth={2.5} />
           <span className="text-sm font-medium">
             <span className="font-bold">{oracleDisplayName}</span> suggests option{" "}
             <span className="font-bold">
@@ -213,7 +213,7 @@ export function OraclesDilemmaPlayerView({
 
       {!oracleHasChosen && phase === "playing" && (
         <div className="flex items-center justify-center gap-2 px-4 py-2 border border-amber-300/40 bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
-          <Sparkles size={14} strokeWidth={2} />
+          <Sparkles size={14} strokeWidth={2.5} />
           <span className="text-sm font-medium">
             Waiting for the Oracle to make their choice...
           </span>
@@ -234,8 +234,8 @@ export function OraclesDilemmaPlayerView({
           let cls = `${useAbsolute ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
-            if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
-            else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+            if (isCorrectOption) cls += "border-correct bg-[var(--bt-correct-tint)] text-foreground";
+            else if (isSelected) cls += "border-wrong bg-[var(--bt-wrong-tint)] text-foreground opacity-60";
             else cls += "border-border text-foreground opacity-60";
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
@@ -247,10 +247,10 @@ export function OraclesDilemmaPlayerView({
 
           const badgeCls = `${useAbsolute ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isRevealing && isCorrectOption
-              ? "bg-[#22c55e] text-white"
+              ? "bg-[var(--bt-correct)] text-white"
               : isRevealing && isSelected && !isCorrectOption
-              ? "bg-[#ef4444] text-white"
-              : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+              ? "bg-[var(--bt-wrong)] text-white"
+              : "bg-[var(--bt-hover)] text-[var(--bt-stone)]"
           }`;
 
           return (

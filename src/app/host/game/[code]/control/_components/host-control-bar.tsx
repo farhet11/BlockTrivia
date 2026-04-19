@@ -114,9 +114,9 @@ export function HostControlBar({
               aria-label={inReplayMode ? "Back to current" : "Previous question"}
             >
               {inReplayMode ? (
-                <X size={16} strokeWidth={2} />
+                <X size={16} strokeWidth={2.5} />
               ) : (
-                <ChevronLeft size={16} strokeWidth={2} />
+                <ChevronLeft size={16} strokeWidth={2.5} />
               )}
               <span className="hidden sm:inline">
                 {inReplayMode ? "Back to current" : "Previous"}
@@ -136,7 +136,7 @@ export function HostControlBar({
                   : "h-12 px-5 bg-surface border border-border font-heading font-medium hover:bg-background transition-colors disabled:opacity-50"
               }
             >
-              {SecondaryIcon && <SecondaryIcon size={16} strokeWidth={2} />}
+              {SecondaryIcon && <SecondaryIcon size={16} strokeWidth={2.5} />}
               <span className={SecondaryIcon ? "hidden sm:inline" : ""}>{secondaryLabel}</span>
             </button>
           )}
@@ -151,7 +151,7 @@ export function HostControlBar({
                 : "flex-1 h-12 bg-primary text-primary-foreground font-heading font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1.5"
             }
           >
-            {PrimaryIcon && <PrimaryIcon size={16} strokeWidth={2} />}
+            {PrimaryIcon && <PrimaryIcon size={16} strokeWidth={2.5} />}
             {primaryLabel}
           </button>
 
@@ -165,7 +165,7 @@ export function HostControlBar({
                 aria-expanded={menuOpen}
                 className="h-12 w-12 text-muted-foreground hover:text-foreground hover:bg-background transition-colors flex items-center justify-center"
               >
-                <MoreVertical size={18} strokeWidth={2} />
+                <MoreVertical size={18} strokeWidth={2.5} />
               </button>
               {menuOpen && (
                 <div
@@ -190,7 +190,7 @@ export function HostControlBar({
                         }}
                         className={`w-full h-11 px-4 text-left text-sm font-normal hover:bg-background transition-colors inline-flex items-center gap-2.5 ${toneCls}`}
                       >
-                        {Icon && <Icon size={16} strokeWidth={2} />}
+                        {Icon && <Icon size={16} strokeWidth={2.5} />}
                         {item.label}
                       </button>
                     );

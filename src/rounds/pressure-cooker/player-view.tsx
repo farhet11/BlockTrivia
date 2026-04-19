@@ -50,14 +50,14 @@ export function PressureCookerPlayerView({
       {spotlightId && (
         isHotSeat ? (
           <div
-            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#f97316]/40 bg-[#fff7ed] dark:bg-[#f97316]/10 text-[#ea580c] dark:text-[#fb923c]"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[var(--bt-timer-amber)]/40 bg-[#fef3c7] dark:bg-[var(--bt-timer-amber)]/15 text-[#92400e] dark:text-[#fcd34d]"
             style={{ animation: "hot-seat-pulse 2s ease-in-out infinite" }}
           >
-            <Flame size={16} strokeWidth={2} className="shrink-0" />
+            <Flame size={16} strokeWidth={2.5} className="shrink-0" />
             <span className="text-sm font-bold tracking-wide uppercase">
               You&apos;re in the hot seat
             </span>
-            <Flame size={16} strokeWidth={2} className="shrink-0" />
+            <Flame size={16} strokeWidth={2.5} className="shrink-0" />
             <style>{`
               @keyframes hot-seat-pulse {
                 0%, 100% { opacity: 1; }
@@ -89,8 +89,8 @@ export function PressureCookerPlayerView({
           let cls = `${isLong ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left transition-colors w-full `;
 
           if (isRevealing) {
-            if (isCorrectOption) cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
-            else if (isSelected) cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+            if (isCorrectOption) cls += "border-correct bg-[var(--bt-correct-tint)] text-foreground";
+            else if (isSelected) cls += "border-wrong bg-[var(--bt-wrong-tint)] text-foreground opacity-60";
             else cls += "border-border text-foreground opacity-60";
           } else if (isSelected) {
             cls += "border-primary bg-accent-light text-primary";
@@ -102,10 +102,10 @@ export function PressureCookerPlayerView({
 
           const badgeCls = `${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isRevealing && isCorrectOption
-              ? "bg-[#22c55e] text-white"
+              ? "bg-[var(--bt-correct)] text-white"
               : isRevealing && isSelected && !isCorrectOption
-              ? "bg-[#ef4444] text-white"
-              : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+              ? "bg-[var(--bt-wrong)] text-white"
+              : "bg-[var(--bt-hover)] text-[var(--bt-stone)]"
           }`;
 
           return (

@@ -293,14 +293,14 @@ export function RankingRow({
         <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={40} url={entry.avatar_url} />
         <span
           className="flex-1 truncate"
-          style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500, color: isMe ? "#7c3aed" : undefined }}
+          style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, color: isMe ? "var(--bt-violet)" : undefined }}
         >
           {entry.display_name}
         </span>
         {delta !== null ? (
           <span
             className="shrink-0 tabular-nums text-xs font-medium"
-            style={{ fontFamily: "Inter, sans-serif", color: delta > 0 ? "#22c55e" : delta < 0 ? "#ef4444" : "#78756e" }}
+            style={{ fontFamily: "var(--font-sans)", color: delta > 0 ? "var(--bt-correct)" : delta < 0 ? "var(--bt-wrong)" : "var(--bt-stone)" }}
           >
             {delta > 0 ? `+${delta}▲` : delta < 0 ? `${delta}▼` : "—"}
           </span>
@@ -320,7 +320,7 @@ export function RankingRow({
         >
           <div
             className="h-full"
-            style={{ width: `${barPct}%`, background: "#7c3aed", transition: "width 500ms ease-out" }}
+            style={{ width: `${barPct}%`, background: "var(--bt-violet)", transition: "width 500ms ease-out" }}
           />
         </div>
       </div>
@@ -461,7 +461,7 @@ function PinnedRow({ entry, firstScore }: { entry: LbEntry; firstScore: number }
         <PlayerAvatar seed={entry.player_id} name={entry.display_name} size={40} url={entry.avatar_url} />
         <span
           className="flex-1 truncate font-medium"
-          style={{ fontFamily: "Inter, sans-serif", fontSize: 14, color: "#7c3aed" }}
+          style={{ fontFamily: "var(--font-sans)", fontSize: 14, color: "var(--bt-violet)" }}
         >
           {entry.display_name}
         </span>
@@ -478,7 +478,7 @@ function PinnedRow({ entry, firstScore }: { entry: LbEntry; firstScore: number }
         <div className="flex-1 h-1" style={{ background: "var(--color-border, #e8e5e0)" }}>
           <div
             className="h-full"
-            style={{ width: `${barPct}%`, background: "#7c3aed", transition: "width 500ms ease-out" }}
+            style={{ width: `${barPct}%`, background: "var(--bt-violet)", transition: "width 500ms ease-out" }}
           />
         </div>
       </div>

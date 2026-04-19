@@ -10,7 +10,7 @@ import Link from "next/link";
 export function GlobalFooter({ tone = "default" }: { tone?: "default" | "ink" } = {}) {
   const isInk = tone === "ink";
   const containerStyle = isInk
-    ? { background: "#1a1917", color: "#a1a1aa", borderTopColor: "#27272a" }
+    ? { background: "var(--bt-ink)", color: "var(--bt-stone)", borderTopColor: "var(--bt-border)" }
     : undefined;
   const linkClass = isInk
     ? "text-xs hover:text-white transition-colors"

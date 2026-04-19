@@ -39,13 +39,13 @@ export function PixelRevealHostRevealView({ question }: HostRevealViewProps) {
           const isLong = opt.length >= 40;
           const cls = `${isLong ? "relative p-4 pt-7" : "flex items-center gap-3 p-4"} min-h-14 border text-left ${
             isCorrect
-              ? "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground"
+              ? "border-correct bg-[var(--bt-correct-tint)] text-foreground"
               : "border-border text-foreground opacity-60"
           }`;
           const badgeCls = `${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
             isCorrect
-              ? "bg-[#22c55e] text-white"
-              : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+              ? "bg-[var(--bt-correct)] text-white"
+              : "bg-[var(--bt-hover)] text-[var(--bt-stone)]"
           }`;
 
           return (

@@ -6,7 +6,7 @@
  * Mint replaces Ink for step 2 so the badge stays visible in dark mode.
  */
 
-const STEP_COLORS = ["#7c3aed", "#3ddabe", "#f59e0b"] as const;
+const STEP_COLORS = ["var(--bt-violet)", "var(--bt-mint)", "var(--bt-timer-amber)"] as const;
 
 export function NumberedStep({
   n,

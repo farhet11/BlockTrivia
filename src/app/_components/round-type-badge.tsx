@@ -80,7 +80,7 @@ export function RoundTypeBadge({
         width: size,
         height: size,
         borderRadius: 6,
-        background: "#7c3aed",
+        background: "var(--bt-violet)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",

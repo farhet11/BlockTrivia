@@ -50,8 +50,8 @@ export function TheNarrativePlayerView({
     <div className="flex flex-col gap-3">
       {/* Instruction pill */}
       <div className="flex items-center justify-center">
-        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[#f5f3ef] dark:bg-[#1f1f23] border border-border px-3 py-1.5">
-          <Users size={14} strokeWidth={2} />
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground bg-[var(--bt-hover)] border border-border px-3 py-1.5">
+          <Users size={14} strokeWidth={2.5} />
           Read the room — the majority vote wins
         </span>
       </div>
@@ -69,11 +69,11 @@ export function TheNarrativePlayerView({
 
           if (isRevealing) {
             if (isMajority && isSelected) {
-              cls += "border-correct bg-[#dcfce7] dark:bg-correct/15 text-foreground";
+              cls += "border-correct bg-[var(--bt-correct-tint)] text-foreground";
             } else if (isMajority) {
-              cls += "border-correct/50 bg-[#dcfce7]/50 dark:bg-correct/8 text-foreground opacity-80";
+              cls += "border-correct/50 bg-[var(--bt-correct-tint)]/50 text-foreground opacity-80";
             } else if (isSelected) {
-              cls += "border-wrong bg-[#fef2f2] dark:bg-wrong/15 text-foreground opacity-60";
+              cls += "border-wrong bg-[var(--bt-wrong-tint)] text-foreground opacity-60";
             } else {
               cls += "border-border text-foreground opacity-60";
             }
@@ -103,10 +103,10 @@ export function TheNarrativePlayerView({
               <div className={isLong ? "" : "flex items-center gap-3"}>
                 <span className={`${isLong ? "absolute top-[6px] left-[8px]" : "shrink-0"} w-5 h-5 flex items-center justify-center text-[11px] font-medium ${
                   isRevealing && isMajority
-                    ? "bg-[#22c55e] text-white"
+                    ? "bg-[var(--bt-correct)] text-white"
                     : isRevealing && isSelected && !isMajority
-                    ? "bg-[#ef4444] text-white"
-                    : "bg-[#f5f3ef] dark:bg-[#1f1f23] text-stone-500 dark:text-zinc-400"
+                    ? "bg-[var(--bt-wrong)] text-white"
+                    : "bg-[var(--bt-hover)] text-[var(--bt-stone)]"
                 }`}>
                   {isRevealing && isMajority ? (
                     <Check size={14} strokeWidth={2.5} />

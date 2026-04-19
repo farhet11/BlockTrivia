@@ -52,9 +52,9 @@ function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
 }
 
 function getTimerPhase(pct: number): { color: string; glow: string } {
-  if (pct > 0.5) return { color: '#7c3aed', glow: 'rgba(124,58,237,0.5)' };
-  if (pct > 0.2) return { color: '#f59e0b', glow: 'rgba(245,158,11,0.5)' };
-  return { color: '#ef4444', glow: 'rgba(239,68,68,0.5)' };
+  if (pct > 0.5) return { color: 'var(--bt-violet)', glow: 'rgba(124,58,237,0.5)' };
+  if (pct > 0.2) return { color: 'var(--bt-timer-amber)', glow: 'rgba(245,158,11,0.5)' };
+  return { color: 'var(--bt-timer-critical)', glow: 'rgba(239,68,68,0.5)' };
 }
 
 
@@ -173,18 +173,24 @@ export function PlayView({
   );
   const hasAnswered = answeredQuestionId === gameState.current_question_id;
 
-  // Defensive reset: if Realtime drops and polling falls back, applyGameState's
-  // per-question reset might not fire in time. Key an independent effect on
-  // currentQuestion?.id so submitLockRef/isSubmitting always clear between
-  // questions, no matter how the gameState update arrived.
+  // Defensive reset: applyGameState's per-question reset (line ~285) clears
+  // submitLockRef on question change, but only fires when a gameState UPDATE
+  // arrives. During the stress test we observed 16× CHANNEL_ERROR mid-game;
+  // if polling also hiccups, the lock can stay stuck from the previous
+  // question and silently block the next submit. Key an independent effect
+  // on currentQuestion?.id so the lock always clears between questions,
+  // regardless of how (or if) the gameState update arrived.
+  //
+  // Intentionally narrow — only reset the submit-path locks. Leave
+  // answeredQuestionId / selectedAnswer / lastResult alone so the
+  // answered-for-previous-question UI doesn't flicker during the transition.
   useEffect(() => {
     if (!currentQuestion?.id) return;
     submitLockRef.current = false;
     setIsSubmitting(false);
-    // Intentionally narrow — only reset the submit-path locks. Leave
-    // answeredQuestionId / selectedAnswer / lastResult alone so the
-    // answered-for-previous-question UI doesn't flicker during the transition.
   }, [currentQuestion?.id]);
+
+
   const isWipeout = currentQuestion?.round_type === "wipeout";
   // Resolve the correct PlayerView component from the round registry
   const RoundPlayerView = currentQuestion
@@ -590,14 +596,38 @@ export function PlayView({
   }, [gameState.phase, gameState.is_paused, supabase, event.id]);
 
   async function submitAnswer(answerIndex: number, metadata?: Record<string, unknown>) {
-    if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
+    // Diagnostic logging — every silent-return guard emits a console.debug tag
+    // so we can tell which condition swallowed a click during repro. Cheap and
+    // only fires once per attempted submit; safe to keep in prod.
+    if (!currentQuestion) {
+      console.debug("[submitAnswer] blocked: no currentQuestion");
+      return;
+    }
+    if (hasAnswered) {
+      console.debug("[submitAnswer] blocked: hasAnswered=true", { qid: currentQuestion.id, answeredQuestionId });
+      return;
+    }
+    if (submitLockRef.current) {
+      console.debug("[submitAnswer] blocked: submitLockRef stuck true", { qid: currentQuestion.id });
+      return;
+    }
+    if (!gameState.question_started_at) {
+      console.debug("[submitAnswer] blocked: question_started_at=null", { qid: currentQuestion.id });
+      return;
+    }
     // Block submission while paused — host must resume first
-    if (gameState.is_paused) return;
+    if (gameState.is_paused) {
+      console.debug("[submitAnswer] blocked: game paused", { qid: currentQuestion.id });
+      return;
+    }
 
     // Reject if time has expired — use serverNow() so the check matches the host's timer
     const startedAt = new Date(gameState.question_started_at).getTime();
     const timeTakenMs = serverNow() - startedAt;
-    if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) return;
+    if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) {
+      console.debug("[submitAnswer] blocked: time expired", { qid: currentQuestion.id, timeTakenMs, limitMs: currentQuestion.time_limit_seconds * 1000 });
+      return;
+    }
 
     submitLockRef.current = true;
 
@@ -776,9 +806,9 @@ export function PlayView({
               <div className="flex justify-center pt-1">
                 <span
                   className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                  style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                  style={{ color: "var(--bt-timer-amber)", background: "rgba(245, 158, 11, 0.09)", fontFamily: "var(--font-sans)", letterSpacing: "0.06em" }}
                 >
-                  <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#f59e0b" }} />
+                  <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "var(--bt-timer-amber)" }} />
                   Paused
                 </span>
               </div>
@@ -1070,7 +1100,7 @@ export function PlayView({
         const { color: timerColor, glow: timerGlow } = getTimerPhase(pct / 100);
         return (
           <>
-            <div className="w-full h-1 bg-[#f5f3ef] dark:bg-[#1f1f23] relative">
+            <div className="w-full h-1 bg-[var(--bt-hover)] relative">
               <div
                 style={{
                   width: `${pct}%`,
@@ -1140,7 +1170,7 @@ export function PlayView({
               return (
                 <div key={round.id} className="flex-1 h-1 relative" style={{ minWidth: 0 }}>
                   {/* Track */}
-                  <div className="absolute inset-0 bg-[#f5f3ef] dark:bg-[#1f1f23]" />
+                  <div className="absolute inset-0 bg-[var(--bt-hover)]" />
                   {/* Fill — completed questions */}
                   {fillPct > 0 && (
                     <div
@@ -1167,7 +1197,7 @@ export function PlayView({
                     const posPct = ((d + 1) / qCount) * 100;
                     const isOnFill = isCompleted || (isActive && d < indexInRound);
                     const tickBg = isCurrentTick
-                      ? '#7c3aed'
+                      ? 'var(--bt-violet)'
                       : isOnFill
                       ? 'rgba(255,255,255,0.45)'
                       : undefined;
@@ -1268,9 +1298,9 @@ export function PlayView({
                 : "Better luck next time";
         const label = tier === "correct" ? "Correct!" : tier === "partial" ? "Close" : "Wrong";
         const bgCls = {
-          correct: "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30",
+          correct: "bg-[var(--bt-correct-tint)] border-b border-correct/30",
           partial: "bg-primary/10 border-b border-primary/30",
-          wrong: "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30",
+          wrong: "bg-[var(--bt-wrong-tint)] border-b border-wrong/30",
         }[tier];
         const textCls = {
           correct: "text-correct",

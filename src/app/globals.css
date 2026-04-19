@@ -151,6 +151,258 @@
   --mint-hover: #2cc4a8;
 }
 
+/* ================================================================
+   BlockTrivia Design System v1.0 — --bt-* token namespace
+   Mirrors blocktrivia-design-system/project/colors_and_type.css.
+   Aliases into the existing Tailwind theme vars where values match,
+   adds new tokens (radius/spacing/text-size scales, charcoal, fog,
+   spinner-ink, tints) and 14 typography role classes.
+   ================================================================ */
+
+:root {
+  /* Surfaces */
+  --bt-bg:            var(--background);
+  --bt-surface:       var(--surface);
+  --bt-border:        var(--border);
+  --bt-hover:         var(--warm-hover);
+  --bt-muted-surface: var(--muted);
+
+  /* Text */
+  --bt-ink:           var(--foreground);
+  --bt-spinner-ink:   #1a1917;
+  --bt-spinner-glyph: #f0ecfe;
+  --bt-charcoal:      #4d4c48;
+  --bt-stone:         var(--muted-foreground);
+  --bt-fog:           #b5b1aa;
+
+  /* Violet */
+  --bt-violet:        var(--primary);
+  --bt-violet-hover:  var(--primary-hover);
+  --bt-violet-deep:   var(--accent-text);
+  --bt-violet-tint:   var(--accent-light);
+  --bt-violet-glow:   rgba(124, 58, 237, 0.15);
+
+  /* Mint (theme-invariant) */
+  --bt-mint:          var(--mint);
+  --bt-mint-hover:    var(--mint-hover);
+
+  /* Functional */
+  --bt-correct:        var(--correct);
+  --bt-correct-tint:   #dcfce7;
+  --bt-wrong:          var(--wrong);
+  --bt-wrong-tint:     #fef2f2;
+  --bt-timer-amber:    var(--timer-warn);
+  --bt-timer-critical: #ef4444;
+  --bt-info-blue:      #3b82f6;
+  --bt-focus-ring:     rgba(124, 58, 237, 0.30);
+
+  /* Radius scale */
+  --bt-radius-sharp:       0;
+  --bt-radius-tight:       4px;
+  --bt-radius-comfortable: 8px;
+  --bt-radius-generous:    12px;
+  --bt-radius-pill:        9999px;
+
+  /* Spacing scale (4px base) */
+  --bt-space-1:  4px;
+  --bt-space-2:  8px;
+  --bt-space-3:  12px;
+  --bt-space-4:  16px;
+  --bt-space-5:  20px;
+  --bt-space-6:  24px;
+  --bt-space-8:  32px;
+  --bt-space-10: 40px;
+  --bt-space-12: 48px;
+
+  /* Text-size scale */
+  --text-hero:     clamp(52px, 8vw, 96px);
+  --text-section:  clamp(28px, 4vw, 40px);
+  --text-display:  32px;
+  --text-subhead:  18px;
+  --text-question: 20px;
+  --text-body:     16px;
+  --text-label:    14px;
+  --text-caption:  13px;
+  --text-small:    12px;
+  --text-mono:     13px;
+
+  /* Font alias (the rest are defined in @theme) */
+  --font-wordmark: var(--font-outfit);
+}
+
+.dark {
+  --bt-spinner-ink:   #e8e5e0;
+  --bt-spinner-glyph: #1a1917;
+  --bt-fog:           #52525b;
+  --bt-charcoal:     #d4d4d8;
+  --bt-violet-tint:  rgba(124, 58, 237, 0.20);
+  --bt-correct-tint: rgba(34, 197, 94, 0.15);
+  --bt-wrong-tint:   rgba(239, 68, 68, 0.15);
+
+  /* Raise dark-mode border so 1px strokes read against Night Surface —
+     explicit fix from design-system chat (was #27272a). */
+  --border: #3f3f46;
+  --input:  #3f3f46;
+}
+
+/* ===== Typography role classes (colors_and_type.css §3) ===== */
+.bt-wordmark {
+  font-family: var(--font-wordmark);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--bt-ink);
+}
+.bt-h1 {
+  font-family: var(--font-heading);
+  font-size: var(--text-hero);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--bt-ink);
+}
+.bt-h2 {
+  font-family: var(--font-heading);
+  font-size: var(--text-section);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: var(--bt-ink);
+}
+.bt-h3 {
+  font-family: var(--font-heading);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--bt-ink);
+}
+.bt-subhead {
+  font-family: var(--font-sans);
+  font-size: var(--text-subhead);
+  font-weight: 500;
+  line-height: 1.40;
+  color: var(--bt-ink);
+}
+.bt-question {
+  font-family: var(--font-sans);
+  font-size: var(--text-question);
+  font-weight: 500;
+  line-height: 1.40;
+  color: var(--bt-ink);
+}
+.bt-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: 400;
+  line-height: 1.60;
+  color: var(--bt-ink);
+}
+.bt-button-label {
+  font-family: var(--font-heading);
+  font-size: var(--text-label);
+  font-weight: 500;
+  line-height: 1.30;
+}
+.bt-answer {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.30;
+  color: var(--bt-ink);
+}
+.bt-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  font-weight: 400;
+  line-height: 1.40;
+  letter-spacing: 0.01em;
+  color: var(--bt-stone);
+}
+.bt-caption {
+  font-family: var(--font-sans);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  line-height: 1.40;
+  color: var(--bt-stone);
+}
+.bt-small {
+  font-family: var(--font-sans);
+  font-size: var(--text-small);
+  font-weight: 400;
+  line-height: 1.40;
+  letter-spacing: 0.02em;
+  color: var(--bt-stone);
+}
+.bt-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  font-weight: 400;
+  line-height: 1.50;
+  color: var(--bt-ink);
+}
+.bt-brand-serif {
+  /* Lora — knowledge moments / editorial at-rest only. NEVER gameplay. */
+  font-family: var(--font-brand);
+  font-weight: 500;
+  color: var(--bt-ink);
+}
+
+/* ===== Component primitives not yet covered by shadcn/Tailwind ===== */
+
+.bt-answer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bt-space-3);
+  grid-auto-rows: 1fr;
+}
+.bt-answer-grid > * { height: 100%; }
+
+.bt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bt-space-2);
+  padding: 4px var(--bt-space-3);
+  border-radius: var(--bt-radius-pill);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+.bt-pill--neutral { background: var(--bt-hover); color: var(--bt-charcoal); }
+.bt-pill--violet  { background: var(--bt-violet-tint); color: var(--bt-violet-deep); }
+.bt-pill--correct { background: var(--bt-correct-tint); color: #166534; }
+.bt-pill--wrong   { background: var(--bt-wrong-tint); color: #991b1b; }
+.bt-pill--amber   { background: #fef3c7; color: #92400e; }
+.bt-pill--live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bt-correct);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+}
+.dark .bt-pill--violet  { color: #c4b5fd; }
+.dark .bt-pill--correct { color: #86efac; }
+.dark .bt-pill--wrong   { color: #fca5a5; }
+.dark .bt-pill--amber   { background: rgba(245, 158, 11, 0.18); color: #fcd34d; }
+
+.bt-round-badge {
+  width: 32px;
+  height: 32px;
+  background: var(--bt-violet);
+  color: #fff;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.bt-round-badge--lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

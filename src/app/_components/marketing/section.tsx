@@ -49,8 +49,8 @@ export function CanvasSection({
 export function InkSection({ children, className = "", size = "default" }: SectionProps) {
   return (
     <section
-      className={`${PADDING[size]} ${className} bg-[#1a1917] dark:bg-[#18181b]`}
-      style={{ color: "#fafafa" }}
+      className={`${PADDING[size]} ${className} bg-[var(--bt-ink)] dark:bg-[var(--bt-surface)]`}
+      style={{ color: "var(--bt-bg)" }}
     >
       <div className="max-w-5xl mx-auto px-6">{children}</div>
     </section>
@@ -65,7 +65,7 @@ export function MintSection({ children, className = "", size = "default" }: Sect
   return (
     <section
       className={`${PADDING[size]} ${className}`}
-      style={{ background: "#3ddabe", color: "#1a1917" }}
+      style={{ background: "var(--bt-mint)", color: "#1a1917" }}
     >
       <div className="max-w-5xl mx-auto px-6">{children}</div>
     </section>
@@ -80,7 +80,7 @@ export function VioletSection({ children, className = "", size = "tall" }: Secti
   return (
     <section
       className={`${PADDING[size]} ${className}`}
-      style={{ background: "#7c3aed", color: "#ffffff" }}
+      style={{ background: "var(--bt-violet)", color: "#ffffff" }}
     >
       <div className="max-w-5xl mx-auto px-6">{children}</div>
     </section>

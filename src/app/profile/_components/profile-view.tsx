@@ -9,7 +9,7 @@ import { PlayerAvatar } from "@/app/_components/player-avatar";
 import { ConfirmModal } from "@/app/_components/confirm-modal";
 import { GlobalFooter } from "@/app/_components/global-footer";
 import { TelegramLoginButton, type TelegramAuthResult } from "@/app/_components/telegram-login-button";
-import { Pencil, Check, X, Camera, ChevronRight, ArrowRight } from "lucide-react";
+import { Pencil, Check, X, Camera, ChevronRight, ArrowRight, Trash2 } from "lucide-react";
 
 type GameEntry = {
   title: string;
@@ -57,7 +57,6 @@ export function ProfileView({
 
   const [showSignOut, setShowSignOut] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [showDangerZone, setShowDangerZone] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showAllGames, setShowAllGames] = useState(false);
 
@@ -396,61 +395,43 @@ export function ProfileView({
             <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
               Recent Games
             </h2>
-            <div className="space-y-2">
-              {(showAllGames ? gameHistory : gameHistory.slice(0, 3)).map((game, i) => {
-                const isBlurred = !showAllGames && i === 2;
-                return (
-                  <div key={`${game.joinCode}-${i}`} className="relative">
-                    <Link
-                      href={`/results/${game.joinCode}`}
-                      className={`flex items-center gap-3.5 px-4 py-3 border border-border hover:bg-[var(--bt-hover)] transition-colors ${isBlurred ? "pointer-events-none select-none" : ""}`}
-                      tabIndex={isBlurred ? -1 : undefined}
-                      aria-hidden={isBlurred}
-                    >
-                      <div className="w-10 h-10 flex items-center justify-center bg-muted shrink-0">
-                        <span className="font-heading text-sm font-bold tabular-nums">#{game.rank}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{game.title}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {formatGameDate(game.date)} · {game.accuracy}% accuracy
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold tabular-nums text-foreground">{game.score.toLocaleString()}</p>
-                        {game.isTop10Pct && (
-                          <span className="inline-block text-[11px] font-semibold rounded-full px-[10px] py-[2px] bg-[var(--bt-violet-tint)] text-[var(--bt-violet-deep)]">
-                            Top 10%
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                    {isBlurred && (
-                      <div
-                        className="absolute inset-0 flex items-center justify-center"
-                        style={{
-                          backdropFilter: "blur(3px)",
-                          background: "linear-gradient(to bottom, transparent 0%, var(--background) 90%)",
-                        }}
-                      >
-                        <button
-                          onClick={() => setShowAllGames(true)}
-                          className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                        >
-                          Show more
-                        </button>
-                      </div>
+            <div className="border border-border divide-y divide-border">
+              {(showAllGames ? gameHistory : gameHistory.slice(0, 3)).map((game, i) => (
+                <Link
+                  key={`${game.joinCode}-${i}`}
+                  href={`/results/${game.joinCode}`}
+                  className="flex items-center gap-3.5 px-4 py-3 hover:bg-[var(--bt-hover)] transition-colors"
+                >
+                  <div className="w-10 h-10 flex items-center justify-center bg-muted shrink-0">
+                    <span className="font-heading text-sm font-bold tabular-nums">#{game.rank}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{game.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
+                      <span>{formatGameDate(game.date)}</span>
+                      <span className="w-1 h-1 rounded-full bg-current opacity-60" />
+                      <span>{game.accuracy}% accuracy</span>
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-bold tabular-nums text-foreground">{game.score.toLocaleString()}</p>
+                    {game.isTop10Pct && (
+                      <span className="inline-block text-[11px] font-semibold rounded-full px-[10px] py-[2px] bg-[var(--bt-violet-tint)] text-[var(--bt-violet-deep)]">
+                        Top 10%
+                      </span>
                     )}
                   </div>
-                );
-              })}
+                </Link>
+              ))}
             </div>
-            {showAllGames && gameHistory.length > 3 && (
+            {gameHistory.length > 3 && (
               <button
-                onClick={() => setShowAllGames(false)}
-                className="mt-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setShowAllGames((prev) => !prev)}
+                className="mt-2 w-full text-center text-xs font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
               >
-                Show less
+                {showAllGames
+                  ? "Show less"
+                  : `Show ${gameHistory.length - 3} more →`}
               </button>
             )}
           </section>
@@ -470,37 +451,39 @@ export function ProfileView({
           <h2 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">
             Connected Accounts
           </h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="border border-border divide-y divide-border">
             {/* Google */}
-            <AccountCard
+            <AccountRow
               name="Google"
               connected={providers.includes("google")}
-              statusText={providers.includes("google") ? user.email ?? "Connected" : "Not linked"}
+              statusText={
+                providers.includes("google")
+                  ? user.email ?? "Connected"
+                  : "Not linked"
+              }
               onLink={handleLinkGoogle}
               linking={linkingProvider === "google"}
             />
-            {/* Telegram — widget renders inline in card when unconnected */}
-            <AccountCard
+            {/* Telegram — widget renders inline below row when unconnected */}
+            <AccountRow
               name="Telegram"
               connected={providers.includes("telegram")}
               statusText={providers.includes("telegram") ? "Connected" : "Not linked"}
               onLink={() => setShowTelegramLink(!showTelegramLink)}
             >
               {showTelegramLink && !providers.includes("telegram") && (
-                <div className="mt-1">
-                  <TelegramLoginButton
-                    onAuth={handleTelegramAuth}
-                    returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/profile`}
-                  />
-                </div>
+                <TelegramLoginButton
+                  onAuth={handleTelegramAuth}
+                  returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/profile`}
+                />
               )}
-            </AccountCard>
+            </AccountRow>
             {/* Wallet — coming soon */}
-            <AccountCard
+            <AccountRow
               name="Wallet"
               connected={false}
               comingSoon
-              statusText="Coming soon"
+              statusText="Available Q3"
             />
           </div>
         </section>
@@ -527,39 +510,22 @@ export function ProfileView({
           </section>
         )}
 
-        {/* Account Actions */}
-        <div className="mt-8 border-t border-border">
+        {/* Account actions — sign out + delete, each row its own border-top */}
+        <div className="mt-6 flex flex-col">
           <button
             onClick={() => setShowSignOut(true)}
-            className="flex items-center gap-2.5 w-full py-3 text-[15px] font-medium text-muted-foreground hover:bg-[var(--bt-hover)] transition-colors -mx-1 px-1"
+            className="flex items-center gap-3 w-full px-1 py-3.5 text-[15px] text-[var(--bt-charcoal)] hover:text-foreground transition-colors border-t border-border"
           >
             <ArrowRight size={16} strokeWidth={2.5} />
             Sign out
           </button>
-        </div>
-        <div className="mt-6 border-t border-border pt-4">
           <button
-            onClick={() => setShowDangerZone(!showDangerZone)}
-            className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-wrong/60 hover:text-wrong transition-colors"
+            onClick={() => setShowDelete(true)}
+            className="flex items-center gap-3 w-full px-1 py-3.5 text-[15px] text-wrong hover:bg-[var(--bt-wrong-tint)] transition-colors border-t border-wrong/25"
           >
-            <span>Danger Zone</span>
-            <svg
-              className={`size-3 transition-transform duration-200 ${showDangerZone ? "rotate-180" : ""}`}
-              viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2.5}
-            >
-              <path d="M2 4l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Trash2 size={16} strokeWidth={2.5} />
+            Delete account
           </button>
-          {showDangerZone && (
-            <div className="mt-3">
-              <button
-                onClick={() => setShowDelete(true)}
-                className="text-sm font-medium text-wrong border border-wrong/30 px-5 py-[10px] hover:bg-[var(--bt-wrong-tint)] transition-colors"
-              >
-                Delete account
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -648,7 +614,7 @@ const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-function AccountCard({
+function AccountRow({
   name,
   connected,
   comingSoon = false,
@@ -665,46 +631,50 @@ function AccountCard({
   linking?: boolean;
   children?: React.ReactNode;
 }) {
-  const inner = (
-    <>
-      <div className="flex items-center gap-2">
-        {PROVIDER_ICONS[name]}
-        <span className="text-sm font-medium text-foreground">{name}</span>
-      </div>
-      <div className="flex items-end justify-between gap-2 flex-1 mt-1 min-w-0">
-        <span className={`text-xs leading-snug truncate min-w-0 ${connected ? "text-[var(--bt-stone)]" : "text-[var(--bt-fog)]"}`}>
-          {statusText}
-        </span>
-        {!comingSoon && (
-          connected ? (
-            <Check size={16} className="text-correct shrink-0 mb-px" />
-          ) : (
-            <div className="w-7 h-7 rounded-full border border-border flex items-center justify-center shrink-0">
-              <span className="text-base text-muted-foreground leading-none select-none">+</span>
-            </div>
-          )
-        )}
-      </div>
-      {children}
-    </>
-  );
-
-  const baseCard = "flex flex-col gap-1 p-4 min-h-[80px] border border-border rounded-[8px] bg-background";
-
-  if (comingSoon) {
-    return <div className={`${baseCard} opacity-50 cursor-default`}>{inner}</div>;
-  }
-  if (connected) {
-    return <div className={baseCard}>{inner}</div>;
-  }
-  return (
+  const actionButton = comingSoon ? null : connected ? (
+    <span className="shrink-0 text-xs font-medium text-[var(--bt-stone)] px-3 py-1.5 border border-border cursor-default select-none">
+      Connected
+    </span>
+  ) : (
     <button
       onClick={onLink}
       disabled={linking}
-      className={`${baseCard} w-full text-left hover:bg-[var(--bt-hover)] transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-default`}
+      className="shrink-0 text-xs font-medium text-white bg-[var(--bt-violet)] hover:bg-[var(--bt-violet-hover)] px-3 py-1.5 transition-colors disabled:opacity-60 disabled:cursor-default"
     >
-      {inner}
+      {linking ? "…" : "Connect"}
     </button>
+  );
+
+  return (
+    <div className={comingSoon ? "opacity-55" : ""}>
+      <div className="flex items-center gap-3 px-4 py-3.5">
+        <div className="w-9 h-9 flex items-center justify-center shrink-0 bg-[var(--bt-hover)] border border-border">
+          {PROVIDER_ICONS[name]}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+            <span>{name}</span>
+            {comingSoon && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-[var(--bt-stone)] px-1.5 py-0.5 bg-[var(--bt-hover)] border border-border">
+                Soon
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--bt-stone)] min-w-0">
+            <span
+              className={`w-[7px] h-[7px] rounded-full shrink-0 ${
+                connected
+                  ? "bg-correct shadow-[0_0_0_3px_rgba(34,197,94,0.18)]"
+                  : "bg-[var(--bt-fog)]"
+              }`}
+            />
+            <span className="truncate">{statusText}</span>
+          </div>
+        </div>
+        {actionButton}
+      </div>
+      {children && <div className="px-4 pb-3 pt-1">{children}</div>}
+    </div>
   );
 }
 

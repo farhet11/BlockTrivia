@@ -504,10 +504,13 @@ async function fetchQuestionData(
     .eq("id", questionId)
     .maybeSingle();
   if (error || !data) return null;
-  const r = data.rounds as {
-    round_type: string;
-    time_limit_seconds: number;
-  } | null;
+  // Supabase types nested selects as arrays for to-one relations too; runtime
+  // may return either shape. Cast through unknown and normalize.
+  const roundsRaw = data.rounds as unknown;
+  const r = (Array.isArray(roundsRaw) ? roundsRaw[0] : roundsRaw) as
+    | { round_type: string; time_limit_seconds: number }
+    | null
+    | undefined;
   const q: QuestionData = {
     id: data.id as string,
     roundType: r?.round_type ?? "mcq",

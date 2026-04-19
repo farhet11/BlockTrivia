@@ -695,7 +695,11 @@ export function ControlPanel({
       phase: "playing",
       current_round_id: roundId,
       current_question_id: firstQ.id,
-      question_started_at: new Date(Date.now() + 3000).toISOString(),
+      // 5s head-start (was 3s): under load Realtime delivery can take 2–3s, which
+      // made the "Get Ready 3-2-1" overlay invisible (serverNow() was already past
+      // startedAt by the time the player's client received the update). 5s gives
+      // the countdown enough headroom to actually render for everyone.
+      question_started_at: new Date(Date.now() + 5000).toISOString(),
       round_state: roundState,
       modifier_state: {},
     } as Partial<GameState>);
@@ -737,7 +741,8 @@ export function ControlPanel({
       phase: "playing",
       current_round_id: next.round_id,
       current_question_id: next.id,
-      question_started_at: new Date(Date.now() + 3000).toISOString(),
+      // 5s head-start (was 3s) — see comment in startFirstQuestionOfRound.
+      question_started_at: new Date(Date.now() + 5000).toISOString(),
       round_state: roundState,
     });
   }

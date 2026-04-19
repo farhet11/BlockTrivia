@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
+import { proxyImageUrl } from "@/lib/image-proxy";
 import {
   isFollowupAnswered,
   type FollowupAnswer,
@@ -771,9 +772,10 @@ export function OnboardingFlow({
               </label>
               <div className="relative">
                 {rdSelectedId && data.linked_project_logo && (
+                  // Proxy RootData CDN logos — CloudFront 403s hotlinked requests.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={data.linked_project_logo}
+                    src={proxyImageUrl(data.linked_project_logo)}
                     alt={data.linked_project_name || "Project logo"}
                     className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded object-contain pointer-events-none"
                   />
@@ -810,9 +812,10 @@ export function OnboardingFlow({
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-accent transition-colors"
                     >
                       {result.logo && (
+                        // Proxy RootData CDN logos — CloudFront 403s hotlinked requests.
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={result.logo}
+                          src={proxyImageUrl(result.logo)}
                           alt=""
                           className="w-7 h-7 rounded object-contain flex-shrink-0"
                         />

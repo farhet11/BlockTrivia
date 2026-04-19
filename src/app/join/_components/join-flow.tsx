@@ -75,56 +75,104 @@ export function JoinFlow({ initialCode }: { initialCode?: string } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCode]);
 
-  async function verifyCode(code: string): Promise<boolean> {
-    const { data: event } = await supabase
-      .from("events")
-      .select("id, title, join_code, prizes, access_mode, organizer_name, profiles!events_created_by_fkey(display_name)")
-      .eq("join_code", code.toUpperCase())
-      .single();
-
-    if (!event) return false;
-
-    // Get player count + round data for time estimate in parallel
-    const [{ count }, { data: rounds }] = await Promise.all([
-      supabase
-        .from("event_players")
-        .select("*", { count: "exact", head: true })
-        .eq("event_id", event.id),
-      supabase
-        .from("rounds")
-        .select("time_limit_seconds, questions(id)")
-        .eq("event_id", event.id),
+  // Race a promise against a timeout. Critical for the join flow: without
+  // this, a slow Supabase response leaves the user stuck on "Finding..."
+  // forever with no recovery. With it, they get a clear "try again" path.
+  function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      Promise.resolve(p),
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+      ),
     ]);
+  }
 
-    // Estimate: sum of (questions × timer) per round + ~8s interstitial per round
-    let estimated_minutes: number | null = null;
-    let question_count = 0;
-    if (rounds && rounds.length > 0) {
-      const totalSeconds = rounds.reduce((sum, r) => {
-        const qCount = (r.questions as unknown[])?.length ?? 0;
-        question_count += qCount;
-        const timer = r.time_limit_seconds ?? 15;
-        return sum + qCount * timer + 8;
-      }, 0);
-      estimated_minutes = Math.max(1, Math.round(totalSeconds / 60));
+  async function verifyCode(code: string): Promise<boolean> {
+    try {
+      const { data: event, error: eventErr } = await withTimeout(
+        supabase
+          .from("events")
+          .select("id, title, join_code, prizes, access_mode, organizer_name, profiles!events_created_by_fkey(display_name)")
+          .eq("join_code", code.toUpperCase())
+          .maybeSingle(),
+        10_000,
+        "lookup"
+      );
+
+      if (eventErr) {
+        console.error("[verifyCode] event lookup failed:", eventErr);
+        return false;
+      }
+      if (!event) return false;
+
+      // Get player count + round data for time estimate in parallel.
+      // Wrapped so a slow side-query can't strand the user.
+      const [countRes, roundsRes] = await withTimeout(
+        Promise.all([
+          supabase
+            .from("event_players")
+            .select("*", { count: "exact", head: true })
+            .eq("event_id", event.id),
+          supabase
+            .from("rounds")
+            .select("time_limit_seconds, questions(id)")
+            .eq("event_id", event.id),
+        ]),
+        10_000,
+        "metadata"
+      ).catch((err) => {
+        // Soft-fail: we still proceed without count/estimate. Better to land
+        // the user in identity than abort because the player counter is slow.
+        console.warn("[verifyCode] metadata fetch failed (non-fatal):", err);
+        return [
+          { count: null } as { count: number | null },
+          { data: null } as { data: Array<{ time_limit_seconds: number | null; questions: unknown[] }> | null },
+        ] as const;
+      });
+
+      const count = countRes.count;
+      const rounds = roundsRes.data;
+
+      // Estimate: sum of (questions × timer) per round + ~8s interstitial per round
+      let estimated_minutes: number | null = null;
+      let question_count = 0;
+      if (rounds && rounds.length > 0) {
+        const totalSeconds = rounds.reduce((sum, r) => {
+          const qCount = (r.questions as unknown[])?.length ?? 0;
+          question_count += qCount;
+          const timer = r.time_limit_seconds ?? 15;
+          return sum + qCount * timer + 8;
+        }, 0);
+        estimated_minutes = Math.max(1, Math.round(totalSeconds / 60));
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hostProfile = (event as any).profiles?.display_name ?? null;
+
+      setVerifiedEvent({
+        id: event.id,
+        title: event.title,
+        join_code: event.join_code,
+        player_count: count ?? 0,
+        question_count,
+        prizes: event.prizes ?? null,
+        estimated_minutes,
+        host_name: (event as { organizer_name?: string | null }).organizer_name ?? hostProfile,
+        access_mode: ((event as { access_mode?: "open" | "whitelist" }).access_mode) ?? "open",
+      });
+      setStep("identity");
+      return true;
+    } catch (err) {
+      // Network failure, timeout, RLS denial — anything. The CRITICAL guarantee
+      // here is that we ALWAYS resolve (return false) so the caller can clear
+      // its loading state. Returning false in find-game.tsx triggers the
+      // "Game not found. Check your code and try again." error path, which is
+      // a misleading message for a network issue but is at least recoverable
+      // (user can retry). Without this catch, a transient Supabase blip leaves
+      // the user stuck on "Finding..." forever.
+      console.error("[verifyCode] aborted:", err);
+      return false;
     }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const hostProfile = (event as any).profiles?.display_name ?? null;
-
-    setVerifiedEvent({
-      id: event.id,
-      title: event.title,
-      join_code: event.join_code,
-      player_count: count ?? 0,
-      question_count,
-      prizes: event.prizes ?? null,
-      estimated_minutes,
-      host_name: (event as { organizer_name?: string | null }).organizer_name ?? hostProfile,
-      access_mode: ((event as { access_mode?: "open" | "whitelist" }).access_mode) ?? "open",
-    });
-    setStep("identity");
-    return true;
   }
 
   function handleBack() {

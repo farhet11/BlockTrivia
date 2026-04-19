@@ -104,8 +104,7 @@ export function LeaderboardView({
       .from("leaderboard_entries")
       .select(`player_id, total_score, rank, correct_count, total_questions, accuracy, avg_speed_ms, is_top_10_pct, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
       .eq("event_id", event.id)
-      .order("rank", { ascending: true })
-      .limit(50);
+      .order("rank", { ascending: true });
     if (data && data.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const entries: ExtendedEntry[] = data.map((row: any) => ({
@@ -342,7 +341,7 @@ export function LeaderboardView({
         </div>
 
         {/* ── Rankings ── */}
-        <div className="flex-1">
+        <div className="mx-5 mb-4">
           {viewerType === "player" && !inTop3 && myEntry ? (
             <PinnedRankSection
               entry={myEntry}
@@ -351,7 +350,7 @@ export function LeaderboardView({
               allEntries={leaderboard}
             />
           ) : rankingEntries.length > 0 ? (
-            <div className="border-t border-border">
+            <div className="border border-border max-h-[400px] overflow-y-auto">
               {rankingEntries.map((entry, i) => (
                 <RankingRow
                   key={entry.player_id}

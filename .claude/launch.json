@@ -4,9 +4,8 @@
     {
       "name": "Next.js Dev Server",
       "runtimeExecutable": "/bin/sh",
-      "runtimeArgs": ["-c", "PATH=/opt/homebrew/bin:$PATH npm run dev"],
-      "port": 3000,
-      "autoPort": true
+      "runtimeArgs": ["-c", "cd /Users/elfarouq.eth/blocktrivia && set -a && . .env.local && set +a && PATH=/opt/homebrew/bin:$PATH npm run dev"],
+      "port": 3000
     }
   ]
 }

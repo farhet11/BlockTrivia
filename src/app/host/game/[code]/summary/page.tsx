@@ -45,8 +45,7 @@ export default async function SummaryPage({
       profiles!leaderboard_entries_player_id_fkey ( display_name, username, full_name, email )
     `)
     .eq("event_id", event.id)
-    .order("rank", { ascending: true })
-    .limit(50);
+    .order("rank", { ascending: true });
 
   // Fallback: if join fails (FK name mismatch), load without profiles
   if (lbError) {
@@ -54,8 +53,7 @@ export default async function SummaryPage({
       .from("leaderboard_entries")
       .select("player_id, total_score, correct_count, total_questions, accuracy, avg_speed_ms, rank, is_top_10_pct, is_suspicious")
       .eq("event_id", event.id)
-      .order("rank", { ascending: true })
-      .limit(50);
+      .order("rank", { ascending: true });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     entries = (fallback.data ?? []).map((r: any) => ({ ...r, profiles: null })) as typeof entries;
   }

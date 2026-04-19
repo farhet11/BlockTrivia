@@ -40,3 +40,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+
+# stress test artifacts
+.stress-users.json
+stress-report.txt
+realtime-stress-report.txt
+
+# generated docs / audits
+blocktrivia-merged-prs.md
+blocktrivia-redundancy-audit.md
+
+# local tooling
+.mcp.json
+.claude/worktrees/

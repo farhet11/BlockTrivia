@@ -1023,10 +1023,10 @@ export function ControlPanel({
             {/* Timer bar — 4px shrinking bar with glowing leading-edge dot */}
             {timeLeft !== null && (() => {
               const pct = Math.max(0, (timeLeft / currentQuestion.time_limit) * 100);
-              const timerColor = pct > 50 ? '#7c3aed' : pct > 20 ? '#f59e0b' : '#ef4444';
+              const timerColor = pct > 50 ? 'var(--bt-violet)' : pct > 20 ? 'var(--bt-timer-amber)' : 'var(--bt-timer-critical)';
               const timerGlow = pct > 50 ? 'rgba(124,58,237,0.5)' : pct > 20 ? 'rgba(245,158,11,0.5)' : 'rgba(239,68,68,0.5)';
               return (
-                <div className="w-full h-1 bg-[#f5f3ef] dark:bg-[#1f1f23] relative">
+                <div className="w-full h-1 bg-[var(--bt-hover)] relative">
                   <div
                     style={{
                       width: `${pct}%`,
@@ -1086,7 +1086,7 @@ export function ControlPanel({
                   (option: string, i: number) => (
                     <div
                       key={i}
-                      className="p-3 border border-border bg-[#f5f3ef] dark:bg-[#1f1f23] text-sm text-muted-foreground break-words"
+                      className="p-3 border border-border bg-[var(--bt-hover)] text-sm text-muted-foreground break-words"
                     >
                       <span className="font-semibold mr-1.5">
                         {String.fromCharCode(65 + i)}.
@@ -1155,7 +1155,7 @@ export function ControlPanel({
 
             {/* Answered indicator — controls live in HostControlBar at page level. */}
             <div className="flex items-center justify-center">
-              <span className="inline-flex items-center justify-center px-4 py-2 bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.12)] text-[#5b21b6] dark:text-[#a78bfa] text-sm font-semibold select-none">
+              <span className="inline-flex items-center justify-center px-4 py-2 bg-[var(--bt-violet-tint)] text-[#5b21b6] dark:text-[#a78bfa] text-sm font-semibold select-none">
                 {answeredCount}/{playerCount} answered
               </span>
             </div>
@@ -1243,9 +1243,9 @@ export function ControlPanel({
                 <div className="flex justify-center pt-1">
                   <span
                     className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                    style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                    style={{ color: "var(--bt-timer-amber)", background: "rgba(245, 158, 11, 0.09)", fontFamily: "var(--font-sans)", letterSpacing: "0.06em" }}
                   >
-                    <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#f59e0b" }} />
+                    <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "var(--bt-timer-amber)" }} />
                     Paused
                   </span>
                 </div>

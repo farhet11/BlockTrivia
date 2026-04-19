@@ -35,12 +35,12 @@ type ExtendedEntry = LbEntry & {
 // interstitial → Round Complete  (violet) — round ended, transitioning
 // ended        → Final Results   (violet) — game over
 const PHASE_CONFIG: Record<string, { label: string; color: string }> = {
-  lobby:        { label: "Starting Soon", color: "#78756e" },
-  playing:      { label: "Live",          color: "#22c55e" },
-  paused:       { label: "Paused",        color: "#f59e0b" },
-  leaderboard:  { label: "Paused",        color: "#f59e0b" },
-  interstitial: { label: "Paused",        color: "#f59e0b" },
-  ended:        { label: "Final Results", color: "#7c3aed" },
+  lobby:        { label: "Starting Soon", color: "var(--bt-stone)" },
+  playing:      { label: "Live",          color: "var(--bt-correct)" },
+  paused:       { label: "Paused",        color: "var(--bt-timer-amber)" },
+  leaderboard:  { label: "Paused",        color: "var(--bt-timer-amber)" },
+  interstitial: { label: "Paused",        color: "var(--bt-timer-amber)" },
+  ended:        { label: "Final Results", color: "var(--bt-violet)" },
 };
 
 export function LeaderboardView({

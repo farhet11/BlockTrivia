@@ -89,7 +89,7 @@ export function HostSidebar({
                       <span className="flex items-center gap-3 h-10 px-3 text-sm font-medium text-stone-400 dark:text-zinc-600 cursor-default select-none">
                         <Icon size={20} strokeWidth={ICON_SW} />
                         {item.label}
-                        <span className="ml-auto text-[10px] font-medium bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.15)] text-violet-700 dark:text-violet-400 px-1.5 py-0.5 rounded-full">
+                        <span className="ml-auto text-[10px] font-medium bg-[var(--bt-violet-tint)] text-[var(--bt-violet-deep)] px-1.5 py-0.5 rounded-full">
                           Soon
                         </span>
                       </span>
@@ -104,8 +104,8 @@ export function HostSidebar({
 
                       className={`flex items-center gap-3 h-10 px-3 text-sm font-medium transition-colors duration-150 ${
                         active
-                          ? "border-l-[3px] border-primary bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.15)] text-primary"
-                          : "border-l-[3px] border-transparent text-stone-600 dark:text-zinc-400 hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23]"
+                          ? "border-l-[3px] border-primary bg-[var(--bt-violet-tint)] text-primary"
+                          : "border-l-[3px] border-transparent text-stone-600 dark:text-zinc-400 hover:bg-[var(--bt-hover)]"
                       }`}
                     >
                       <Icon size={20} strokeWidth={ICON_SW} />

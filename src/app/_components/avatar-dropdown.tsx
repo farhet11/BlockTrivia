@@ -82,7 +82,7 @@ export function AvatarDropdown({
                       onClick={() => setTheme(seg.value)}
                       className={`flex items-center justify-center w-8 h-7 transition-colors ${
                         active
-                          ? "bg-[#f0ecfe] dark:bg-[rgba(124,58,237,0.15)] text-primary"
+                          ? "bg-[var(--bt-violet-tint)] text-primary"
                           : "text-stone-400 dark:text-zinc-500 hover:text-stone-600 dark:hover:text-zinc-300"
                       }`}
                       title={seg.label}
@@ -100,7 +100,7 @@ export function AvatarDropdown({
           {/* Navigation */}
           <DropdownMenu.Item
             onClick={() => router.push("/profile")}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors"
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-[var(--bt-hover)] transition-colors"
           >
             <User {...MENU_ICON} className="text-stone-500 dark:text-zinc-400" />
             Profile
@@ -109,7 +109,7 @@ export function AvatarDropdown({
           {isHost && (
             <DropdownMenu.Item
               onClick={() => router.push("/host/settings")}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground cursor-pointer outline-none hover:bg-[var(--bt-hover)] transition-colors"
             >
               <Settings {...MENU_ICON} className="text-stone-500 dark:text-zinc-400" />
               Settings
@@ -121,7 +121,7 @@ export function AvatarDropdown({
           {/* Sign out */}
           <DropdownMenu.Item
             onClick={handleSignOut}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#ef4444] cursor-pointer outline-none hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors"
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-wrong cursor-pointer outline-none hover:bg-[var(--bt-hover)] transition-colors"
           >
             <LogOut size={16} strokeWidth={2.5} />
             Sign out

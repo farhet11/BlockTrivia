@@ -78,7 +78,7 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
             <p className="text-sm text-muted-foreground">
               Archive <span className="font-medium text-foreground">{event.title}</span>?
               {event.status === "active" && (
-                <span className="text-[#ef4444] font-medium"> Game is live.</span>
+                <span className="text-wrong font-medium"> Game is live.</span>
               )}
             </p>
             <p className="text-xs text-muted-foreground">It will be hidden from your dashboard.</p>
@@ -87,14 +87,14 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
             <button
               onClick={() => setConfirmId(null)}
               disabled={archiving}
-              className="text-sm text-stone-500 dark:text-zinc-400 hover:text-foreground transition-colors px-3 py-1.5"
+              className="text-sm text-[var(--bt-stone)] hover:text-foreground transition-colors px-3 py-1.5"
             >
               Cancel
             </button>
             <button
               onClick={() => handleArchive(event.id)}
               disabled={archiving}
-              className="text-sm text-[#ef4444] font-medium hover:text-[#dc2626] transition-colors px-3 py-1.5"
+              className="text-sm text-wrong font-medium hover:text-wrong/80 transition-colors px-3 py-1.5"
             >
               {archiving ? "Archiving..." : "Archive"}
             </button>
@@ -108,12 +108,12 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
         {/* Zone 1: Content */}
         <Link
           href={isEnded ? summaryHref : editHref}
-          className="block p-4 hover:bg-[#f5f3ef] dark:hover:bg-[#1f1f23] transition-colors rounded-t-lg"
+          className="block p-4 hover:bg-[var(--bt-hover)] transition-colors rounded-t-lg"
         >
           <h2 className="font-medium text-foreground text-[16px] leading-snug">
             {event.title}
           </h2>
-          <p className="text-[13px] text-stone-500 dark:text-zinc-400 mt-1 flex items-center gap-1.5 flex-wrap">
+          <p className="text-[13px] text-[var(--bt-stone)] mt-1 flex items-center gap-1.5 flex-wrap">
             <span className="font-mono font-medium tracking-wider text-foreground">{event.join_code}</span>
             <span className="text-stone-300 dark:text-zinc-600">·</span>
             <span>{new Date(event.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
@@ -123,11 +123,11 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
         </Link>
 
         {/* Zone 2: Action bar */}
-        <div className="border-t border-border bg-[#f5f3ef]/50 dark:bg-[#1a1a1e] px-4 py-2.5 flex items-center justify-between rounded-b-lg">
+        <div className="border-t border-border bg-[var(--bt-hover)]/50 px-4 py-2.5 flex items-center justify-between rounded-b-lg">
           {isEnded ? (
             <Link
               href={summaryHref}
-              className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors px-2 py-1"
+              className="flex items-center gap-1.5 text-[var(--bt-stone)] hover:text-primary transition-colors px-2 py-1"
             >
               <FileText {...ACTION_ICON} />
               <span className="hidden sm:inline text-xs font-medium">Summary</span>
@@ -135,7 +135,7 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
           ) : (
             <Link
               href={editHref}
-              className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors px-2 py-1"
+              className="flex items-center gap-1.5 text-[var(--bt-stone)] hover:text-primary transition-colors px-2 py-1"
             >
               <Pencil {...ACTION_ICON} />
               <span className="hidden sm:inline text-xs font-medium">Edit</span>
@@ -145,7 +145,7 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
           <button
             onClick={() => handleDuplicate(event)}
             disabled={duplicating === event.id}
-            className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-primary transition-colors px-2 py-1"
+            className="flex items-center gap-1.5 text-[var(--bt-stone)] hover:text-primary transition-colors px-2 py-1"
           >
             <Copy {...ACTION_ICON} />
             <span className="hidden sm:inline text-xs font-medium">
@@ -159,7 +159,7 @@ export function EventList({ events: initialEvents }: { events: Event[] }) {
               e.stopPropagation();
               setConfirmId(event.id);
             }}
-            className="flex items-center gap-1.5 text-stone-500 dark:text-zinc-400 hover:text-[#ef4444] transition-colors px-2 py-1"
+            className="flex items-center gap-1.5 text-[var(--bt-stone)] hover:text-wrong transition-colors px-2 py-1"
           >
             <Archive {...ACTION_ICON} />
             <span className="hidden sm:inline text-xs font-medium">Archive</span>

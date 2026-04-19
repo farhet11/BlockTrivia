@@ -52,9 +52,9 @@ function getHeatEdgeStyle(pct: number, isAnswered: boolean): string {
 }
 
 function getTimerPhase(pct: number): { color: string; glow: string } {
-  if (pct > 0.5) return { color: '#7c3aed', glow: 'rgba(124,58,237,0.5)' };
-  if (pct > 0.2) return { color: '#f59e0b', glow: 'rgba(245,158,11,0.5)' };
-  return { color: '#ef4444', glow: 'rgba(239,68,68,0.5)' };
+  if (pct > 0.5) return { color: 'var(--bt-violet)', glow: 'rgba(124,58,237,0.5)' };
+  if (pct > 0.2) return { color: 'var(--bt-timer-amber)', glow: 'rgba(245,158,11,0.5)' };
+  return { color: 'var(--bt-timer-critical)', glow: 'rgba(239,68,68,0.5)' };
 }
 
 
@@ -747,9 +747,9 @@ export function PlayView({
               <div className="flex justify-center pt-1">
                 <span
                   className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-                  style={{ color: "#f59e0b", background: "#f59e0b18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+                  style={{ color: "var(--bt-timer-amber)", background: "rgba(245, 158, 11, 0.09)", fontFamily: "var(--font-sans)", letterSpacing: "0.06em" }}
                 >
-                  <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#f59e0b" }} />
+                  <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "var(--bt-timer-amber)" }} />
                   Paused
                 </span>
               </div>
@@ -1041,7 +1041,7 @@ export function PlayView({
         const { color: timerColor, glow: timerGlow } = getTimerPhase(pct / 100);
         return (
           <>
-            <div className="w-full h-1 bg-[#f5f3ef] dark:bg-[#1f1f23] relative">
+            <div className="w-full h-1 bg-[var(--bt-hover)] relative">
               <div
                 style={{
                   width: `${pct}%`,
@@ -1111,7 +1111,7 @@ export function PlayView({
               return (
                 <div key={round.id} className="flex-1 h-1 relative" style={{ minWidth: 0 }}>
                   {/* Track */}
-                  <div className="absolute inset-0 bg-[#f5f3ef] dark:bg-[#1f1f23]" />
+                  <div className="absolute inset-0 bg-[var(--bt-hover)]" />
                   {/* Fill — completed questions */}
                   {fillPct > 0 && (
                     <div
@@ -1138,7 +1138,7 @@ export function PlayView({
                     const posPct = ((d + 1) / qCount) * 100;
                     const isOnFill = isCompleted || (isActive && d < indexInRound);
                     const tickBg = isCurrentTick
-                      ? '#7c3aed'
+                      ? 'var(--bt-violet)'
                       : isOnFill
                       ? 'rgba(255,255,255,0.45)'
                       : undefined;
@@ -1230,9 +1230,9 @@ export function PlayView({
                 : "Better luck next time";
         const label = tier === "correct" ? "Correct!" : tier === "partial" ? "Close" : "Wrong";
         const bgCls = {
-          correct: "bg-[#dcfce7] dark:bg-correct/15 border-b border-correct/30",
+          correct: "bg-[var(--bt-correct-tint)] border-b border-correct/30",
           partial: "bg-primary/10 border-b border-primary/30",
-          wrong: "bg-[#fef2f2] dark:bg-wrong/15 border-b border-wrong/30",
+          wrong: "bg-[var(--bt-wrong-tint)] border-b border-wrong/30",
         }[tier];
         const textCls = {
           correct: "text-correct",

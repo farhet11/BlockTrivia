@@ -204,9 +204,9 @@ export function LobbyView({
           <div className="flex justify-center pt-1">
             <span
               className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold uppercase tracking-wider"
-              style={{ color: "#22c55e", background: "#22c55e18", fontFamily: "Inter, sans-serif", letterSpacing: "0.06em" }}
+              style={{ color: "var(--bt-correct)", background: "rgba(34, 197, 94, 0.09)", fontFamily: "var(--font-sans)", letterSpacing: "0.06em" }}
             >
-              <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "#22c55e" }} />
+              <span className="size-1.5 rounded-full shrink-0 animate-pulse" style={{ background: "var(--bt-correct)" }} />
               Lobby Open
             </span>
           </div>
@@ -258,7 +258,7 @@ export function LobbyView({
                 <PlayerAvatar seed={p.player_id} name={p.display_name} size={40} url={p.avatar_url} />
                 <span
                   className="flex-1 truncate"
-                  style={{ fontFamily: "Inter, sans-serif", fontSize: 14, fontWeight: 500, color: isMe ? "#7c3aed" : undefined }}
+                  style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 500, color: isMe ? "var(--bt-violet)" : undefined }}
                 >
                   {p.display_name}
                 </span>

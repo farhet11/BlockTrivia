@@ -151,7 +151,7 @@ export function PlayView({
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
-  const [_lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [showShare, setShowShare] = useState(false);
@@ -794,7 +794,7 @@ export function PlayView({
                 {rankingEntries.length > 0 && (
                   <div className="border-t border-border pt-2">
                     {rankingEntries.map((e, i) => (
-                      <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                      <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={lbDeltas.get(e.player_id) ?? null} isMe={e.player_id === player.id} animIndex={i} />
                     ))}
                   </div>
                 )}
@@ -840,7 +840,7 @@ export function PlayView({
               {rankingEntries.length > 0 && (
                 <div className="border-t border-border pt-2">
                   {rankingEntries.map((e, i) => (
-                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={lbDeltas.get(e.player_id) ?? null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
                 </div>
               )}
@@ -892,7 +892,7 @@ export function PlayView({
               {rankingEntries.length > 0 && (
                 <div className="border-t border-border pt-2">
                   {rankingEntries.map((e, i) => (
-                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={null} isMe={e.player_id === player.id} animIndex={i} />
+                    <RankingRow key={e.player_id} entry={e} firstScore={firstScore} delta={lbDeltas.get(e.player_id) ?? null} isMe={e.player_id === player.id} animIndex={i} />
                   ))}
                 </div>
               )}

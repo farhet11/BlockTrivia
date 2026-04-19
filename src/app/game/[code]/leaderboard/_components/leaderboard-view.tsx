@@ -341,7 +341,7 @@ export function LeaderboardView({
         </div>
 
         {/* ── Rankings ── */}
-        <div className="flex-1">
+        <div className="mx-5 mb-4">
           {viewerType === "player" && !inTop3 && myEntry ? (
             <PinnedRankSection
               entry={myEntry}
@@ -350,7 +350,7 @@ export function LeaderboardView({
               allEntries={leaderboard}
             />
           ) : rankingEntries.length > 0 ? (
-            <div className="border-t border-border">
+            <div className="border border-border max-h-[400px] overflow-y-auto">
               {rankingEntries.map((entry, i) => (
                 <RankingRow
                   key={entry.player_id}

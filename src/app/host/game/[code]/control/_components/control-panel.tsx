@@ -285,6 +285,7 @@ export function ControlPanel({
           ? times.reduce((a, b) => a + b, 0) / times.length / 1000
           : null;
       setRevealStats({ correctCount, avgTimeSeconds });
+      setAnsweredCount(data.length); // sync answered count with reveal data
     }
 
     fetchStats();
@@ -318,7 +319,7 @@ export function ControlPanel({
           filter: `event_id=eq.${event.id}`,
         },
         () => {
-          setPlayerCount((c) => c + 1);
+          fetchPlayerCount(); // authoritative count — avoids drift on burst joins
           setPlayerPulse(true);
           setTimeout(() => setPlayerPulse(false), 800);
         }
@@ -705,6 +706,9 @@ export function ControlPanel({
       });
       await tallyClosestWinsGuesses();
     }
+    // Recompute all leaderboard scores once before reveal. With the per-response
+    // trigger removed (migration 073), this is the only place scores are written.
+    await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
     await updateGameState({ phase: "revealing" });
   }
 
@@ -729,6 +733,7 @@ export function ControlPanel({
 
   // End game
   async function endGame() {
+    await supabase.rpc("recompute_leaderboard_ranks", { p_event_id: event.id });
     await updateEventStatus("ended");
     await updateGameState({
       phase: "ended",

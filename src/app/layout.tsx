@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Outfit, Inter, Lora, JetBrains_Mono } from "next/font/google";
-import { ThemeProvider } from "next-themes";
+import { Providers } from "./_components/providers";
 import { BgController } from "./_components/bg-controller";
 import { FeedbackButton } from "./_components/feedback-button";
 import "./globals.css";
@@ -27,13 +28,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable} ${lora.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-dvh bg-background text-foreground font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem={true}>
+        {/* Suppress next-themes React 19 script-tag warning before hydration */}
+        <Script id="suppress-next-themes-warning" strategy="beforeInteractive">{`(function(){var e=console.error.bind(console);console.error=function(){if(arguments[0]&&String(arguments[0]).indexOf('Encountered a script tag')!==-1)return;e.apply(console,arguments)};})();`}</Script>
+        <Providers>
           <BgController />
           <main style={{ position: "relative", zIndex: 2 }}>
             {children}
           </main>
           <FeedbackButton />
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

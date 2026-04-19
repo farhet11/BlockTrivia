@@ -193,7 +193,7 @@ export function ResultsView({
             Full Standings — {leaderboard.length} Players
           </p>
 
-          <div className="border border-border overflow-x-auto">
+          <div className="border border-border overflow-x-auto max-h-[480px] overflow-y-auto">
             <table className="w-full text-sm border-collapse table-fixed">
               <colgroup>
                 <col className="w-9" />
@@ -203,7 +203,7 @@ export function ResultsView({
                 <col className="w-20 hidden sm:table-column" />
                 <col className="w-20 hidden sm:table-column" />
               </colgroup>
-              <thead>
+              <thead className="sticky top-0 bg-background z-10">
                 <tr className="border-b border-border">
                   <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">#</th>
                   <th className="text-left py-2.5 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">Name</th>

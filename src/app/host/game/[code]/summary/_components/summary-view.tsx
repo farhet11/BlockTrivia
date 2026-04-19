@@ -67,7 +67,7 @@ export function SummaryView({
       e.correct_count,
       e.total_questions,
       Math.round(Number(e.accuracy)),
-      (e.avg_speed_ms / 1000).toFixed(2),
+      e.total_questions > 0 ? (e.avg_speed_ms / 1000).toFixed(2) : "",
       e.is_top_10_pct ? "Yes" : "No",
     ]);
 
@@ -204,7 +204,7 @@ export function SummaryView({
                       {Math.round(Number(entry.accuracy))}%
                     </td>
                     <td className="py-3 px-3 text-right tabular-nums text-muted-foreground hidden sm:table-cell">
-                      {(entry.avg_speed_ms / 1000).toFixed(1)}s
+                      {entry.total_questions > 0 ? `${(entry.avg_speed_ms / 1000).toFixed(1)}s` : "—"}
                     </td>
                   </tr>
                 ))}

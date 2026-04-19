@@ -403,7 +403,7 @@ export function PinnedRankSection({
 
       {/* Full leaderboard (expanded) */}
       {expanded && allEntries && (
-        <div className="border border-border">
+        <div className="border border-border max-h-[400px] overflow-y-auto">
           {allEntries.map((e, i) => (
             <RankingRow
               key={e.player_id}

@@ -100,15 +100,15 @@ function PodiumSlot({
 
         {/* Name + score inside block */}
         <div className="py-2.5 px-2 text-center space-y-0.5">
-          {delta != null && delta !== 0 && (
+          {delta != null && (
             <p
               className="tabular-nums text-[10px] font-semibold"
               style={{
                 fontFamily: "Inter, sans-serif",
-                color: delta > 0 ? "var(--bt-correct)" : "var(--bt-wrong)",
+                color: delta > 0 ? "var(--bt-correct)" : delta < 0 ? "var(--bt-wrong)" : "var(--bt-stone)",
               }}
             >
-              {delta > 0 ? `+${delta}▲` : `${delta}▼`}
+              {delta > 0 ? `+${delta}▲` : delta < 0 ? `${delta}▼` : "—"}
             </p>
           )}
           <p

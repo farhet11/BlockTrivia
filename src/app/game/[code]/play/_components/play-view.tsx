@@ -159,7 +159,7 @@ export function PlayView({
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myLbEntry, setMyLbEntry] = useState<LeaderboardEntry | null>(null);
-  const [_lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
+  const [lbDeltas, setLbDeltas] = useState<Map<string, number | null>>(new Map());
   const prevRanksRef = useRef<Map<string, number>>(new Map());
   const [playerCount, setPlayerCount] = useState<number | null>(null);
   const [showShare, setShowShare] = useState(false);

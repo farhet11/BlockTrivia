@@ -172,6 +172,20 @@ export function PlayView({
     [questions, gameState.current_question_id]
   );
   const hasAnswered = answeredQuestionId === gameState.current_question_id;
+
+  // Defensive reset: applyGameState's per-question reset (line ~285) clears
+  // submitLockRef on question change, but only fires when a gameState UPDATE
+  // arrives. During the stress test we observed 16× CHANNEL_ERROR mid-game;
+  // if polling also hiccups, the lock can stay stuck from the previous
+  // question and silently block the next submit. Key an independent effect
+  // on currentQuestion?.id so the lock always clears between questions,
+  // regardless of how (or if) the gameState update arrived.
+  useEffect(() => {
+    if (!currentQuestion?.id) return;
+    submitLockRef.current = false;
+    setIsSubmitting(false);
+  }, [currentQuestion?.id]);
+
   const isWipeout = currentQuestion?.round_type === "wipeout";
   // Resolve the correct PlayerView component from the round registry
   const RoundPlayerView = currentQuestion
@@ -577,14 +591,38 @@ export function PlayView({
   }, [gameState.phase, gameState.is_paused, supabase, event.id]);
 
   async function submitAnswer(answerIndex: number, metadata?: Record<string, unknown>) {
-    if (!currentQuestion || hasAnswered || submitLockRef.current || !gameState.question_started_at) return;
+    // Diagnostic logging — every silent-return guard emits a console.debug tag
+    // so we can tell which condition swallowed a click during repro. Cheap and
+    // only fires once per attempted submit; safe to keep in prod.
+    if (!currentQuestion) {
+      console.debug("[submitAnswer] blocked: no currentQuestion");
+      return;
+    }
+    if (hasAnswered) {
+      console.debug("[submitAnswer] blocked: hasAnswered=true", { qid: currentQuestion.id, answeredQuestionId });
+      return;
+    }
+    if (submitLockRef.current) {
+      console.debug("[submitAnswer] blocked: submitLockRef stuck true", { qid: currentQuestion.id });
+      return;
+    }
+    if (!gameState.question_started_at) {
+      console.debug("[submitAnswer] blocked: question_started_at=null", { qid: currentQuestion.id });
+      return;
+    }
     // Block submission while paused — host must resume first
-    if (gameState.is_paused) return;
+    if (gameState.is_paused) {
+      console.debug("[submitAnswer] blocked: game paused", { qid: currentQuestion.id });
+      return;
+    }
 
     // Reject if time has expired — use serverNow() so the check matches the host's timer
     const startedAt = new Date(gameState.question_started_at).getTime();
     const timeTakenMs = serverNow() - startedAt;
-    if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) return;
+    if (timeTakenMs >= currentQuestion.time_limit_seconds * 1000) {
+      console.debug("[submitAnswer] blocked: time expired", { qid: currentQuestion.id, timeTakenMs, limitMs: currentQuestion.time_limit_seconds * 1000 });
+      return;
+    }
 
     submitLockRef.current = true;
 

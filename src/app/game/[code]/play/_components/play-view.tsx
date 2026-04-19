@@ -467,14 +467,20 @@ export function PlayView({
     leaderboard.forEach((e) => snapshot.set(e.player_id, e.rank));
     const isFirstLoad = prevRanksRef.current.size === 0 && leaderboard.length === 0;
 
-    // Fetch top 10 (with fallback to event_players at 0 pts if no scores yet)
+    // Load the full, authoritative leaderboard. We recompute first so DB-side
+    // ranks are canonical (per-response trigger was dropped in migration 073 —
+    // leaderboard_entries is only populated via recompute_leaderboard_ranks).
+    // Then fetch ALL entries — no cap — and merge in any event_players who
+    // haven't answered yet at the tail with zero scores.
     supabase
-      .from("leaderboard_entries")
-      .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
-      .eq("event_id", event.id)
-      .order("rank", { ascending: true })
-      .limit(10)
-
+      .rpc("recompute_leaderboard_ranks", { p_event_id: event.id })
+      .then(() =>
+        supabase
+          .from("leaderboard_entries")
+          .select(`player_id, total_score, rank, profiles!leaderboard_entries_player_id_fkey ( username, display_name, avatar_url )`)
+          .eq("event_id", event.id)
+          .order("rank", { ascending: true })
+      )
       .then(async ({ data }) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let entries: LeaderboardEntry[] = (data ?? []).map((row: any) => ({
@@ -485,12 +491,13 @@ export function PlayView({
           rank: row.rank,
         }));
 
-        // Always include all event_players — append any with no leaderboard_entries row at 0 pts.
+        // Safety net: pull every event_player so we can append anyone who
+        // hasn't answered a single question yet at 0 pts. No cap — the list
+        // reflects the real roster.
         const { data: allPlayers } = await supabase
           .from("event_players")
           .select(`player_id, game_alias, profiles ( username, display_name, avatar_url )`)
-          .eq("event_id", event.id)
-          .limit(50);
+          .eq("event_id", event.id);
 
         if (entries.length === 0 && allPlayers) {
           // No scores yet — show everyone at 0 pts
@@ -503,9 +510,11 @@ export function PlayView({
             rank: i + 1,
           }));
         } else if (allPlayers) {
-          // Some players scored — append anyone missing from leaderboard_entries at the bottom
+          // Some players scored — append anyone missing from leaderboard_entries at the bottom.
+          // Ranks continue past the real max so we never collide with a scored player's rank
+          // (which is why the pinned "you" row used to duplicate an existing number).
           const scoredIds = new Set(entries.map((e) => e.player_id));
-          const maxRank = entries.length;
+          const maxRank = entries.reduce((m, e) => Math.max(m, e.rank), 0);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const zeroPlayers = allPlayers.filter((p: any) => !scoredIds.has(p.player_id));
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

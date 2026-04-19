@@ -350,71 +350,94 @@ export function PinnedRankSection({
 
   return (
     <div>
-      {/* Blurred context rows — compact, no progress bar */}
-      <div className="relative">
-        <div className="blur-[2px] opacity-40 pointer-events-none select-none">
-          {topEntries.map((e) => (
-            <div
-              key={e.player_id}
-              className="flex items-center gap-3 px-4 py-2"
-              style={{ borderBottom: "1px solid var(--color-border, #e8e5e0)" }}
+      {/* Blurred context rows — only shown while collapsed. When the user
+          expands "Full Leaderboard" we swap this out for the full list (which
+          already contains top 3 un-blurred), so we don't render top 3 twice. */}
+      {!expanded && (
+        <div className="relative">
+          <div className="blur-[2px] opacity-40 pointer-events-none select-none">
+            {topEntries.map((e) => (
+              <div
+                key={e.player_id}
+                className="flex items-center gap-3 px-4 py-2"
+                style={{ borderBottom: "1px solid var(--color-border, #e8e5e0)" }}
+              >
+                <span
+                  className="shrink-0 tabular-nums"
+                  style={{ fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 600, color: "#78756e", width: 16 }}
+                >
+                  {e.rank}
+                </span>
+                <PlayerAvatar seed={e.player_id} name={e.display_name} size={28} />
+                <span
+                  className="flex-1 truncate text-sm"
+                  style={{ fontFamily: "Inter, sans-serif", fontWeight: 500 }}
+                >
+                  {e.display_name}
+                </span>
+                <span
+                  className="shrink-0 tabular-nums font-bold text-sm"
+                  style={{ fontFamily: "Outfit, sans-serif" }}
+                >
+                  {e.total_score}
+                </span>
+              </div>
+            ))}
+          </div>
+          {/* Full Leaderboard pill — overlays bottom of blurred rows */}
+          <div className="absolute inset-x-0 bottom-0 flex justify-center pb-1">
+            <button
+              onClick={() => setExpanded(true)}
+              className="inline-flex items-center gap-1.5 border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors rounded-full"
             >
-              <span
-                className="shrink-0 tabular-nums"
-                style={{ fontFamily: "Inter, sans-serif", fontSize: 13, fontWeight: 600, color: "#78756e", width: 16 }}
+              Full Leaderboard
+              <svg
+                className="size-3"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
               >
-                {e.rank}
-              </span>
-              <PlayerAvatar seed={e.player_id} name={e.display_name} size={28} />
-              <span
-                className="flex-1 truncate text-sm"
-                style={{ fontFamily: "Inter, sans-serif", fontWeight: 500 }}
-              >
-                {e.display_name}
-              </span>
-              <span
-                className="shrink-0 tabular-nums font-bold text-sm"
-                style={{ fontFamily: "Outfit, sans-serif" }}
-              >
-                {e.total_score}
-              </span>
-            </div>
-          ))}
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
         </div>
-        {/* Full Leaderboard pill — overlays bottom of blurred rows */}
-        <div className="absolute inset-x-0 bottom-0 flex justify-center pb-1">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="inline-flex items-center gap-1.5 border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors rounded-full"
-          >
-            Full Leaderboard
-            <svg
-              className={`size-3 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      )}
 
-      {/* Full leaderboard (expanded) */}
+      {/* Full leaderboard (expanded) — scrollable, contains every rank. */}
       {expanded && allEntries && (
-        <div className="border border-border max-h-[400px] overflow-y-auto">
-          {allEntries.map((e, i) => (
-            <RankingRow
-              key={e.player_id}
-              entry={e}
-              firstScore={firstScore}
-              delta={null}
-              isMe={e.player_id === entry.player_id}
-              animIndex={i}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex justify-center pb-2">
+            <button
+              onClick={() => setExpanded(false)}
+              className="inline-flex items-center gap-1.5 border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors rounded-full"
+            >
+              Collapse
+              <svg
+                className="size-3 rotate-180"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+          <div className="border border-border max-h-[400px] overflow-y-auto">
+            {allEntries.map((e, i) => (
+              <RankingRow
+                key={e.player_id}
+                entry={e}
+                firstScore={firstScore}
+                delta={null}
+                isMe={e.player_id === entry.player_id}
+                animIndex={i}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {/* Pinned player row */}

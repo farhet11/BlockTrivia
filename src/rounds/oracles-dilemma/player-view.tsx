@@ -74,11 +74,11 @@ export function OraclesDilemmaPlayerView({
           className="flex items-center justify-center gap-2 px-4 py-2.5 border border-violet-400/40 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400"
           style={{ animation: "hot-seat-pulse 2s ease-in-out infinite" }}
         >
-          <Sparkles size={16} strokeWidth={2} className="shrink-0" />
+          <Sparkles size={16} strokeWidth={2.5} className="shrink-0" />
           <span className="text-sm font-bold tracking-wide uppercase">
             You are the Oracle
           </span>
-          <Sparkles size={16} strokeWidth={2} className="shrink-0" />
+          <Sparkles size={16} strokeWidth={2.5} className="shrink-0" />
         </div>
 
         {/* Path selection */}
@@ -95,7 +95,7 @@ export function OraclesDilemmaPlayerView({
                   : "border-border text-foreground hover:border-correct/50"
               }`}
             >
-              <Eye size={20} strokeWidth={2} />
+              <Eye size={20} strokeWidth={2.5} />
               <span className="text-sm font-bold">Truth</span>
               <span className="text-[10px] text-muted-foreground">
                 Guaranteed 50% points
@@ -109,7 +109,7 @@ export function OraclesDilemmaPlayerView({
                   : "border-border text-foreground hover:border-wrong/50"
               }`}
             >
-              <EyeOff size={20} strokeWidth={2} />
+              <EyeOff size={20} strokeWidth={2.5} />
               <span className="text-sm font-bold">Deception</span>
               <span className="text-[10px] text-muted-foreground">
                 More fooled = more points
@@ -173,7 +173,7 @@ export function OraclesDilemmaPlayerView({
     return (
       <div className="flex flex-col items-center gap-4 py-6">
         <div className="flex items-center gap-2 px-4 py-2.5 border border-violet-400/40 bg-violet-50 dark:bg-violet-500/10 text-violet-700 dark:text-violet-400">
-          <Sparkles size={16} strokeWidth={2} />
+          <Sparkles size={16} strokeWidth={2.5} />
           <span className="text-sm font-bold">Oracle — {oracleChoice ?? selectedPath}</span>
         </div>
         <span className="text-sm text-muted-foreground text-center">
@@ -200,7 +200,7 @@ export function OraclesDilemmaPlayerView({
       {/* Oracle suggestion banner */}
       {oracleHasChosen && (
         <div className="flex items-center justify-center gap-2 px-4 py-2 border border-violet-300/40 bg-violet-50 dark:bg-violet-900/10 text-violet-700 dark:text-violet-400">
-          <Sparkles size={14} strokeWidth={2} />
+          <Sparkles size={14} strokeWidth={2.5} />
           <span className="text-sm font-medium">
             <span className="font-bold">{oracleDisplayName}</span> suggests option{" "}
             <span className="font-bold">
@@ -213,7 +213,7 @@ export function OraclesDilemmaPlayerView({
 
       {!oracleHasChosen && phase === "playing" && (
         <div className="flex items-center justify-center gap-2 px-4 py-2 border border-amber-300/40 bg-amber-50 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
-          <Sparkles size={14} strokeWidth={2} />
+          <Sparkles size={14} strokeWidth={2.5} />
           <span className="text-sm font-medium">
             Waiting for the Oracle to make their choice...
           </span>

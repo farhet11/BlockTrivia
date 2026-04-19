@@ -545,7 +545,7 @@ export function ProfileView({
             <span>Danger Zone</span>
             <svg
               className={`size-3 transition-transform duration-200 ${showDangerZone ? "rotate-180" : ""}`}
-              viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2}
+              viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2.5}
             >
               <path d="M2 4l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
             </svg>

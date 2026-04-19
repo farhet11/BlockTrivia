@@ -113,7 +113,7 @@ export function ArchivedEventList({
                 className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium border border-border rounded text-foreground hover:bg-muted transition-colors disabled:opacity-50"
                 title="Restore to drafts"
               >
-                <ArchiveRestore size={13} strokeWidth={2} />
+                <ArchiveRestore size={13} strokeWidth={2.5} />
                 Restore
               </button>
               {isSuperAdmin && (
@@ -123,7 +123,7 @@ export function ArchivedEventList({
                   className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium border border-destructive/30 rounded text-destructive hover:bg-destructive/5 transition-colors disabled:opacity-50"
                   title="Permanently delete"
                 >
-                  <Trash2 size={13} strokeWidth={2} />
+                  <Trash2 size={13} strokeWidth={2.5} />
                   Delete
                 </button>
               )}

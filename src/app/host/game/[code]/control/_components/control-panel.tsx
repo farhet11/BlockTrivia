@@ -17,6 +17,7 @@ import { HostRevealShell } from "@/rounds/_shared/host-reveal-shell";
 import { InterstitialCard } from "@/rounds/_shared/interstitial-card";
 import { Ban, Eye, ChevronRight, Play, Pause, Flag } from "lucide-react";
 import { HostControlBar, type OverflowMenuItem } from "./host-control-bar";
+import { isRevealBlocked } from "./reveal-gate";
 
 type Question = {
   id: string;
@@ -1502,7 +1503,7 @@ export function ControlPanel({
         <HostControlBar
           primaryLabel="Reveal Answer"
           onPrimary={revealAnswer}
-          primaryDisabled={loading}
+          primaryDisabled={loading || isRevealBlocked(timeLeft, answeredCount, playerCount)}
           primaryVariant={timeLeft !== null && timeLeft > 0 ? "ghost" : "filled"}
           primaryIcon={Eye}
           secondaryLabel="Pause"
